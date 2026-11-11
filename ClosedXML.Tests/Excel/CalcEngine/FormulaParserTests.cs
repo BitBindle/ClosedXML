@@ -283,7 +283,7 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         #region RefFunctionName.Rule
 
         [TestCase("=IF(FALSE,1,2)", 2)]
-        // [TestCase("=CHOOSE(2,\"A\",\"B\",73)", "B")] Not implemented
+        [TestCase("=CHOOSE(2,\"A\",\"B\",73)", "B")]
         public void Ref_function_name_can_be_excel_ref_conditional_function(string formula, object expectedValue)
         {
             Assert.AreEqual(expectedValue, XLWorkbook.EvaluateExpr(formula));

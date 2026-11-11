@@ -86,6 +86,60 @@ namespace ClosedXML.Tests.Excel.CalcEngine
 
         #endregion Setup and teardown
 
+        [TestCase("ADDRESS(2,3)", "$C$2")]
+        [TestCase("ADDRESS(2,3,2)", "C$2")]
+        [TestCase("ADDRESS(2,3,3)", "$C2")]
+        [TestCase("ADDRESS(2,3,4)", "C2")]
+        [TestCase("ADDRESS(2,3,2,FALSE)", "R2C[3]")]
+        [TestCase("ADDRESS(2,3,4,FALSE)", "R[2]C[3]")]
+        [TestCase("ADDRESS(2,3,1,FALSE,\"[Book1]Sheet1\")", "'[Book1]Sheet1'!R2C3")]
+        [TestCase("ADDRESS(2,3,1,FALSE,\"EXCEL SHEET\")", "'EXCEL SHEET'!R2C3")]
+        [TestCase("ADDRESS(2.9,3.9,1,TRUE,\"Sheet1\")", "Sheet1!$C$2")]
+        [TestCase("ADDRESS(1048576,16384)", "$XFD$1048576")]
+        public void Address(string formula, string expected)
+        {
+            Assert.AreEqual(expected, XLWorkbook.EvaluateExpr(formula));
+        }
+
+        [TestCase("ADDRESS(0,1)")]
+        [TestCase("ADDRESS(1,0)")]
+        [TestCase("ADDRESS(1048577,1)")]
+        [TestCase("ADDRESS(1,16385)")]
+        [TestCase("ADDRESS(1,1,0)")]
+        [TestCase("ADDRESS(1,1,5)")]
+        public void Address_out_of_range_arguments_return_value_error(string formula)
+        {
+            Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr(formula));
+        }
+
+        [Test]
+        public void Choose()
+        {
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet();
+            sheet.Cell("A2").InsertData(new[] { "1st", "2nd", "3rd", "Finished" });
+            sheet.Cell("B2").InsertData(new[] { "Nails", "Screws", "Nuts", "Bolts" });
+            sheet.Cell("C2").InsertData(new[] { 23, 45, 12, 10 });
+
+            // Examples from the documentation
+            Assert.AreEqual("2nd", sheet.Evaluate("CHOOSE(2,A2,A3,A4,A5)"));
+            Assert.AreEqual("Bolts", sheet.Evaluate("CHOOSE(4,B2,B3,B4,B5)"));
+            Assert.AreEqual("world", sheet.Evaluate("CHOOSE(3,\"Wide\",115,\"world\",8)"));
+
+            // CHOOSE returns a reference, so it can be a part of a range
+            Assert.AreEqual(80, sheet.Evaluate("SUM(C2:CHOOSE(2,C3,C4,C5))"));
+        }
+
+        [TestCase("CHOOSE(2.9,1,2)", 2)]
+        [TestCase("CHOOSE(2,1,)", 0)]
+        [TestCase("CHOOSE(0,1)", XLError.IncompatibleValue)]
+        [TestCase("CHOOSE(3,1,2)", XLError.IncompatibleValue)]
+        [TestCase("CHOOSE(#DIV/0!,1,2)", XLError.DivisionByZero)]
+        public void Choose_index(string formula, object expected)
+        {
+            Assert.AreEqual(expected, XLWorkbook.EvaluateExpr(formula));
+        }
+
         [Test]
         public void Column()
         {
@@ -562,6 +616,52 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         {
             var actual = XLWorkbook.EvaluateExpr(formula);
             Assert.AreEqual(result, actual);
+        }
+
+        [Test]
+        public void Lookup_vector_form()
+        {
+            // Example from the documentation
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet();
+            sheet.Cell("A2").InsertData(new[] { 4.14, 4.19, 5.17, 5.77, 6.39 });
+            sheet.Cell("B2").InsertData(new[] { "red", "orange", "yellow", "green", "blue" });
+            sheet.Cell("D2").InsertData(new[] { "a", "b", "c", "d", "e" }, true);
+
+            Assert.AreEqual("orange", sheet.Evaluate("LOOKUP(4.19,A2:A6,B2:B6)"));
+            Assert.AreEqual("yellow", sheet.Evaluate("LOOKUP(5.75,A2:A6,B2:B6)"));
+            Assert.AreEqual("blue", sheet.Evaluate("LOOKUP(7.66,A2:A6,B2:B6)"));
+            Assert.AreEqual(XLError.NoValueAvailable, sheet.Evaluate("LOOKUP(0,A2:A6,B2:B6)"));
+
+            // Lookup and result vectors can have different orientation
+            Assert.AreEqual("c", sheet.Evaluate("LOOKUP(5.17,A2:A6,D2:H2)"));
+            Assert.AreEqual("yellow", sheet.Evaluate("LOOKUP(\"c\",D2:H2,B2:B6)"));
+
+            // A shorter result vector is read further in its direction
+            Assert.AreEqual("yellow", sheet.Evaluate("LOOKUP(5.17,A2:A6,B2:B3)"));
+            Assert.AreEqual("yellow", sheet.Evaluate("LOOKUP(5.17,A2:A6,B2)"));
+            Assert.AreEqual("c", sheet.Evaluate("LOOKUP(5.17,A2:A6,D2:E2)"));
+        }
+
+        [TestCase("LOOKUP(2,{1,2,2,3},{\"a\",\"b\",\"c\",\"d\"})", "c")]
+        [TestCase("LOOKUP(2.5,{1;2;3},{\"a\";\"b\";\"c\"})", "b")]
+        [TestCase("LOOKUP(2.5,{1,\"x\",2,TRUE,3},{1,2,3,4,5})", 3)]
+        [TestCase("LOOKUP(3,{1,2,3},{\"a\",\"b\"})", XLError.NoValueAvailable)]
+        [TestCase("LOOKUP(2,{1,2;3,4},{\"a\",\"b\"})", XLError.NoValueAvailable)]
+        [TestCase("LOOKUP(#DIV/0!,{1,2},{3,4})", XLError.DivisionByZero)]
+        public void Lookup_vector_form_with_arrays(string formula, object expected)
+        {
+            Assert.AreEqual(expected, XLWorkbook.EvaluateExpr(formula));
+        }
+
+        [TestCase("LOOKUP(\"C\",{\"a\",\"b\",\"c\",\"d\";1,2,3,4})", 3)]
+        [TestCase("LOOKUP(\"bump\",{\"a\",1;\"b\",2;\"c\",3})", 2)]
+        [TestCase("LOOKUP(2,{1,\"x\";2,\"y\"})", "y")]
+        [TestCase("LOOKUP(0,{1,\"x\";2,\"y\"})", XLError.NoValueAvailable)]
+        public void Lookup_array_form(string formula, object expected)
+        {
+            // Examples from the documentation
+            Assert.AreEqual(expected, XLWorkbook.EvaluateExpr(formula));
         }
 
         [Test]
