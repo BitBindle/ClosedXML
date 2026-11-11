@@ -1,10 +1,18 @@
 using System;
+using System.Collections.Generic;
+using ClosedXML.Excel.CalcEngine.Functions;
 using static ClosedXML.Excel.CalcEngine.Functions.SignatureAdapter;
 
 namespace ClosedXML.Excel.CalcEngine
 {
     internal static class Financial
     {
+        /// <summary>The maximum number of iterations of IRR and RATE.</summary>
+        private const int MaxIterations = 20;
+
+        /// <summary>The accuracy of IRR and RATE: 0.00001 percent.</summary>
+        private const double Accuracy = 1e-7;
+
         public static void Register(FunctionRegistry ce)
         {
             // ACCRINT Returns the accrued interest for a security that pays periodic interest
@@ -30,13 +38,13 @@ namespace ClosedXML.Excel.CalcEngine
             // FVSCHEDULE Returns the future value of an initial principal after applying a series of compound interest rates
             // INTRATE Returns the interest rate for a fully invested security
             ce.RegisterFunction("IPMT", 4, 6, AdaptLastTwoOptional(Ipmt, 0, 0), FunctionFlags.Scalar); // Returns the interest payment for an investment for a given period
-            // IRR Returns the internal rate of return for a series of cash flows
+            ce.RegisterFunction("IRR", 1, 2, AdaptLastOptional(Irr, 0.1), FunctionFlags.Range, AllowRange.Only, 0); // Returns the internal rate of return for a series of cash flows
             // ISPMT Calculates the interest paid during a specific period of an investment
             // MDURATION Returns the Macauley modified duration for a security with an assumed par value of $100
             // MIRR Returns the internal rate of return where positive and negative cash flows are financed at different rates
             // NOMINAL Returns the annual nominal interest rate
-            // NPER Returns the number of periods for an investment
-            // NPV Returns the net present value of an investment based on a series of periodic cash flows and a discount rate
+            ce.RegisterFunction("NPER", 3, 5, AdaptLastTwoOptional(Nper, 0, 0), FunctionFlags.Scalar); // Returns the number of periods for an investment
+            ce.RegisterFunction("NPV", 2, 255, Adapt(Npv), FunctionFlags.Range, AllowRange.Except, 0); // Returns the net present value of an investment based on a series of periodic cash flows and a discount rate
             // ODDFPRICE Returns the price per $100 face value of a security with an odd first period
             // ODDFYIELD Returns the yield of a security with an odd first period
             // ODDLPRICE Returns the price per $100 face value of a security with an odd last period
@@ -47,8 +55,8 @@ namespace ClosedXML.Excel.CalcEngine
             // PRICE Returns the price per $100 face value of a security that pays periodic interest
             // PRICEDISC Returns the price per $100 face value of a discounted security
             // PRICEMAT Returns the price per $100 face value of a security that pays interest at maturity
-            // PV Returns the present value of an investment
-            // RATE Returns the interest rate per period of an annuity
+            ce.RegisterFunction("PV", 3, 5, AdaptLastTwoOptional(Pv, 0, 0), FunctionFlags.Scalar); // Returns the present value of an investment
+            ce.RegisterFunction("RATE", 3, 6, AdaptLastThreeOptional(Rate, 0, 0, 0.1), FunctionFlags.Scalar); // Returns the interest rate per period of an annuity
             // RECEIVED Returns the amount received at maturity for a fully invested security
             // RRI Returns an equivalent interest rate for the growth of an investment
             // SLN Returns the straight-line depreciation of an asset for one period
@@ -101,6 +109,65 @@ namespace ClosedXML.Excel.CalcEngine
             return ipmt;
         }
 
+        private static AnyValue Irr(CalcContext ctx, AnyValue values, double guess)
+        {
+            if (!TallyNumbers.Default.Tally(ctx, new[] { values }, new ValuesState(new List<double>())).TryPickT0(out var state, out var error))
+                return error;
+
+            var cashFlows = state.Values;
+            if (!cashFlows.Exists(static x => x > 0) || !cashFlows.Exists(static x => x < 0))
+                return XLError.NumberInvalid;
+
+            return FindRate(ctx, guess, rate =>
+            {
+                var value = 0.0;
+                var derivative = 0.0;
+                for (var i = 0; i < cashFlows.Count; i++)
+                {
+                    var discount = Math.Pow(1 + rate, i);
+                    value += cashFlows[i] / discount;
+                    derivative -= i * cashFlows[i] / (discount * (1 + rate));
+                }
+
+                return (value, derivative);
+            });
+        }
+
+        private static AnyValue Nper(double rate, double pmt, double presentValue, double futureValue, double type)
+        {
+            if (rate == 0.0)
+            {
+                if (pmt == 0.0)
+                    return XLError.NumberInvalid;
+
+                return -(presentValue + futureValue) / pmt;
+            }
+
+            if (rate <= -1)
+                return XLError.NumberInvalid;
+
+            if (type != 0.0)
+                pmt *= (1 + rate);
+
+            // (1 + rate)^nper = (pmt - fv * rate) / (pv * rate + pmt)
+            var growth = (pmt - futureValue * rate) / (presentValue * rate + pmt);
+            if (!(growth > 0) || double.IsInfinity(growth))
+                return XLError.NumberInvalid;
+
+            return Math.Log(growth) / Math.Log(1 + rate);
+        }
+
+        private static AnyValue Npv(CalcContext ctx, double rate, AnyValue[] values)
+        {
+            if (rate == -1)
+                return XLError.DivisionByZero;
+
+            if (!TallyNumbers.Default.Tally(ctx, values, new NpvState(rate, 0, 0)).TryPickT0(out var state, out var error))
+                return error;
+
+            return state.Sum;
+        }
+
         private static AnyValue Pmt(double rate, double numberOfPayments, double presentValue, double futureValue, double type)
         {
             if (numberOfPayments == 0 || rate <= -1)
@@ -120,6 +187,84 @@ namespace ClosedXML.Excel.CalcEngine
 
             return (-futureValue - presentValue * Math.Pow(1.0 + rate, numberOfPayments)) /
                (1 + rate * timingOffset) / ((Math.Pow(1.0 + rate, numberOfPayments) - 1) / rate);
+        }
+
+        private static AnyValue Pv(double rate, double numberOfPayments, double pmt, double futureValue, double type)
+        {
+            if (rate == 0.0)
+                return -(futureValue + pmt * numberOfPayments);
+
+            if (type != 0.0)
+                pmt *= (1 + rate);
+
+            var growth = Math.Pow(1 + rate, numberOfPayments);
+            var presentValue = -(futureValue + pmt * (growth - 1) / rate) / growth;
+            if (double.IsNaN(presentValue) || double.IsInfinity(presentValue))
+                return XLError.NumberInvalid;
+
+            return presentValue;
+        }
+
+        private static AnyValue Rate(CalcContext ctx, double numberOfPayments, double pmt, double presentValue, double futureValue, double type, double guess)
+        {
+            if (numberOfPayments <= 0)
+                return XLError.NumberInvalid;
+
+            var timing = type != 0.0 ? 1 : 0;
+            return FindRate(ctx, guess, rate =>
+            {
+                // pv * (1 + rate)^nper + pmt * (1 + rate * type) * ((1 + rate)^nper - 1) / rate + fv
+                if (rate == 0.0)
+                    return (presentValue + pmt * numberOfPayments + futureValue, presentValue * numberOfPayments + pmt * (numberOfPayments * (numberOfPayments - 1) / 2 + timing * numberOfPayments));
+
+                var growth = Math.Pow(1 + rate, numberOfPayments);
+                var growthDerivative = numberOfPayments * Math.Pow(1 + rate, numberOfPayments - 1);
+                var annuity = (growth - 1) / rate;
+                var annuityDerivative = (growthDerivative * rate - (growth - 1)) / (rate * rate);
+                var value = presentValue * growth + pmt * (1 + rate * timing) * annuity + futureValue;
+                var derivative = presentValue * growthDerivative + pmt * (timing * annuity + (1 + rate * timing) * annuityDerivative);
+                return (value, derivative);
+            });
+        }
+
+        /// <summary>
+        /// Find a root of a function by Newton's method, as IRR and RATE do in Excel.
+        /// </summary>
+        /// <param name="ctx">Calculation context.</param>
+        /// <param name="guess">The first estimate of the rate.</param>
+        /// <param name="function">The value of the function and its derivative for a rate.</param>
+        private static AnyValue FindRate(CalcContext ctx, double guess, Func<double, (double Value, double Derivative)> function)
+        {
+            var rate = guess;
+            for (var iteration = 0; iteration < MaxIterations; iteration++)
+            {
+                ctx.ThrowIfCancelled();
+                var (value, derivative) = function(rate);
+                var nextRate = rate - value / derivative;
+                if (double.IsNaN(nextRate) || double.IsInfinity(nextRate))
+                    return XLError.NumberInvalid;
+
+                if (Math.Abs(nextRate - rate) < Accuracy)
+                    return nextRate;
+
+                rate = nextRate;
+            }
+
+            return XLError.NumberInvalid;
+        }
+
+        private readonly record struct ValuesState(List<double> Values) : ITallyState<ValuesState>
+        {
+            public ValuesState Tally(double number)
+            {
+                Values.Add(number);
+                return this;
+            }
+        }
+
+        private readonly record struct NpvState(double Rate, double Sum, int Period) : ITallyState<NpvState>
+        {
+            public NpvState Tally(double number) => new(Rate, Sum + number / Math.Pow(1 + Rate, Period + 1), Period + 1);
         }
     }
 }
