@@ -767,13 +767,13 @@ Standard functions
      - **YES**
 
    * - SUMX2MY2
-     - No
+     - **YES**
 
    * - SUMX2PY2
-     - No
+     - **YES**
 
    * - SUMXMY2
-     - No
+     - **YES**
 
    * - TAN
      - **YES**
@@ -786,7 +786,7 @@ Standard functions
 
    * - :rspan:`82` Statistical
      - AVEDEV
-     - No
+     - **YES**
 
    * - AVERAGE
      - **YES**
@@ -930,7 +930,7 @@ Standard functions
      - **YES**
 
    * - MODE
-     - No
+     - **YES**
 
    * - NEGBINOMDIST
      - No
@@ -960,7 +960,7 @@ Standard functions
      - No
 
    * - POISSON
-     - No
+     - **YES**
 
    * - PROB
      - No
@@ -981,7 +981,7 @@ Standard functions
      - No
 
    * - SMALL
-     - No
+     - **YES**
 
    * - STANDARDIZE
      - No
