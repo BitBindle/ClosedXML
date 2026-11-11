@@ -13,6 +13,28 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         private XLWorkbook workbook;
 
         [Test]
+        public void AveDev()
+        {
+            // Example from specification
+            Assert.AreEqual(1.020408163, (double)XLWorkbook.EvaluateExpr("AVEDEV(4,5,6,7,5,4,3)"), tolerance);
+
+            // Non-numbers in array and reference are skipped
+            Assert.AreEqual(1, XLWorkbook.EvaluateExpr("AVEDEV({1, TRUE, \"5\", 3})"));
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = 2;
+            ws.Cell("A2").Value = "text";
+            ws.Cell("A4").Value = 6;
+            Assert.AreEqual(2, ws.Evaluate("AVEDEV(A1:A4)"));
+
+            // No number
+            Assert.AreEqual(XLError.NumberInvalid, ws.Evaluate("AVEDEV(A2:A3)"));
+
+            AssertScalarToNumberConversion("AVEDEV", 0.5);
+            AssertAnyErrorIsPropagated("AVEDEV");
+        }
+
+        [Test]
         public void Average()
         {
             double value;
@@ -816,6 +838,60 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         }
 
         [Test]
+        public void Mode()
+        {
+            // Example from specification
+            Assert.AreEqual(4, XLWorkbook.EvaluateExpr("MODE(5.6,4,4,3,2,4)"));
+
+            // The first value with the most occurrences
+            Assert.AreEqual(3, XLWorkbook.EvaluateExpr("MODE(1,3,2,2,3)"));
+
+            // No repeated value
+            Assert.AreEqual(XLError.NoValueAvailable, XLWorkbook.EvaluateExpr("MODE(1,2,3)"));
+
+            // Non-numbers in array and area are skipped
+            Assert.AreEqual(2, XLWorkbook.EvaluateExpr("MODE({2, \"1\", TRUE, 2, \"1\", TRUE})"));
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = 5;
+            ws.Cell("A2").Value = "5";
+            ws.Cell("A4").Value = 5;
+            ws.Cell("B1").Value = "text";
+            Assert.AreEqual(5, ws.Evaluate("MODE(A1:A4)"));
+
+            // Scalar value and single cell reference must be a number
+            Assert.AreEqual(XLError.IncompatibleValue, ws.Evaluate("MODE(1,\"1\",2,1)"));
+            Assert.AreEqual(XLError.IncompatibleValue, ws.Evaluate("MODE(1,B1,2,1)"));
+            Assert.AreEqual(XLError.IncompatibleValue, ws.Evaluate("MODE(1,A3,2,1)"));
+            Assert.AreEqual(1, ws.Evaluate("MODE(1,A1,2,1)"));
+
+            AssertAnyErrorIsPropagated("MODE");
+        }
+
+        [TestCase(2, 5, true, 0.124652)] // Example from specification
+        [TestCase(2, 5, false, 0.084224)] // Example from specification
+        [TestCase(2.9, 5, false, 0.084224)] // x is truncated
+        [TestCase(0, 0, false, 1)]
+        [TestCase(3, 0, true, 1)]
+        [TestCase(1000, 1000, false, 0.012614611)] // e^-mean underflows
+        [TestCase(1000, 1000, true, 0.508409367)]
+        public void Poisson(double x, double mean, bool cumulative, double expected)
+        {
+            var actual = (double)XLWorkbook.EvaluateExpr($"POISSON({x}, {mean}, {cumulative})");
+            Assert.AreEqual(expected, actual, tolerance);
+        }
+
+        [TestCase("POISSON(-1, 5, TRUE)", XLError.NumberInvalid)]
+        [TestCase("POISSON(2, -1, TRUE)", XLError.NumberInvalid)]
+        [TestCase("POISSON(\"x\", 5, TRUE)", XLError.IncompatibleValue)]
+        [TestCase("POISSON(2, \"x\", TRUE)", XLError.IncompatibleValue)]
+        [TestCase("POISSON(2, 5, \"x\")", XLError.IncompatibleValue)]
+        public void Poisson_returns_error_on_invalid_arguments(string formula, XLError expected)
+        {
+            Assert.AreEqual(expected, XLWorkbook.EvaluateExpr(formula));
+        }
+
+        [Test]
         [DefaultFloatingPointTolerance(tolerance)]
         public void StDev()
         {
@@ -1209,6 +1285,33 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             // When the scalar can't be converted, return conversion error.
             value = ws.Evaluate("LARGE(\"test\", 1)");
             Assert.AreEqual(XLError.IncompatibleValue, value);
+        }
+
+        [Test]
+        public void Small()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new object[] { 3, 4, 5, 2, 3, 4, 6, 4, 7 });
+            ws.Cell("B1").InsertData(new object[] { 1, 4, 8, 3, 7, 12, 54, 8, 23 });
+
+            // Examples from specification
+            Assert.AreEqual(4, ws.Evaluate("SMALL(A1:A9,4)"));
+            Assert.AreEqual(3, ws.Evaluate("SMALL(B1:B9,2)"));
+
+            // Non-numbers are skipped, k after the last number
+            ws.Cell("C1").Value = 2;
+            ws.Cell("C2").Value = "1";
+            ws.Cell("C3").Value = true;
+            Assert.AreEqual(2, ws.Evaluate("SMALL(C1:C4,1)"));
+            Assert.AreEqual(XLError.NumberInvalid, ws.Evaluate("SMALL(C1:C4,2)"));
+
+            // k is rounded up
+            Assert.AreEqual(2, ws.Evaluate("SMALL({ 1, 2 }, 1.1)"));
+            Assert.AreEqual(XLError.NumberInvalid, ws.Evaluate("SMALL({ 1, 2 }, 0)"));
+
+            // Errors are returned
+            Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("SMALL({ 1, 2, #N/A }, 1)"));
         }
 
         private XLWorkbook SetupWorkbook()

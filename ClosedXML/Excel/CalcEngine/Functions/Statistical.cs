@@ -10,7 +10,7 @@ namespace ClosedXML.Excel.CalcEngine
     {
         public static void Register(FunctionRegistry ce)
         {
-            //ce.RegisterFunction("AVEDEV", AveDev, 1, int.MaxValue);
+            ce.RegisterFunction("AVEDEV", 1, 255, AveDev, FunctionFlags.Range, AllowRange.All); // Returns the average of the absolute deviations of data points from their mean
             ce.RegisterFunction("AVERAGE", 1, 255, Average, FunctionFlags.Range, AllowRange.All); // Returns the average (arithmetic mean) of the arguments
             ce.RegisterFunction("AVERAGEA", 1, 255, AverageA, FunctionFlags.Range, AllowRange.All);
             //BETADIST	Returns the beta cumulative distribution function
@@ -58,7 +58,7 @@ namespace ClosedXML.Excel.CalcEngine
             ce.RegisterFunction("MEDIAN", 1, 255, Median, FunctionFlags.Range, AllowRange.All);
             ce.RegisterFunction("MIN", 1, 255, Min, FunctionFlags.Range, AllowRange.All);
             ce.RegisterFunction("MINA", 1, 255, MinA, FunctionFlags.Range, AllowRange.All);
-            //MODE	Returns the most common value in a data set
+            ce.RegisterFunction("MODE", 1, 255, Mode, FunctionFlags.Range, AllowRange.All); // Returns the most common value in a data set
             //NEGBINOMDIST	Returns the negative binomial distribution
             //NORMDIST	Returns the normal cumulative distribution
             //NORMINV	Returns the inverse of the normal cumulative distribution
@@ -68,14 +68,14 @@ namespace ClosedXML.Excel.CalcEngine
             //PERCENTILE	Returns the k-th percentile of values in a range
             //PERCENTRANK	Returns the percentage rank of a value in a data set
             //PERMUT	Returns the number of permutations for a given number of objects
-            //POISSON	Returns the Poisson distribution
+            ce.RegisterFunction("POISSON", 3, 3, Adapt(Poisson), FunctionFlags.Scalar); // Returns the Poisson distribution
             //PROB	Returns the probability that values in a range are between two limits
             //QUARTILE	Returns the quartile of a data set
             //RANK	Returns the rank of a number in a list of numbers
             //RSQ	Returns the square of the Pearson product moment correlation coefficient
             //SKEW	Returns the skewness of a distribution
             //SLOPE	Returns the slope of the linear regression line
-            //SMALL	Returns the k-th smallest value in a data set
+            ce.RegisterFunction("SMALL", 2, 2, Adapt(Small), FunctionFlags.Range, AllowRange.Only, 0); // Returns the k-th smallest value in a data set
             //STANDARDIZE	Returns a normalized value
             ce.RegisterFunction("STDEV", 1, 255, StDev, FunctionFlags.Range, AllowRange.All);
             ce.RegisterFunction("STDEVA", 1, 255, StDevA, FunctionFlags.Range, AllowRange.All);
@@ -97,6 +97,21 @@ namespace ClosedXML.Excel.CalcEngine
             ce.RegisterFunction("VAR.P", 1, 255, VarP, FunctionFlags.Range, AllowRange.All);
             //WEIBULL	Returns the Weibull distribution
             //ZTEST	Returns the one-tailed probability-value of a z-test
+        }
+
+        private static AnyValue AveDev(CalcContext ctx, Span<AnyValue> args)
+        {
+            if (!TallyNumbers.Default.Tally(ctx, args, new SumState(0.0, 0)).TryPickT0(out var sumState, out var sumError))
+                return sumError;
+
+            if (sumState.Count == 0)
+                return XLError.NumberInvalid;
+
+            var mean = sumState.Sum / sumState.Count;
+            if (!TallyNumbers.Default.Tally(ctx, args, new AbsDiffState(0.0, mean)).TryPickT0(out var absDiff, out var error))
+                return error;
+
+            return absDiff.Sum / sumState.Count;
         }
 
         private static AnyValue Average(CalcContext ctx, Span<AnyValue> args)
@@ -364,6 +379,96 @@ namespace ClosedXML.Excel.CalcEngine
             return Min(ctx, args, TallyAll.Default);
         }
 
+        private static AnyValue Mode(CalcContext ctx, Span<AnyValue> args)
+        {
+            var numbers = new List<double>();
+            foreach (var arg in args)
+            {
+                // Scalar values and single cell references must be numbers. Arrays and areas skip non-numbers.
+                IEnumerable<ScalarValue> values;
+                bool mustBeNumber;
+                if (arg.TryPickScalar(out var scalar, out var collection))
+                {
+                    values = [scalar];
+                    mustBeNumber = true;
+                }
+                else if (collection.TryPickT0(out var array, out var reference))
+                {
+                    values = array;
+                    mustBeNumber = false;
+                }
+                else if (reference.TryGetSingleCellValue(out var cellValue, ctx))
+                {
+                    values = [cellValue];
+                    mustBeNumber = true;
+                }
+                else
+                {
+                    values = ctx.GetNonBlankValues(reference);
+                    mustBeNumber = false;
+                }
+
+                foreach (var value in values)
+                {
+                    ctx.ThrowIfCancelled();
+                    if (value.TryPickError(out var error))
+                        return error;
+
+                    if (value.TryPickNumber(out var number))
+                        numbers.Add(number);
+                    else if (mustBeNumber)
+                        return XLError.IncompatibleValue;
+                }
+            }
+
+            var counts = new Dictionary<double, int>();
+            foreach (var number in numbers)
+                counts[number] = counts.TryGetValue(number, out var count) ? count + 1 : 1;
+
+            // The first number with the most occurrences.
+            var mode = 0d;
+            var maxCount = 1;
+            foreach (var number in numbers)
+            {
+                if (counts[number] > maxCount)
+                {
+                    mode = number;
+                    maxCount = counts[number];
+                }
+            }
+
+            if (maxCount == 1)
+                return XLError.NoValueAvailable;
+
+            return mode;
+        }
+
+        private static ScalarValue Poisson(CalcContext ctx, double x, double mean, bool cumulative)
+        {
+            x = Math.Truncate(x);
+            if (x < 0 || mean < 0)
+                return XLError.NumberInvalid;
+
+            // Calculate terms mean^k * e^-mean / k! in log space, e^-mean underflows for a large mean.
+            var logMean = Math.Log(mean);
+            var logTerm = -mean;
+            var term = Math.Exp(logTerm);
+            var sum = term;
+            for (var k = 1d; k <= x; ++k)
+            {
+                ctx.ThrowIfCancelled();
+                logTerm += logMean - Math.Log(k);
+                term = Math.Exp(logTerm);
+                sum += term;
+
+                // Terms after the mean only decrease, stop once they can't change the result.
+                if (k > mean && (cumulative ? term < sum * 1e-17 : term == 0))
+                    break;
+            }
+
+            return cumulative ? sum : term;
+        }
+
         private static AnyValue StDev(CalcContext ctx, Span<AnyValue> args)
         {
             return StDev(ctx, args, TallyNumbers.Default);
@@ -450,6 +555,16 @@ namespace ClosedXML.Excel.CalcEngine
 
         private static AnyValue Large(CalcContext ctx, AnyValue arrayParam, double kParam)
         {
+            return KthNumber(ctx, arrayParam, kParam, largest: true);
+        }
+
+        private static AnyValue Small(CalcContext ctx, AnyValue arrayParam, double kParam)
+        {
+            return KthNumber(ctx, arrayParam, kParam, largest: false);
+        }
+
+        private static AnyValue KthNumber(CalcContext ctx, AnyValue arrayParam, double kParam, bool largest)
+        {
             if (kParam < 1)
                 return XLError.NumberInvalid;
 
@@ -494,7 +609,7 @@ namespace ClosedXML.Excel.CalcEngine
 
             System.Array.Sort(total, 0, count);
 
-            return total[count - k];
+            return largest ? total[count - k] : total[k - 1];
         }
 
         /// <summary>
@@ -537,6 +652,11 @@ namespace ClosedXML.Excel.CalcEngine
                 var sum = Sum + diff * diff;
                 return new SquareDiff(sum, Count + 1, SampleMean);
             }
+        }
+
+        private readonly record struct AbsDiffState(double Sum, double Mean) : ITallyState<AbsDiffState>
+        {
+            public AbsDiffState Tally(double number) => new(Sum + Math.Abs(number - Mean), Mean);
         }
 
         private readonly record struct MinState(double Min, bool HasValues) : ITallyState<MinState>
