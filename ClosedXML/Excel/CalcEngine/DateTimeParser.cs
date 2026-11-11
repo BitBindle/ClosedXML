@@ -39,6 +39,9 @@ namespace ClosedXML.Excel.CalcEngine
                     .Where(pattern => !pattern.Contains("dddd")) // It doesn't seem that Excel parser is capable of parsing day names in any culture
                     .Select(pattern => Regex.Replace(pattern, leadingZeroMonthPattern, "M")) // Recognize months even without leading zero
                     .Select(pattern => Regex.Replace(pattern, leadingZeroDayPattern, "d")) // Recognize days even without leading zero
+                    // ISO8601 should be parseable in all cultures. Be more forgiving, M,d instead MM,dd. Year first with
+                    // a slash (Excel en-US accepts '2011/1/15') isn't ambiguous either, so use a literal slash.
+                    .Concat(new[] { "yyyy-M-d", "yyyy'/'M'/'d" })
                     .Distinct().ToArray();
 
                 // Not sure about this, but reasonably close. Hours pattern is probably generated (e.g. 'as-IN' culture
@@ -50,8 +53,7 @@ namespace ClosedXML.Excel.CalcEngine
                 var longDatePatterns = shortDatePatterns
                     .SelectMany(datePattern => timePatterns.Select(timePattern => FormattableString.Invariant($"{datePattern} {timePattern}")));
 
-                // ISO8601 should be parseable in all cultures, not sure if Excel does. Be more forgiving, M,d instead MM,dd.
-                return shortDatePatterns.Concat(longDatePatterns).Concat(new[] { "yyyy-M-d" }).Distinct().ToArray();
+                return shortDatePatterns.Concat(longDatePatterns).Distinct().ToArray();
             });
 
             return DateTime.TryParseExact(s, datePatterns, culture, Style, out date);

@@ -22,8 +22,8 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             ce.RegisterFunction("DAY", 1, 1, Adapt(Day), FunctionFlags.Scalar); // Converts a serial number to a day of the month
             ce.RegisterFunction("DAYS", 2, 2, Adapt(Days), FunctionFlags.Scalar | FunctionFlags.Future); // Returns the number of days between two dates.
             ce.RegisterFunction("DAYS360", 2, 3, AdaptLastOptional(Days360, false), FunctionFlags.Scalar); // Calculates the number of days between two dates based on a 360-day year
-            ce.RegisterFunction("EDATE", 2, 2, Adapt(EDate), FunctionFlags.Scalar); // Returns the serial number of the date that is the indicated number of months before or after the start date
-            ce.RegisterFunction("EOMONTH", 2, 2, Adapt(Eomonth), FunctionFlags.Scalar); // Returns the serial number of the last day of the month before or after a specified number of months
+            ce.RegisterFunction("EDATE", 2, 2, AdaptWithoutLogical(EDate), FunctionFlags.Scalar); // Returns the serial number of the date that is the indicated number of months before or after the start date
+            ce.RegisterFunction("EOMONTH", 2, 2, AdaptWithoutLogical(Eomonth), FunctionFlags.Scalar); // Returns the serial number of the last day of the month before or after a specified number of months
             ce.RegisterFunction("HOUR", 1, 1, Adapt(Hour), FunctionFlags.Scalar); // Converts a serial number to an hour
             ce.RegisterFunction("ISOWEEKNUM", 1, 1, Adapt(IsoWeekNum), FunctionFlags.Scalar | FunctionFlags.Future); // Returns number of the ISO week number of the year for a given date.
             ce.RegisterFunction("MINUTE", 1, 1, Adapt(Minute), FunctionFlags.Scalar); // Converts a serial number to a minute
@@ -34,7 +34,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             ce.RegisterFunction("TIME", 3, 3, Adapt(Time), FunctionFlags.Scalar); // Returns the serial number of a particular time
             ce.RegisterFunction("TIMEVALUE", 1, 1, Adapt(timeValue), FunctionFlags.Scalar); // Converts a time in the form of text to a serial number
             ce.RegisterFunction("TODAY", 0, 0, Adapt(Today), FunctionFlags.Scalar | FunctionFlags.Volatile); // Returns the serial number of today's date
-            ce.RegisterFunction("WEEKDAY", 1, 2, AdaptLastOptional(Weekday), FunctionFlags.Scalar); // Converts a serial number to a day of the week
+            ce.RegisterFunction("WEEKDAY", 1, 2, AdaptLastOptional(Weekday, (ScalarValue)1), FunctionFlags.Scalar); // Converts a serial number to a day of the week
             ce.RegisterFunction("WEEKNUM", 1, 2, AdaptLastOptional(WeekNum, 1), FunctionFlags.Scalar); // Converts a serial number to a number representing where the week falls numerically with a year
             ce.RegisterFunction("WORKDAY", 2, 3, AdaptLastOptional(Workday), FunctionFlags.Range, AllowRange.Only, 2); // Returns the serial number of the date before or after a specified number of workdays
             ce.RegisterFunction("YEAR", 1, 1, Adapt(Year), FunctionFlags.Scalar); // Converts a serial number to a year
@@ -105,8 +105,8 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             month -= yearAdjustment * 12;
 
             // Year 1 is earliest allowable in both date system. Also avoid the double
-            // to int conversion problems when double is too small.
-            if (year < 1)
+            // to int conversion problems when double is too small. Year after 9999 is beyond the date system.
+            if (year is < 1 or > 9999)
                 return XLError.NumberInvalid;
 
             var startOfMonth = new DateTime((int)year, (int)month, 1).ToSerialDateTime();
@@ -435,13 +435,9 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             if (!TryGetDate(ctx, date, out var serialDate, out var dateError, acceptLogical: true))
                 return dateError;
 
-            var flagValue = 1d;
-            if (!flag.IsBlank)
-            {
-                // Caller provided a value for optional parameter
-                if (!flag.ToNumber(ctx.Culture).TryPickT0(out flagValue, out var flagError))
-                    return flagError;
-            }
+            // Omitted flag is 1, but blank (e.g. empty argument) is 0
+            if (!flag.ToNumber(ctx.Culture).TryPickT0(out var flagValue, out var flagError))
+                return flagError;
 
             var result = Weekday(serialDate, (int)Math.Truncate(flagValue));
 
@@ -618,6 +614,9 @@ namespace ClosedXML.Excel.CalcEngine.Functions
                 } while (IsWeekend(workday));
                 remaining -= oneDay;
             }
+
+            if (workday < 0 || workday >= ctx.DateSystemUpperLimit)
+                return XLError.NumberInvalid;
 
             return workday;
 

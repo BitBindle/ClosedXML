@@ -84,6 +84,22 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             };
         }
 
+        public static CalcEngineFunction AdaptWithoutLogical(Func<CalcContext, double, double, ScalarValue> f)
+        {
+            return (ctx, args) =>
+            {
+                var arg0Converted = ToNumberWithoutLogical(args[0], ctx);
+                if (!arg0Converted.TryPickT0(out var arg0, out var err0))
+                    return err0;
+
+                var arg1Converted = ToNumberWithoutLogical(args[1], ctx);
+                if (!arg1Converted.TryPickT0(out var arg1, out var err1))
+                    return err1;
+
+                return f(ctx, arg0, arg1).ToAnyValue();
+            };
+        }
+
         public static CalcEngineFunction Adapt(Func<CalcContext, double, double, double, ScalarValue> f)
         {
             return (ctx, args) =>
@@ -536,7 +552,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             };
         }
 
-        public static CalcEngineFunction AdaptLastOptional(Func<CalcContext, ScalarValue, ScalarValue, ScalarValue> f)
+        public static CalcEngineFunction AdaptLastOptional(Func<CalcContext, ScalarValue, ScalarValue, ScalarValue> f, ScalarValue lastDefault)
         {
             return (ctx, args) =>
             {
@@ -544,7 +560,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
                 if (!arg0Converted.TryPickT0(out var arg0, out var err0))
                     return err0;
 
-                var arg1Converted = args.Length > 1 ? ToScalarValue(args[1], ctx) : ScalarValue.Blank;
+                var arg1Converted = args.Length > 1 ? ToScalarValue(args[1], ctx) : lastDefault;
                 if (!arg1Converted.TryPickT0(out var arg1, out var err1))
                     return err1;
 
@@ -986,6 +1002,20 @@ namespace ClosedXML.Excel.CalcEngine.Functions
                 return scalarValue.ToNumber(ctx.Culture);
 
             throw new NotImplementedException("Array formulas not implemented.");
+        }
+
+        /// <summary>
+        /// Some functions (e.g. EDATE) don't convert logical to number, not even from a reference.
+        /// </summary>
+        private static OneOf<double, XLError> ToNumberWithoutLogical(in AnyValue value, CalcContext ctx)
+        {
+            if (!ToScalarValue(value, ctx).TryPickT0(out var scalar, out var error))
+                return error;
+
+            if (scalar.IsLogical)
+                return XLError.IncompatibleValue;
+
+            return scalar.ToNumber(ctx.Culture);
         }
 
         private static OneOf<string, XLError> ToText(in AnyValue value, CalcContext ctx)
