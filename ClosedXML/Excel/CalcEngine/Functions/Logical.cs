@@ -26,14 +26,12 @@ namespace ClosedXML.Excel.CalcEngine
                 static (acc, val) => acc && val,
                 static (v, _) =>
                 {
-                    // Skip values that can't be converted, but aren't errors, like "text"
-                    if (v.IsError)
-                        return v.GetError();
-                    if (!v.TryCoerceLogicalOrBlankOrNumberOrText(out var logical, out var _))
-                        return true;
+                    // Error or text other than "TRUE"/"FALSE" (e.g. "text") is returned as an error
+                    if (!v.TryCoerceLogicalOrBlankOrNumberOrText(out var logical, out var conversionError))
+                        return conversionError;
                     return logical;
                 },
-                static v => v.IsLogical || v.IsNumber); // No text conversion for element of collection, blanks are ignored in references
+                static v => v.IsLogical || v.IsNumber || v.IsError); // No text conversion for element of collection, blanks are ignored in references, errors are propagated
 
             if (!aggResult.TryPickT0(out var value, out var error))
                 return error;
@@ -76,14 +74,12 @@ namespace ClosedXML.Excel.CalcEngine
                 static (acc, val) => acc || val,
                 static (v, _) =>
                 {
-                    // Skip values that can't be converted, but aren't errors, like "text"
-                    if (v.IsError)
-                        return v.GetError();
-                    if (!v.TryCoerceLogicalOrBlankOrNumberOrText(out var logical, out var _))
-                        return false;
+                    // Error or text other than "TRUE"/"FALSE" (e.g. "text") is returned as an error
+                    if (!v.TryCoerceLogicalOrBlankOrNumberOrText(out var logical, out var conversionError))
+                        return conversionError;
                     return logical;
                 },
-                static v => v.IsLogical || v.IsNumber); // No text conversion for element of collection, blanks are ignored in references
+                static v => v.IsLogical || v.IsNumber || v.IsError); // No text conversion for element of collection, blanks are ignored in references, errors are propagated
 
             if (!aggResult.TryPickT0(out var value, out var error))
                 return error;
