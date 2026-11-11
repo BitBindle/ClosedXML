@@ -44,6 +44,23 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         }
 
         [Test]
+        public void ThreeD_reference_depends_on_area_in_each_sheet()
+        {
+            var dependencies = GetDependencies("SUM(Sheet1:Sheet3!A1:B2)", init: wb =>
+            {
+                wb.AddWorksheet("Sheet1");
+                wb.AddWorksheet("Sheet2");
+                wb.AddWorksheet("Sheet3");
+            });
+            CollectionAssert.AreEquivalent(new SheetArea[]
+            {
+                new("Sheet1", Area.Parse("A1:B2")),
+                new("Sheet2", Area.Parse("A1:B2")),
+                new("Sheet3", Area.Parse("A1:B2")),
+            }, dependencies.Areas);
+        }
+
+        [Test]
         public void Name_range_that_is_reference_is_propagated_to_formula()
         {
             var dependencies = GetDependencies("B3:name", init: wb =>
