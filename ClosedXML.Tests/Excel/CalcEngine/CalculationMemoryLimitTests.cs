@@ -18,10 +18,10 @@ public class CalculationMemoryLimitTests
         ws.Cell("A1").Value = 10;
         ws.Cell("A2").Value = 20;
 
-        ws.Cell("C1").SetFormulaA1($"A1:A{cells}+1");
-        Assert.AreEqual(11.0, ws.Cell("C1").Value);
+        ws.Cell("C1").SetFormulaA1($"SUMPRODUCT(A1:A{cells}+1)");
+        Assert.AreEqual(34.0, ws.Cell("C1").Value);
 
-        ws.Cell("C2").SetFormulaA1($"(A1:A{cells}+1)+(B1:B{cells}+1)");
+        ws.Cell("C2").SetFormulaA1($"SUMPRODUCT((A1:A{cells}+1)+(B1:B{cells}+1))");
         Assert.Throws<LimitExceededException>(() => _ = ws.Cell("C2").Value);
     }
 
@@ -46,7 +46,7 @@ public class CalculationMemoryLimitTests
         var ws = wb.AddWorksheet();
         ws.Cell("A1").Value = 3;
         ws.Cell("A2").Value = 4;
-        ws.Cell("B1").SetFormulaA1("SUM(A1:A2 * 2)");
+        ws.Cell("B1").SetFormulaA1("SUMPRODUCT(A1:A2 * 2)");
 
         Assert.Throws<LimitExceededException>(() => _ = ws.Cell("B1").Value);
     }
@@ -58,8 +58,8 @@ public class CalculationMemoryLimitTests
         var ws = wb.AddWorksheet();
         ws.Cell("A1").Value = 3;
         ws.Cell("A2").Value = 4;
-        ws.Cell("B1").SetFormulaA1("SUM(A1:A2 * 2)");
-        ws.Cell("B2").SetFormulaA1("SUM(A1:A2 * 2)");
+        ws.Cell("B1").SetFormulaA1("SUMPRODUCT(A1:A2 * 2)");
+        ws.Cell("B2").SetFormulaA1("SUMPRODUCT(A1:A2 * 2)");
 
         // The access to .Value causes recalculation of workbook and all cells are dirty.
         // But cells are calculated sequentially, so the memory buffer for each individual
@@ -73,7 +73,7 @@ public class CalculationMemoryLimitTests
         using var wb = new XLWorkbook(new LoadOptions { MaxCalculationMemoryBytes = 1 });
         var ws = wb.AddWorksheet();
         ws.Cell("A1").Value = 1;
-        ws.Cell("B1").SetFormulaA1("A1:A2+1");
+        ws.Cell("B1").SetFormulaA1("SUMPRODUCT(A1:A2+1)");
         Assert.That(() => _ = ws.Cell("B1").Value, Throws.InstanceOf<ClosedXMLException>());
         Assert.IsFalse(typeof(LimitExceededException).IsPublic);
     }
@@ -84,7 +84,7 @@ public class CalculationMemoryLimitTests
         using var wb = new XLWorkbook(new LoadOptions { MaxCalculationMemoryBytes = 0 });
         var ws = wb.AddWorksheet();
         ws.Range("A1:B100").Value = 1;
-        ws.Cell("C1").SetFormulaA1("SUM(A1:B100+1)");
+        ws.Cell("C1").SetFormulaA1("SUMPRODUCT(A1:B100+1)");
         Assert.AreEqual(400.0, ws.Cell("C1").Value);
     }
 

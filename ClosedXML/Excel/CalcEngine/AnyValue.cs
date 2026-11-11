@@ -297,6 +297,24 @@ namespace ClosedXML.Excel.CalcEngine
         }
 
         /// <summary>
+        /// The <c>@</c> operator of Excel 2019+. Reference is changed into a single cell/#VALUE!, array into its top-left value.
+        /// </summary>
+        public AnyValue ImplicitIntersectionOperator(CalcContext context)
+        {
+            return TryPickArray(out var array) ? array[0, 0].ToAnyValue() : ImplicitIntersection(context);
+        }
+
+        /// <summary>
+        /// An operand of an operator in a cell formula that isn't an array formula is implicitly intersected (Excel 2016).
+        /// </summary>
+        private static AnyValue IntersectOperand(in AnyValue operand, CalcContext context)
+        {
+            return context.UseImplicitIntersection && !context.IsArrayCalculation && context.HasFormulaAddress
+                ? operand.ImplicitIntersection(context)
+                : operand;
+        }
+
+        /// <summary>
         /// Create a new reference that has one area that contains both operands or #VALUE! if not possible.
         /// </summary>
         public static AnyValue ReferenceRange(in AnyValue left, in AnyValue right, CalcContext ctx)
@@ -357,8 +375,9 @@ namespace ClosedXML.Excel.CalcEngine
         public AnyValue UnaryPercent(CalcContext context)
             => UnaryOperation(this, x => x / 100.0, context);
 
-        private static AnyValue UnaryOperation(in AnyValue value, Func<double, double> operatorFn, CalcContext context)
+        private static AnyValue UnaryOperation(in AnyValue operand, Func<double, double> operatorFn, CalcContext context)
         {
+            var value = IntersectOperand(operand, context);
             var isSingle = value.TryPickSingleOrMultiValue(out var single, out var array, context);
             if (isSingle)
                 return UnaryArithmeticOp(single, operatorFn, context).ToAnyValue();
@@ -504,8 +523,10 @@ namespace ClosedXML.Excel.CalcEngine
             }, context);
         }
 
-        private static AnyValue BinaryOperation(in AnyValue left, in AnyValue right, BinaryFunc func, CalcContext context)
+        private static AnyValue BinaryOperation(in AnyValue leftOperand, in AnyValue rightOperand, BinaryFunc func, CalcContext context)
         {
+            var left = IntersectOperand(leftOperand, context);
+            var right = IntersectOperand(rightOperand, context);
             var isLeftSingle = left.TryPickSingleOrMultiValue(out var leftSingle, out var leftArray, context);
             var isRightSingle = right.TryPickSingleOrMultiValue(out var rightSingle, out var rightArray, context);
 

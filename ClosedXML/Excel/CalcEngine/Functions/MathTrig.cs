@@ -77,9 +77,9 @@ namespace ClosedXML.Excel.CalcEngine
             ce.RegisterFunction("LN", 1, 1, Adapt(Ln), FunctionFlags.Scalar);
             ce.RegisterFunction("LOG", 1, 2, AdaptLastOptional(Log, 10), FunctionFlags.Scalar);
             ce.RegisterFunction("LOG10", 1, 1, Adapt(Log10), FunctionFlags.Scalar);
-            ce.RegisterFunction("MDETERM", 1, 1, Adapt(MDeterm), FunctionFlags.Range, AllowRange.All);
-            ce.RegisterFunction("MINVERSE", 1, 1, Adapt(MInverse), FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All);
-            ce.RegisterFunction("MMULT", 2, 2, MMult, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All);
+            ce.RegisterFunction("MDETERM", 1, 1, Adapt(MDeterm), FunctionFlags.Range | FunctionFlags.ArrayParameters, AllowRange.All);
+            ce.RegisterFunction("MINVERSE", 1, 1, Adapt(MInverse), FunctionFlags.Range | FunctionFlags.ReturnsArray | FunctionFlags.ArrayParameters, AllowRange.All);
+            ce.RegisterFunction("MMULT", 2, 2, MMult, FunctionFlags.Range | FunctionFlags.ReturnsArray | FunctionFlags.ArrayParameters, AllowRange.All);
             ce.RegisterFunction("MOD", 2, 2, Adapt(Mod), FunctionFlags.Scalar);
             ce.RegisterFunction("MROUND", 2, 2, Adapt(MRound), FunctionFlags.Scalar);
             ce.RegisterFunction("MULTINOMIAL", 1, 255, AdaptMultinomial(Multinomial), FunctionFlags.Scalar, AllowRange.All);
@@ -107,7 +107,7 @@ namespace ClosedXML.Excel.CalcEngine
             ce.RegisterFunction("SUM", 1, 255, Sum, FunctionFlags.Range, AllowRange.All);
             ce.RegisterFunction("SUMIF", 2, 3, AdaptLastOptional(SumIf), FunctionFlags.Range, AllowRange.Only, 0, 2);
             ce.RegisterFunction("SUMIFS", 3, 255, AdaptIfs(SumIfs), FunctionFlags.Range, AllowRange.Only, new[] { 0 }.Concat(Enumerable.Range(0, 128).Select(x => x * 2 + 1)).ToArray());
-            ce.RegisterFunction("SUMPRODUCT", 1, 255, Adapt(SumProduct), FunctionFlags.Range, AllowRange.All);
+            ce.RegisterFunction("SUMPRODUCT", 1, 255, Adapt(SumProduct), FunctionFlags.Range | FunctionFlags.ArrayParameters, AllowRange.All);
             ce.RegisterFunction("SUMSQ", 1, 255, SumSq, FunctionFlags.Range, AllowRange.All);
             //ce.RegisterFunction("SUMX2MY2", SumX2MY2, 1);
             //ce.RegisterFunction("SUMX2PY2", SumX2PY2, 1);

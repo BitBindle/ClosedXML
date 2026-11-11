@@ -91,6 +91,78 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(XLError.IncompatibleValue, verticalIntersectionCell.Value);
         }
 
+        [TestCase("B2", "A1:A3*10", 20)]
+        [TestCase("B5", "A1:A3*10", XLError.IncompatibleValue)]
+        [TestCase("B5", "A1:B3*10", XLError.IncompatibleValue)]
+        [TestCase("A5", "-A1:C1", -1)]
+        [TestCase("D5", "-A1:C1", XLError.IncompatibleValue)]
+        [TestCase("D2", "A1:A3&\"x\"", "2x")]
+        [TestCase("D3", "A1:A3=3", true)]
+        [TestCase("D2", "SUM(A1:A3*10)", 20)]
+        [TestCase("D5", "SUM(A1:A3*10)", XLError.IncompatibleValue)]
+        [TestCase("D2", "{1,2,3}*10", 10)]
+        public void ImplicitIntersection_OperatorTakesOneCellOfRangeOperand(string address, string formula, object expected)
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new[] { 1, 2, 3 });
+            ws.Cell(address).FormulaA1 = formula;
+
+            Assert.AreEqual(expected, ws.Cell(address).Value);
+        }
+
+        [TestCase("SUMPRODUCT(A1:A3*B1:B3)", 32)]
+        [TestCase("SUMPRODUCT((A1:A3>1)*B1:B3)", 11)]
+        [TestCase("MMULT(TRANSPOSE(A1:A3*1),B1:B3)", 32)]
+        [TestCase("ROWS(A1:A3*1)", 3)]
+        [TestCase("SUMPRODUCT(ABS(-A1:A3))", 6)]
+        [TestCase("SUMPRODUCT(INDEX(A1:B3,0,2))", 15)]
+        [TestCase("SUMPRODUCT(COUNTIF(A1:A3,A1:A3))", 3)]
+        [TestCase("SUMPRODUCT(SUMIF(A1:A3,A1:A3,B1:B3))", 15)]
+        [TestCase("INDEX(A1:A3*10,2)", 20)]
+        [TestCase("MATCH(1,INDEX((A1:A3=2)*(B1:B3=5),0,1),0)", 2)]
+        public void ImplicitIntersection_ArgumentOfArrayParameterIsEvaluatedAsArray(string formula, double expected)
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new[] { new[] { 1, 4 }, new[] { 2, 5 }, new[] { 3, 6 } });
+            ws.Cell("D5").FormulaA1 = formula;
+
+            Assert.AreEqual(expected, ws.Cell("D5").Value);
+        }
+
+        [Test]
+        public void ImplicitIntersection_ArrayFormulaDoesNotIntersectOperands()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new[] { 1, 2, 3 });
+            ws.Range("B5:B7").FormulaArrayA1 = "A1:A3*10";
+
+            Assert.AreEqual(10, ws.Cell("B5").Value);
+            Assert.AreEqual(20, ws.Cell("B6").Value);
+            Assert.AreEqual(30, ws.Cell("B7").Value);
+        }
+
+        [TestCase("B2", "@A1:A3", 2)]
+        [TestCase("B5", "@A1:A3", XLError.IncompatibleValue)]
+        [TestCase("B2", "@A1:B3", XLError.IncompatibleValue)]
+        [TestCase("B2", "@(A1,A2)", XLError.IncompatibleValue)]
+        [TestCase("B5", "@A3", 3)]
+        [TestCase("B2", "10*@A1:A3", 20)]
+        [TestCase("B2", "@INDEX({4,5,6},0)", 4)]
+        [TestCase("B3", "_xlfn.SINGLE(A1:A3)", 3)]
+        [TestCase("B3", "SINGLE({7,8})", 7)]
+        public void ImplicitIntersectionOperator_TakesOneValue(string address, string formula, object expected)
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new[] { 1, 2, 3 });
+            ws.Cell(address).FormulaA1 = formula;
+
+            Assert.AreEqual(expected, ws.Cell(address).Value);
+        }
+
         #endregion
 
         #region Reference range operator
