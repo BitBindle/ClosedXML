@@ -454,7 +454,7 @@ namespace ClosedXML.Excel.CalcEngine
             var logTerm = -mean;
             var term = Math.Exp(logTerm);
             var sum = term;
-            // shortcut: O(x) loop, slow when both x and mean are huge (~1e9), compute the term with log-gamma once there is a helper.
+            // The loop has up to x steps, so it is slow when both x and mean are huge (~1e9). A log-gamma helper would remove it.
             for (var k = 1d; k <= x; ++k)
             {
                 ctx.ThrowIfCancelled();
