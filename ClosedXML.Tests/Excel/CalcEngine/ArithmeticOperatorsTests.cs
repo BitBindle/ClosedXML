@@ -122,6 +122,9 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase("4^0.5", 2.0)]
         [TestCase("2^0.5", 1.4142135623730951)]
         [TestCase("2^-2", 0.25)]
+        [TestCase("0^-1", XLError.DivisionByZero)]
+        [TestCase("(-1)^0.5", XLError.NumberInvalid)]
+        [TestCase("10^309", XLError.NumberInvalid)]
         [TestCase("\"5\"^\"3\"", 125)]
         [TestCase("5^TRUE", 5)]
         [TestCase("5^FALSE", 1)]
@@ -133,6 +136,26 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         public void Exponentiation_CanWorkWithScalars(string formula, object expectedValue)
         {
             Assert.That(Evaluate(formula), Is.EqualTo(expectedValue));
+        }
+
+        #endregion
+
+        #region Non-finite results
+
+        [TestCase("(-1)^0.5")]
+        [TestCase("1E308*10")]
+        [TestCase("1E308+1E308")]
+        [TestCase("-1E308-1E308")]
+        [TestCase("1E308/0.1")]
+        [TestCase("SUM({1E308,1}*10)")]
+        public void Operator_result_that_is_not_finite_is_number_error(string formula)
+        {
+            Assert.AreEqual(XLError.NumberInvalid, Evaluate(formula));
+
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").FormulaA1 = formula;
+            Assert.AreEqual(XLError.NumberInvalid, ws.Cell("A1").Value);
         }
 
         #endregion

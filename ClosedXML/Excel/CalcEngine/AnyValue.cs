@@ -415,7 +415,7 @@ namespace ClosedXML.Excel.CalcEngine
         {
             return BinaryOperation(in left, in right, static (in ScalarValue leftItem, in ScalarValue rightItem, CalcContext ctx) =>
             {
-                return BinaryArithmeticOp(in leftItem, in rightItem, static (lhs, rhs) => lhs == 0 && rhs == 0 ? XLError.NumberInvalid : Math.Pow(lhs, rhs), ctx);
+                return BinaryArithmeticOp(in leftItem, in rightItem, static (lhs, rhs) => lhs == 0 && rhs == 0 ? XLError.NumberInvalid : lhs == 0 && rhs < 0 ? XLError.DivisionByZero : Math.Pow(lhs, rhs), ctx);
             }, context);
         }
 
@@ -547,8 +547,9 @@ namespace ClosedXML.Excel.CalcEngine
                 return rightError;
             }
 
+            // Excel has no NaN or infinity, e.g. (-1)^0.5 or 1E308*10 is #NUM!.
             return func(leftNumber, rightNumber).Match<ScalarValue>(
-                number => number,
+                number => double.IsNaN(number) || double.IsInfinity(number) ? XLError.NumberInvalid : number,
                 error => error);
         }
 
