@@ -49,9 +49,9 @@ namespace ClosedXML.Excel.CalcEngine
         Future = 16,
 
         /// <summary>
-        /// All parameters of the function are arrays (parameter class <c>A</c> in Excel function table), e.g. SUMPRODUCT.
-        /// Arguments are evaluated as an array formula, even in a normal formula, so operators don't do implicit
-        /// intersection, e.g. <c>SUMPRODUCT(A1:A3*B1:B3)</c>.
+        /// The parameters of the function that accept a range take an array, e.g. all parameters of SUMPRODUCT or
+        /// the first parameter of INDEX. Their arguments are evaluated as an array formula, even in a normal formula,
+        /// so operators don't do implicit intersection, e.g. <c>SUMPRODUCT(A1:A3*B1:B3)</c>.
         /// </summary>
         ArrayParameters = 32
     }

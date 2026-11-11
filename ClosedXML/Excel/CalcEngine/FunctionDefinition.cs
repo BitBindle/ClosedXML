@@ -38,7 +38,10 @@ namespace ClosedXML.Excel.CalcEngine
 
         public int MaxParams { get; }
 
-        public bool HasArrayParameters => _flags.HasFlag(FunctionFlags.ArrayParameters);
+        /// <summary>
+        /// Is the argument of the parameter evaluated as an array, even in a normal formula? See <see cref="FunctionFlags.ArrayParameters"/>.
+        /// </summary>
+        public bool IsArrayParameter(int paramIndex) => _flags.HasFlag(FunctionFlags.ArrayParameters) && !IsParameterSingleValue(paramIndex);
 
         public AnyValue CallFunction(CalcContext ctx, Span<AnyValue> args)
         {
@@ -73,6 +76,11 @@ namespace ClosedXML.Excel.CalcEngine
             for (var i = 0; i < args.Length; ++i)
             {
                 ref var arg = ref args[i];
+
+                // A range parameter keeps a reference, e.g. the range of COUNTIF(A1:A3,A1:A3).
+                if (!IsParameterSingleValue(i) && arg.IsReference)
+                    continue;
+
                 var argIsSingle = arg.TryPickSingleOrMultiValue(out var single, out var multi, ctx);
                 if (IsParameterSingleValue(i))
                 {

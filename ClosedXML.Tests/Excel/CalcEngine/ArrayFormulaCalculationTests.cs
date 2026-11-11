@@ -119,13 +119,13 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         }
 
         [Test]
-        public void Array_argument_for_scalar_function_in_array_formula_uses_only_first_value_of_array()
+        public void Row_result_is_copied_down_column_cell_group()
         {
             using var wb = new XLWorkbook();
             var ws = wb.AddWorksheet();
             ws.Range("B1:B3").FormulaArrayA1 = "SIGN({-1,2,0})";
 
-            // Uses only -1 for all values
+            // The result {-1,1,0} has one row, the cell group has one column: each cell takes the first value
             Assert.AreEqual(-1, ws.Cell("B1").Value);
             Assert.AreEqual(-1, ws.Cell("B2").Value);
             Assert.AreEqual(-1, ws.Cell("B3").Value);

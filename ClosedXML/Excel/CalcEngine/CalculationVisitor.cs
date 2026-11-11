@@ -75,17 +75,17 @@ namespace ClosedXML.Excel.CalcEngine
             var parameters = functionNode.Parameters;
             var pool = _argsPool.Rent(parameters.Count);
             var args = new Span<AnyValue>(pool, 0, parameters.Count);
-
-            // Arguments of array parameters are evaluated as an array formula, e.g. SUMPRODUCT(A1:A3*B1:B3).
-            var evaluateArgsAsArray = !context.IsArrayCalculation && fn.HasArrayParameters;
             try
             {
-                context.IsArrayCalculation |= evaluateArgsAsArray;
                 for (var i = 0; i < parameters.Count; ++i)
+                {
+                    // Arguments of array parameters are evaluated as an array formula, e.g. SUMPRODUCT(A1:A3*B1:B3).
+                    var isArrayArgument = !context.IsArrayCalculation && fn.IsArrayParameter(i);
+                    context.IsArrayCalculation |= isArrayArgument;
                     args[i] = parameters[i].Accept(context, this);
-
-                if (evaluateArgsAsArray)
-                    context.IsArrayCalculation = false;
+                    if (isArrayArgument)
+                        context.IsArrayCalculation = false;
+                }
 
                 return !context.IsArrayCalculation
                     ? fn.CallFunction(context, args)
@@ -93,9 +93,6 @@ namespace ClosedXML.Excel.CalcEngine
             }
             finally
             {
-                if (evaluateArgsAsArray)
-                    context.IsArrayCalculation = false;
-
                 _argsPool.Return(pool);
             }
         }

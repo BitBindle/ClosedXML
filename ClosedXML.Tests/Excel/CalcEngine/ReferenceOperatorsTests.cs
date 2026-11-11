@@ -117,6 +117,10 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase("ROWS(A1:A3*1)", 3)]
         [TestCase("SUMPRODUCT(ABS(-A1:A3))", 6)]
         [TestCase("SUMPRODUCT(INDEX(A1:B3,0,2))", 15)]
+        [TestCase("SUMPRODUCT(COUNTIF(A1:A3,A1:A3))", 3)]
+        [TestCase("SUMPRODUCT(SUMIF(A1:A3,A1:A3,B1:B3))", 15)]
+        [TestCase("INDEX(A1:A3*10,2)", 20)]
+        [TestCase("MATCH(1,INDEX((A1:A3=2)*(B1:B3=5),0,1),0)", 2)]
         public void ImplicitIntersection_ArgumentOfArrayParameterIsEvaluatedAsArray(string formula, double expected)
         {
             using var wb = new XLWorkbook();
