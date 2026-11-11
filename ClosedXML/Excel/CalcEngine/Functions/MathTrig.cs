@@ -109,9 +109,9 @@ namespace ClosedXML.Excel.CalcEngine
             ce.RegisterFunction("SUMIFS", 3, 255, AdaptIfs(SumIfs), FunctionFlags.Range, AllowRange.Only, new[] { 0 }.Concat(Enumerable.Range(0, 128).Select(x => x * 2 + 1)).ToArray());
             ce.RegisterFunction("SUMPRODUCT", 1, 255, Adapt(SumProduct), FunctionFlags.Range, AllowRange.All);
             ce.RegisterFunction("SUMSQ", 1, 255, SumSq, FunctionFlags.Range, AllowRange.All);
-            //ce.RegisterFunction("SUMX2MY2", SumX2MY2, 1);
-            //ce.RegisterFunction("SUMX2PY2", SumX2PY2, 1);
-            //ce.RegisterFunction("SUMXMY2", SumXMY2, 1);
+            ce.RegisterFunction("SUMX2MY2", 2, 2, Adapt(SumX2MY2), FunctionFlags.Range, AllowRange.All);
+            ce.RegisterFunction("SUMX2PY2", 2, 2, Adapt(SumX2PY2), FunctionFlags.Range, AllowRange.All);
+            ce.RegisterFunction("SUMXMY2", 2, 2, Adapt(SumXMY2), FunctionFlags.Range, AllowRange.All);
             ce.RegisterFunction("TAN", 1, 1, Adapt(Tan), FunctionFlags.Scalar);
             ce.RegisterFunction("TANH", 1, 1, Adapt(Tanh), FunctionFlags.Scalar);
             ce.RegisterFunction("TRUNC", 1, 2, AdaptLastOptional(Trunc, 0), FunctionFlags.Scalar);
@@ -1047,6 +1047,39 @@ namespace ClosedXML.Excel.CalcEngine
             return Sum(ctx, new[] { sumRange }, tally);
         }
 
+        /// <summary>
+        /// Sum a function of each pair of values at the same position (row by row). Arrays can have
+        /// a different shape, but must have the same number of values. A pair with a non-number is skipped.
+        /// </summary>
+        private static AnyValue SumOfPairs(CalcContext ctx, Array xArray, Array yArray, Func<double, double, double> pairFunc)
+        {
+            var count = xArray.Width * xArray.Height;
+            if (count != yArray.Width * yArray.Height)
+                return XLError.NoValueAvailable;
+
+            var sum = 0.0;
+            var hasPair = false;
+            for (var i = 0; i < count; ++i)
+            {
+                ctx.ThrowIfCancelled();
+                var x = xArray[i / xArray.Width, i % xArray.Width];
+                var y = yArray[i / yArray.Width, i % yArray.Width];
+                if (x.TryPickError(out var error) || y.TryPickError(out error))
+                    return error;
+
+                if (x.TryPickNumber(out var xNumber) && y.TryPickNumber(out var yNumber))
+                {
+                    sum += pairFunc(xNumber, yNumber);
+                    hasPair = true;
+                }
+            }
+
+            if (!hasPair)
+                return XLError.DivisionByZero;
+
+            return sum;
+        }
+
         private static AnyValue SumProduct(CalcContext ctx, Array[] areas)
         {
             if (areas.Length < 1)
@@ -1111,6 +1144,21 @@ namespace ClosedXML.Excel.CalcEngine
                 return error;
 
             return sumSq.Sum;
+        }
+
+        private static AnyValue SumX2MY2(CalcContext ctx, Array[] arrays)
+        {
+            return SumOfPairs(ctx, arrays[0], arrays[1], static (x, y) => x * x - y * y);
+        }
+
+        private static AnyValue SumX2PY2(CalcContext ctx, Array[] arrays)
+        {
+            return SumOfPairs(ctx, arrays[0], arrays[1], static (x, y) => x * x + y * y);
+        }
+
+        private static AnyValue SumXMY2(CalcContext ctx, Array[] arrays)
+        {
+            return SumOfPairs(ctx, arrays[0], arrays[1], static (x, y) => (x - y) * (x - y));
         }
 
         private static ScalarValue Tan(double radians)

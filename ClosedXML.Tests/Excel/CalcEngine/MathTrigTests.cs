@@ -2829,6 +2829,42 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("SUMSQ(A1)"));
         }
 
+        // Examples from specification
+        [TestCase("SUMX2MY2({2,3,9,1,8,7,5},{6,5,11,7,5,4,4})", -55)]
+        [TestCase("SUMX2PY2({2,3,9,1,8,7,5},{6,5,11,7,5,4,4})", 521)]
+        [TestCase("SUMXMY2({2,3,9,1,8,7,5},{6,5,11,7,5,4,4})", 79)]
+        [TestCase("SUMX2MY2(A1:A7,B1:B7)", -55)]
+        [TestCase("SUMX2PY2(A1:A7,B1:B7)", 521)]
+        [TestCase("SUMXMY2(A1:A7,B1:B7)", 79)]
+        // Scalar values
+        [TestCase("SUMXMY2(2,4)", 4)]
+        [TestCase("SUMX2MY2(A1,B1)", -32)]
+        // Arrays of different shape with the same number of values are paired row by row
+        [TestCase("SUMXMY2({1,2;3,4},{1,2,3,5})", 1)]
+        [TestCase("SUMXMY2(A1:A3,{2,3,9})", 0)]
+        // A pair with a non-number is skipped
+        [TestCase("SUMXMY2({1,\"a\",TRUE,4},{2,5,6,\"b\"})", 1)]
+        [TestCase("SUMX2PY2(A8:A10,B8:B10)", 13)]
+        // Different number of values
+        [TestCase("SUMXMY2(A1:A7,B1:B6)", XLError.NoValueAvailable)]
+        [TestCase("SUMX2MY2({1,2},{1,2,3})", XLError.NoValueAvailable)]
+        // No pair of numbers
+        [TestCase("SUMX2PY2({\"a\",1},{2,\"b\"})", XLError.DivisionByZero)]
+        // Errors are propagated
+        [TestCase("SUMX2MY2({1,#NULL!},{1,\"a\"})", XLError.NullValue)]
+        [TestCase("SUMX2MY2({1,\"a\"},{1,#DIV/0!})", XLError.DivisionByZero)]
+        public void SumX2MY2_SumX2PY2_SumXMY2(string formula, object expected)
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new object[] { 2, 3, 9, 1, 8, 7, 5 });
+            ws.Cell("B1").InsertData(new object[] { 6, 5, 11, 7, 5, 4, 4 });
+            ws.Cell("A8").InsertData(new object[] { 2, "3" });
+            ws.Cell("B8").InsertData(new object[] { 3, 4, 5 });
+
+            Assert.AreEqual(expected, ws.Evaluate(formula));
+        }
+
         [TestCase(-1, ExpectedResult = -1.5574077247)]
         [TestCase(0, ExpectedResult = 0)]
         [TestCase(1, ExpectedResult = 1.5574077247)]
