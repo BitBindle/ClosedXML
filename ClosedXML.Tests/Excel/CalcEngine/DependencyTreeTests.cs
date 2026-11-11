@@ -294,6 +294,20 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             AssertNotDirty(ws, "B1");
         }
 
+        [Test]
+        public void Mark_dirty_affects_sumif_with_implicit_sum_range()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new[] { new[] { 1, 10 }, new[] { 2, 20 }, new[] { 3, 30 } });
+            ws.Cell("D1").FormulaA1 = "SUMIF(A1:A3,\">0\",B1)";
+            Assert.AreEqual(60, ws.Cell("D1").Value);
+
+            // B2 is outside of the written sum range B1, but SUMIF reads B1:B3.
+            ws.Cell("B2").Value = 100;
+            Assert.AreEqual(140, ws.Cell("D1").Value);
+        }
+
         #endregion
 
         #region Rename sheet
@@ -630,6 +644,40 @@ namespace ClosedXML.Tests.Excel.CalcEngine
                     {
                         new SheetArea("Sheet", Area.Parse("A1")),
                         new SheetArea("Sheet", Area.Parse("B1:D2")),
+                    }
+                };
+
+                // SUMIF adds the sum range resized to the size of the range
+                yield return new object[]
+                {
+                    "SUMIF(A1:B3,\">0\",Other!D5)",
+                    new[]
+                    {
+                        new SheetArea("Sheet", Area.Parse("A1:B3")),
+                        new SheetArea("Other", Area.Parse("D5:E7")),
+                    }
+                };
+
+                // SUMIF never makes the sum range smaller
+                yield return new object[]
+                {
+                    "SUMIF(A1:A2,C1,D1:E5)",
+                    new[]
+                    {
+                        new SheetArea("Sheet", Area.Parse("A1:A2")),
+                        new SheetArea("Sheet", Area.Parse("C1")),
+                        new SheetArea("Sheet", Area.Parse("D1:E5")),
+                    }
+                };
+
+                // SUMIF clamps the resized sum range to the sheet
+                yield return new object[]
+                {
+                    "SUMIF(A1:A10,1,B1048570)",
+                    new[]
+                    {
+                        new SheetArea("Sheet", Area.Parse("A1:A10")),
+                        new SheetArea("Sheet", Area.Parse("B1048570:B1048576")),
                     }
                 };
 
