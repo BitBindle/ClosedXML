@@ -776,8 +776,9 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr("WEEKDAY(1, 10)"));
             Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr("WEEKDAY(1, 18)"));
 
-            // Empty flag is 0, not the default 1
+            // Empty flag or blank cell is 0, not the default 1
             Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr("WEEKDAY(1,)"));
+            Assert.AreEqual(XLError.NumberInvalid, ws.Evaluate("WEEKDAY(1,B1)"));
 
             // Error is propagated
             Assert.AreEqual(XLError.NoValueAvailable, XLWorkbook.EvaluateExpr("WEEKDAY(#N/A)"));
