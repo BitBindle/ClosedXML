@@ -1111,9 +1111,7 @@ namespace ClosedXML.Excel
         public void RecalculateAllFormulas()
         {
             ThrowIfDisposed();
-            foreach (var sheet in WorksheetsInternal)
-                sheet.Internals.CellsCollection.FormulaSlice.MarkDirty(Area.Full);
-
+            MarkAllFormulasDirty();
             CalcEngine.Recalculate(this, null);
         }
 
@@ -1124,10 +1122,14 @@ namespace ClosedXML.Excel
             if (failed is null)
                 throw new ArgumentNullException(nameof(failed));
 
+            MarkAllFormulasDirty();
+            CalcEngine.Recalculate(this, null, failed);
+        }
+
+        private void MarkAllFormulasDirty()
+        {
             foreach (var sheet in WorksheetsInternal)
                 sheet.Internals.CellsCollection.FormulaSlice.MarkDirty(Area.Full);
-
-            CalcEngine.Recalculate(this, null, failed);
         }
 
         private static XLCalcEngine _calcEngineExpr;

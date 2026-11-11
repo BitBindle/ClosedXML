@@ -59,7 +59,11 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             ws.Cell("A1").FormulaA1 = "A2";
             ws.Cell("A2").FormulaA1 = "A1";
             ws.Cell("B1").FormulaA1 = "1+1";
-            Assert.Throws<InvalidOperationException>(() => wb.RecalculateAllFormulas());
+
+            // The chain is reset after the exception, so each recalculation starts again at A1.
+            const string message = "Formula in a cell S!A1 is part of a cycle.";
+            Assert.That(() => wb.RecalculateAllFormulas(), Throws.InvalidOperationException.With.Message.EqualTo(message));
+            Assert.That(() => wb.RecalculateAllFormulas(), Throws.InvalidOperationException.With.Message.EqualTo(message));
 
             var failed = new List<IXLCell>();
             wb.RecalculateAllFormulas(failed);
@@ -88,6 +92,21 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(Blank.Value, ws.Cell("A1").CachedValue);
             Assert.AreEqual(1, ws.Cell("B1").Value); // Calculated with the kept value of A1
             Assert.AreEqual(2, ws.Cell("C1").Value);
+        }
+
+        [Test]
+        public void Recalculation_with_failed_cells_continues_after_memory_limit()
+        {
+            using var wb = new XLWorkbook(new LoadOptions { MaxCalculationMemoryBytes = 100 });
+            var ws = wb.AddWorksheet("S");
+            ws.Cell("A1").FormulaA1 = "SUM(ROW(A1:A10000)*1)";
+            ws.Cell("B1").FormulaA1 = "1+1";
+
+            var failed = new List<IXLCell>();
+            wb.RecalculateAllFormulas(failed);
+
+            CollectionAssert.AreEqual(new[] { "S!A1" }, failed.Select(c => c.Address.ToString(XLReferenceStyle.A1, true)));
+            Assert.AreEqual(2, ws.Cell("B1").Value);
         }
 
         [Test]

@@ -234,9 +234,10 @@ namespace ClosedXML.Excel
         /// </summary>
         /// <remarks>
         /// <para>
-        /// A cell fails when its formula is part of a cycle, can't be parsed or throws an exception during
-        /// evaluation (e.g. an unsupported feature). A failed cell keeps its previous value and is added to
-        /// <paramref name="failed"/>.
+        /// A cell fails when its formula is part of a cycle, can't be parsed, exceeds the calculation memory
+        /// limit or throws an exception during evaluation (e.g. an unsupported feature). A failed cell keeps its
+        /// previous value and is added to <paramref name="failed"/>. The failed cell is marked as calculated, so
+        /// reading its value returns the kept value until the cell is marked dirty again.
         /// </para>
         /// <para>
         /// A formula that depends on a failed cell is calculated with the kept value of the failed cell. For
@@ -245,6 +246,7 @@ namespace ClosedXML.Excel
         /// <para>A cancellation of the calculation still throws.</para>
         /// </remarks>
         /// <param name="failed">A collection the cells that failed are added to.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="failed"/> is <c>null</c>.</exception>
         void RecalculateAllFormulas(ICollection<IXLCell> failed);
 
         /// <summary>

@@ -223,7 +223,7 @@ namespace ClosedXML.Excel.CalcEngine
                         {
                             _chain.MoveToCurrent(ex.Point);
                         }
-                        catch (Exception ex) when (failed is not null && ex is not OperationCanceledException)
+                        catch (Exception ex) when (failed is not null && ex is not (OperationCanceledException or OutOfMemoryException))
                         {
                             AddFailedCell(failed, cellFormula, sheetInfo.Sheet, current.Point);
                             break;
