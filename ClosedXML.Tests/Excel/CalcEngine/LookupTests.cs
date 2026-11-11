@@ -667,16 +667,39 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         }
 
         [Test]
-        public void Indirect_refuses_text_that_is_too_long_or_too_nested()
+        public void Indirect_refuses_text_longer_than_255_characters()
+        {
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet("S");
+            sheet.Cell("A1").Value = 5;
+            var name253 = new string('n', 253);
+            var name254 = new string('n', 254);
+            sheet.DefinedNames.Add(name253, "S!$A$1");
+            sheet.DefinedNames.Add(name254, "S!$A$1");
+
+            // Both names are valid, only the length of the text is different.
+            Assert.AreEqual(5, sheet.Evaluate($"S!{name254}"));
+            Assert.AreEqual(5, sheet.Evaluate($"INDIRECT(\"S!{name253}\")"));
+            Assert.AreEqual(XLError.CellReference, sheet.Evaluate($"INDIRECT(\"S!{name254}\")"));
+        }
+
+        [Test]
+        public void Indirect_in_name_formula_with_r1c1_text()
         {
             using var wb = new XLWorkbook();
             var sheet = wb.AddWorksheet();
-            sheet.Cell("A1").Value = 5;
+            sheet.Cell("B2").Value = 7;
+            wb.DefinedNames.Add("AbsName", "INDIRECT(\"R2C2\",FALSE)");
+            wb.DefinedNames.Add("RelName", "INDIRECT(\"R[1]C[1]\",FALSE)");
+            sheet.Cell("A1").FormulaA1 = "AbsName";
+            sheet.Cell("A2").FormulaA1 = "RelName";
+            sheet.Cell("A3").FormulaA1 = "B2*2";
 
-            Assert.AreEqual(5, sheet.Evaluate("INDIRECT(\"A1\"&REPT(\" \",253))"));
-            Assert.AreEqual(XLError.CellReference, sheet.Evaluate("INDIRECT(\"A1\"&REPT(\" \",254))"));
-            Assert.AreEqual(XLError.CellReference, sheet.Evaluate("INDIRECT(REPT(\"(\",100)&\"A1\"&REPT(\")\",100))"));
-            Assert.AreEqual(XLError.CellReference, sheet.Evaluate("INDIRECT(REPT(\"-\",65)&\"A1\")"));
+            Assert.AreEqual(7, sheet.Cell("A1").Value);
+
+            // A name formula has no cell, so a relative R1C1 text has no anchor.
+            Assert.AreEqual(XLError.CellReference, sheet.Cell("A2").Value);
+            Assert.AreEqual(14, sheet.Cell("A3").Value);
         }
 
         [Test]
@@ -710,6 +733,26 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             // The formula doesn't refer to A1 directly, it must be dirty anyway.
             target.Value = 2;
             Assert.AreEqual(2, cell.Value);
+        }
+
+        [Test]
+        public void Edit_with_many_indirect_formulas_is_fast()
+        {
+            // Each INDIRECT formula depends on the full sheet, i.e. also on the other INDIRECT
+            // formulas. Without a check of visited areas, one edit took quadratic time (seconds).
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet();
+            const int count = 10000;
+            for (var row = 1; row <= count; row++)
+                sheet.Cell(row, 2).FormulaA1 = $"INDIRECT(\"A{row}\")";
+            wb.RecalculateAllFormulas();
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            sheet.Cell("A1").Value = 1;
+            stopwatch.Stop();
+
+            Assert.Less(stopwatch.ElapsedMilliseconds, 1000);
+            Assert.AreEqual(1, sheet.Cell("B1").Value);
         }
 
         [Test]
@@ -782,6 +825,8 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase("OFFSET(B6,0,16383)", XLError.CellReference)]
         [TestCase("OFFSET(1,0,0)", XLError.IncompatibleValue)]
         [TestCase("OFFSET((B6,C6),0,0)", XLError.IncompatibleValue)]
+        [TestCase("OFFSET(#REF!,0,0)", XLError.CellReference)]
+        [TestCase("OFFSET(INDIRECT(\"bad\"),0,0)", XLError.CellReference)]
         [TestCase("OFFSET(B6,#DIV/0!,0)", XLError.DivisionByZero)]
         public void Offset(string formula, object expected)
         {

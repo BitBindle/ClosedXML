@@ -168,6 +168,7 @@ namespace ClosedXML.Excel.CalcEngine
             // formulas long, attacker could supply malicious excel with recursion
             // leading to stack overflow => use queue even with extra allocation cost.
             var queue = new Queue<SheetArea>();
+            var visited = new HashSet<AreaDependents>();
             queue.Enqueue(dirtyArea);
             while (queue.Count > 0)
             {
@@ -175,6 +176,11 @@ namespace ClosedXML.Excel.CalcEngine
                 var sheetTree = _sheetTrees[affectedArea.Name];
                 foreach (var area in sheetTree.FindDependentsAreas(affectedArea.Area))
                 {
+                    // Large areas (e.g. a full sheet of INDIRECT/OFFSET) are found again
+                    // for each dirty formula, so process each area only once.
+                    if (!visited.Add(area))
+                        continue;
+
                     foreach (var dependent in area.Dependents)
                     {
                         // Ensure we don't end up in an infinite cycle

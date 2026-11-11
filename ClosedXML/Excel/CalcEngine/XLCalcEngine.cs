@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using ClosedXML.Excel.CalcEngine.Exceptions;
+using ClosedXML.Parser;
 
 namespace ClosedXML.Excel.CalcEngine
 {
@@ -363,8 +364,17 @@ namespace ClosedXML.Excel.CalcEngine
                         return XLError.CellReference;
                 }
 
-                var anchor = isA1 ? default : ctx.FormulaPoint;
-                return new Reference(new XLReference(referenceNode.ReferenceArea).ToRangeAddress(sheet, anchor));
+                var area = referenceNode.ReferenceArea;
+                var isRelative = !isA1 && (
+                    area.First.RowType == ReferenceAxisType.Relative || area.First.ColumnType == ReferenceAxisType.Relative ||
+                    area.Second.RowType == ReferenceAxisType.Relative || area.Second.ColumnType == ReferenceAxisType.Relative);
+
+                // A relative R1C1 reference needs a formula cell, but a name formula has none.
+                if (isRelative && !ctx.HasFormulaAddress)
+                    return XLError.CellReference;
+
+                var anchor = isRelative ? ctx.FormulaPoint : default;
+                return new Reference(new XLReference(area).ToRangeAddress(sheet, anchor));
             }
 
             if (root is not (NameNode or StructuredReferenceNode))

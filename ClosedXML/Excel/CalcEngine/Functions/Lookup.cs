@@ -269,9 +269,9 @@ namespace ClosedXML.Excel.CalcEngine.Functions
 
         private static AnyValue Indirect(CalcContext ctx, string refText, bool a1)
         {
-            // The text is parsed in the stack of the formula. A long or deeply nested
-            // text could overflow the stack, so refuse it before the parsing.
-            if (refText.Length > 255 || refText.Count(static c => c is '(' or '{' or '+' or '-' or '@') > 64)
+            // Excel refuses a text longer than 255 characters. The limit also keeps
+            // the parsing, which runs in the stack of the formula, small.
+            if (refText.Length > 255)
                 return XLError.CellReference;
 
             return ctx.CalcEngine.EvaluateReferenceText(refText, a1, ctx);
@@ -487,7 +487,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
         private static AnyValue Offset(CalcContext ctx, AnyValue reference, double rows, double columns, double? height, double? width)
         {
             if (!reference.TryPickArea(out var area, out var error))
-                return error == XLError.CellReference ? XLError.IncompatibleValue : error;
+                return reference.IsReference ? XLError.IncompatibleValue : error;
 
             var heightCells = (int)Math.Truncate(height ?? area.RowSpan);
             var widthCells = (int)Math.Truncate(width ?? area.ColumnSpan);
