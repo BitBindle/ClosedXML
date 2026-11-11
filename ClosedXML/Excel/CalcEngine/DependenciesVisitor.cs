@@ -259,9 +259,16 @@ namespace ClosedXML.Excel.CalcEngine
                 if (prefix.File is not null)
                     return null;
 
-                // 3D references are not supported yet, so don't propagate anything.
-                if (prefix.FirstSheet is not null || prefix.LastSheet is not null)
-                    return null;
+                // 3D reference depends on the area in each sheet.
+                if (prefix.FirstSheet is not null && prefix.LastSheet is not null)
+                {
+                    var sheets = prefix.GetWorksheets(context.Workbook);
+                    if (sheets is null)
+                        return null;
+
+                    var area = node.ReferenceArea.ToArea(context.FormulaArea.Area.FirstPoint);
+                    return sheets.Select(sheet => new SheetArea(sheet.Name, area)).ToList();
+                }
 
                 sheetName = prefix.Sheet ?? throw new InvalidOperationException("Prefix doesn't contain sheet.");
             }
