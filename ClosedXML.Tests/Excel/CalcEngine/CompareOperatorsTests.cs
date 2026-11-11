@@ -153,6 +153,20 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(true, Evaluate(formula));
         }
 
+        [TestCase("0.1+0.2=0.3", true)]
+        [TestCase("0.1+0.2<>0.3", false)]
+        [TestCase("0.1+0.2>0.3", false)]
+        [TestCase("0.3<0.1+0.2", false)]
+        [TestCase("0.1+0.2<=0.3", true)]
+        [TestCase("0.1+0.2>=0.3", true)]
+        [TestCase("-0.1-0.2=-0.3", true)]
+        [TestCase("0.3=0.30000000000001", false)]
+        [TestCase("1E-17>0", true)]
+        public void Comparison_NumbersAreComparedAt15SignificantDigits(string formula, bool expectedResult)
+        {
+            Assert.AreEqual(expectedResult, Evaluate(formula));
+        }
+
         private static XLCellValue Evaluate(string formula)
         {
             using var wb = new XLWorkbook();
