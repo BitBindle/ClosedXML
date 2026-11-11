@@ -1,5 +1,6 @@
 using ClosedXML.Excel.CalcEngine.Functions;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using ClosedXML.Excel.CalcEngine.Exceptions;
@@ -143,13 +144,20 @@ namespace ClosedXML.Excel.CalcEngine
         /// <summary>
         /// Recalculate a workbook or a sheet.
         /// </summary>
-        internal void Recalculate(XLWorkbook wb, string? recalculateSheetName)
+        /// <param name="wb">The workbook.</param>
+        /// <param name="recalculateSheetName">If set, only the formulas of this sheet are recalculated.</param>
+        /// <param name="failed">
+        /// If <c>null</c>, a cell that fails stops the recalculation with an exception. Otherwise a cell that is
+        /// part of a cycle or whose formula throws keeps its value and is added to this collection. A cancellation
+        /// still stops the recalculation.
+        /// </param>
+        internal void Recalculate(XLWorkbook wb, string? recalculateSheetName, ICollection<IXLCell>? failed = null)
         {
             // Lazy, so initialize chain from wb, if it is empty
             if (_chain is null || _dependencyTree is null)
             {
                 _chain = XLCalculationChain.CreateFrom(wb);
-                _dependencyTree = DependencyTree.CreateFrom(wb);
+                _dependencyTree = DependencyTree.CreateFrom(wb, skipUnparsable: failed is not null);
             }
 
             var sheetMap = wb.WorksheetsInternal
@@ -158,64 +166,85 @@ namespace ClosedXML.Excel.CalcEngine
                     sheet => (sheet, sheet.Internals.CellsCollection.ValueSlice, sheet.Internals.CellsCollection.FormulaSlice),
                     XLHelper.SheetComparer);
 
-            // Each outer loop moves chain one cell ahead.
-            while (_chain.MoveAhead())
+            try
             {
-                // Inner loop that pushes supporting formulas ahead of current.
-                // It ends when a cell has been calculated and thus chain can move ahead.
-                while (true)
+                // Each outer loop moves chain one cell ahead.
+                while (_chain.MoveAhead())
                 {
-                    var current = _chain.Current;
-                    var sheetName = current.SheetName;
-
-                    // Skip dirty cells from sheets that are not being recalculated
-                    if (recalculateSheetName is not null && !XLHelper.SheetComparer.Equals(sheetName, recalculateSheetName))
+                    // Inner loop that pushes supporting formulas ahead of current.
+                    // It ends when a cell has been calculated and thus chain can move ahead.
+                    while (true)
                     {
-                        // Even though cell is dirty, it's in the ignored sheet and
-                        // thus chain can move ahead.
-                        break;
-                    }
+                        var current = _chain.Current;
+                        var sheetName = current.SheetName;
 
-                    if (!sheetMap.TryGetValue(sheetName, out var sheetInfo))
-                    {
-                        throw new InvalidOperationException($"Sheet of a calc chain cell {current} doesn't exist in the workbook.");
-                    }
+                        // Skip dirty cells from sheets that are not being recalculated
+                        if (recalculateSheetName is not null && !XLHelper.SheetComparer.Equals(sheetName, recalculateSheetName))
+                        {
+                            // Even though cell is dirty, it's in the ignored sheet and
+                            // thus chain can move ahead.
+                            break;
+                        }
 
-                    if (_chain.IsCurrentInCycle)
-                    {
-                        throw new InvalidOperationException($"Formula in a cell {current} is part of a cycle.");
-                    }
+                        if (!sheetMap.TryGetValue(sheetName, out var sheetInfo))
+                        {
+                            throw new InvalidOperationException($"Sheet of a calc chain cell {current} doesn't exist in the workbook.");
+                        }
 
-                    var cellFormula = sheetInfo.FormulaSlice.Get(current.Point);
-                    if (cellFormula is null)
-                    {
-                        throw new InvalidOperationException($"Calculation chain contains a {current}, but the cell doesn't contain a formula.");
-                    }
+                        var cellFormula = sheetInfo.FormulaSlice.Get(current.Point);
+                        if (cellFormula is null)
+                        {
+                            throw new InvalidOperationException($"Calculation chain contains a {current}, but the cell doesn't contain a formula.");
+                        }
 
-                    if (!cellFormula.IsDirty)
-                        break;
+                        if (_chain.IsCurrentInCycle)
+                        {
+                            if (failed is null)
+                                throw new InvalidOperationException($"Formula in a cell {current} is part of a cycle.");
 
-                    try
-                    {
-                        ApplyFormula(cellFormula, current.Point, sheetInfo.Sheet, sheetInfo.ValueSlice,
-                            recalculateSheetName);
-                        cellFormula.IsDirty = false;
+                            AddFailedCell(failed, cellFormula, sheetInfo.Sheet, current.Point);
+                            break;
+                        }
 
-                        // Break out of the inner loop, a dirty cell has been
-                        // calculated and thus chain can move ahead.
-                        break;
-                    }
-                    catch (GettingDataException ex)
-                    {
-                        _chain.MoveToCurrent(ex.Point);
+                        if (!cellFormula.IsDirty)
+                            break;
+
+                        try
+                        {
+                            ApplyFormula(cellFormula, current.Point, sheetInfo.Sheet, sheetInfo.ValueSlice,
+                                recalculateSheetName);
+                            cellFormula.IsDirty = false;
+
+                            // Break out of the inner loop, a dirty cell has been
+                            // calculated and thus chain can move ahead.
+                            break;
+                        }
+                        catch (GettingDataException ex)
+                        {
+                            _chain.MoveToCurrent(ex.Point);
+                        }
+                        catch (Exception ex) when (failed is not null && ex is not OperationCanceledException)
+                        {
+                            AddFailedCell(failed, cellFormula, sheetInfo.Sheet, current.Point);
+                            break;
+                        }
                     }
                 }
             }
+            finally
+            {
+                // Super important to clean up the chain for next recalculation.
+                // Chain contains shared data and not cleaning it would cause hard
+                // to diagnose issues.
+                _chain.Reset();
+            }
+        }
 
-            // Super important to clean up the chain for next recalculation.
-            // Chain contains shared data and not cleaning it would cause hard
-            // to diagnose issues.
-            _chain.Reset();
+        private static void AddFailedCell(ICollection<IXLCell> failed, XLCellFormula formula, XLWorksheet sheet, Point point)
+        {
+            // The cell keeps its value. Its dependents use that value, because the cell is no longer dirty.
+            formula.IsDirty = false;
+            failed.Add(sheet.Cell(point.Row, point.Column));
         }
 
         private void ApplyFormula(XLCellFormula formula, Point appliedPoint, XLWorksheet sheet, ValueSlice valueSlice, string? recalculateSheetName)
