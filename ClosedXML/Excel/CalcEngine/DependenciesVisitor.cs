@@ -232,6 +232,32 @@ namespace ClosedXML.Excel.CalcEngine
                 return parametersReference;
             }
 
+            if (XLHelper.FunctionComparer.Equals(node.Name, "SUMIF") && node.Parameters.Count == 3)
+            {
+                // SUMIF reads the sum range from its first cell in the size of the range,
+                // e.g. SUMIF(A1:A3,">0",B1) reads B1:B3. Add the resized sum range.
+                var rangeAreas = node.Parameters[0].Accept(context, this);
+                var criteriaAreas = node.Parameters[1].Accept(context, this);
+                var sumAreas = node.Parameters[2].Accept(context, this);
+                if (rangeAreas is not null)
+                    context.AddAreas(rangeAreas);
+
+                if (criteriaAreas is not null)
+                    context.AddAreas(criteriaAreas);
+
+                if (sumAreas is not null)
+                {
+                    // Range operator across sheets can return an empty list.
+                    var height = rangeAreas?.Select(x => x.Area.Height).DefaultIfEmpty(1).Max() ?? 1;
+                    var width = rangeAreas?.Select(x => x.Area.Width).DefaultIfEmpty(1).Max() ?? 1;
+                    context.AddAreas(sumAreas.Select(x => new SheetArea(x.Name, x.Area
+                        .ExtendBelow(Math.Max(0, height - x.Area.Height))
+                        .ExtendRight(Math.Max(0, width - x.Area.Width)))).ToList());
+                }
+
+                return null;
+            }
+
             // All other functions can have references as arguments, but not as an output value.
             foreach (var parameterNode in node.Parameters)
             {
