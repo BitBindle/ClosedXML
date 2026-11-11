@@ -25,10 +25,10 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             ce.RegisterFunction("HLOOKUP", 3, 4, AdaptLastOptional(Hlookup, true), FunctionFlags.Range, AllowRange.Only, 1); // Looks in the top row of an array and returns the value of the indicated cell
             ce.RegisterFunction("HYPERLINK", 1, 2, Adapt(Hyperlink), FunctionFlags.Scalar | FunctionFlags.SideEffect); // Creates a shortcut or jump that opens a document stored on a network server, an intranet, or the Internet
             ce.RegisterFunction("INDEX", 2, 4, AdaptIndex(Index), FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.Only, 0); // Uses an index to choose a value from a reference or array
-            //ce.RegisterFunction("INDIRECT", , Indirect); // Returns a reference indicated by a text value
+            ce.RegisterFunction("INDIRECT", 1, 2, AdaptLastOptional(Indirect, true), FunctionFlags.Scalar | FunctionFlags.Volatile); // Returns a reference indicated by a text value
             ce.RegisterFunction("LOOKUP", 2, 3, AdaptLastOptional(LookupFunction), FunctionFlags.Range, AllowRange.Except, 0); // Looks up values in a vector or array
             ce.RegisterFunction("MATCH", 2, 3, AdaptMatch(Match), FunctionFlags.Range, AllowRange.Only, 1); // Looks up values in a reference or array
-            //ce.RegisterFunction("OFFSET", , Offset); // Returns a reference offset from a given reference
+            ce.RegisterFunction("OFFSET", 3, 5, AdaptOffset(Offset), FunctionFlags.Range | FunctionFlags.ReturnsArray | FunctionFlags.Volatile, AllowRange.Only, 0); // Returns a reference offset from a given reference
             ce.RegisterFunction("ROW", 0, 1, Row, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Returns the row number of a reference
             ce.RegisterFunction("ROWS", 1, 1, Adapt(Rows), FunctionFlags.Range, AllowRange.All); // Returns the number of rows in a reference
             //ce.RegisterFunction("RTD", , Rtd); // Retrieves real-time data from a program that supports COM automation
@@ -267,6 +267,16 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             }
         }
 
+        private static AnyValue Indirect(CalcContext ctx, string refText, bool a1)
+        {
+            // The text is parsed in the stack of the formula. A long or deeply nested
+            // text could overflow the stack, so refuse it before the parsing.
+            if (refText.Length > 255 || refText.Count(static c => c is '(' or '{' or '+' or '-' or '@') > 64)
+                return XLError.CellReference;
+
+            return ctx.CalcEngine.EvaluateReferenceText(refText, a1, ctx);
+        }
+
         private static AnyValue LookupFunction(CalcContext ctx, ScalarValue lookupValue, AnyValue lookupValues, AnyValue? resultValues)
         {
             if (lookupValue.IsError)
@@ -472,6 +482,31 @@ namespace ClosedXML.Excel.CalcEngine.Functions
                 // There is nothing left in the higher half. Target must be in the lower half.
                 return (initial, -1);
             }
+        }
+
+        private static AnyValue Offset(CalcContext ctx, AnyValue reference, double rows, double columns, double? height, double? width)
+        {
+            if (!reference.TryPickArea(out var area, out var error))
+                return error == XLError.CellReference ? XLError.IncompatibleValue : error;
+
+            var heightCells = (int)Math.Truncate(height ?? area.RowSpan);
+            var widthCells = (int)Math.Truncate(width ?? area.ColumnSpan);
+            if (heightCells == 0 || widthCells == 0)
+                return XLError.CellReference;
+
+            // Negative height or width extends the reference up or left.
+            var firstRow = area.FirstAddress.RowNumber + (int)Math.Truncate(rows);
+            var firstColumn = area.FirstAddress.ColumnNumber + (int)Math.Truncate(columns);
+            var lastRow = firstRow + heightCells - Math.Sign(heightCells);
+            var lastColumn = firstColumn + widthCells - Math.Sign(widthCells);
+            var top = Math.Min(firstRow, lastRow);
+            var bottom = Math.Max(firstRow, lastRow);
+            var left = Math.Min(firstColumn, lastColumn);
+            var right = Math.Max(firstColumn, lastColumn);
+            if (top < XLHelper.MinRowNumber || left < XLHelper.MinColumnNumber || bottom > XLHelper.MaxRowNumber || right > XLHelper.MaxColumnNumber)
+                return XLError.CellReference;
+
+            return new Reference(XLRangeAddress.FromSheetRange(area.Worksheet, new Area(top, left, bottom, right)));
         }
 
         private static AnyValue Row(CalcContext ctx, Span<AnyValue> p)

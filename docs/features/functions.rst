@@ -571,7 +571,7 @@ Standard functions
      - **YES**
 
    * - INDIRECT
-     - No
+     - **YES**
 
    * - LOOKUP
      - **YES**
@@ -580,7 +580,7 @@ Standard functions
      - **YES**
 
    * - OFFSET
-     - No
+     - **YES**
 
    * - ROW
      - **YES**

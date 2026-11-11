@@ -619,6 +619,100 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         }
 
         [Test]
+        public void Indirect()
+        {
+            // Example from the documentation
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet("Data");
+            sheet.Cell("A2").InsertData(new object[] { "B2", "B3", "George", 5 });
+            sheet.Cell("B2").InsertData(new[] { 1.333, 45, 10, 62 });
+            wb.DefinedNames.Add("George", "Data!$B$4");
+
+            Assert.AreEqual(1.333, sheet.Evaluate("INDIRECT(A2)"));
+            Assert.AreEqual(45, sheet.Evaluate("INDIRECT(A3)"));
+            Assert.AreEqual(10, sheet.Evaluate("INDIRECT(A4)"));
+            Assert.AreEqual(62, sheet.Evaluate("INDIRECT(\"B\"&A5)"));
+        }
+
+        [TestCase("INDIRECT(\"B3\")", 45)]
+        [TestCase("INDIRECT(\"$B$3\")", 45)]
+        [TestCase("SUM(INDIRECT(\"B2:B3\"))", 46)]
+        [TestCase("INDIRECT(\"'Other Sheet'!B3\")", 77)]
+        [TestCase("INDIRECT(\"R3C2\",FALSE)", 45)]
+        [TestCase("INDIRECT(\"R[-1]C[-1]\",FALSE)", 1)]
+        [TestCase("SUM(INDIRECT(\"Tbl[Amount]\"))", 7)]
+        [TestCase("INDIRECT(\"Range\")", 45)]
+        [TestCase("INDIRECT(\"Number\")", XLError.CellReference)]
+        [TestCase("INDIRECT(\"Missing\")", XLError.CellReference)]
+        [TestCase("INDIRECT(\"1+1\")", XLError.CellReference)]
+        [TestCase("INDIRECT(\"\")", XLError.CellReference)]
+        [TestCase("INDIRECT(\"%%%\")", XLError.CellReference)]
+        [TestCase("INDIRECT(\"B3\",FALSE)", XLError.CellReference)]
+        [TestCase("INDIRECT(\"Missing!A1\")", XLError.CellReference)]
+        [TestCase("INDIRECT(\"[1]Data!A1\")", XLError.CellReference)]
+        [TestCase("INDIRECT(\"INDIRECT(\"\"B3\"\")\")", XLError.CellReference)]
+        [TestCase("INDIRECT(#DIV/0!)", XLError.DivisionByZero)]
+        public void Indirect_reference_text(string formula, object expected)
+        {
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet("Data");
+            sheet.Cell("B2").Value = 1;
+            sheet.Cell("B3").Value = 45;
+            wb.AddWorksheet("Other Sheet").Cell("B3").Value = 77;
+            sheet.Cell("E1").InsertTable(new[] { new { Amount = 3 }, new { Amount = 4 } }, "Tbl");
+            wb.DefinedNames.Add("Range", "Data!$B$3");
+            wb.DefinedNames.Add("Number", "5");
+
+            Assert.AreEqual(expected, sheet.Evaluate(formula, "C3"));
+        }
+
+        [Test]
+        public void Indirect_refuses_text_that_is_too_long_or_too_nested()
+        {
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet();
+            sheet.Cell("A1").Value = 5;
+
+            Assert.AreEqual(5, sheet.Evaluate("INDIRECT(\"A1\"&REPT(\" \",253))"));
+            Assert.AreEqual(XLError.CellReference, sheet.Evaluate("INDIRECT(\"A1\"&REPT(\" \",254))"));
+            Assert.AreEqual(XLError.CellReference, sheet.Evaluate("INDIRECT(REPT(\"(\",100)&\"A1\"&REPT(\")\",100))"));
+            Assert.AreEqual(XLError.CellReference, sheet.Evaluate("INDIRECT(REPT(\"-\",65)&\"A1\")"));
+        }
+
+        [Test]
+        public void Indirect_of_name_that_refers_to_itself_is_a_cycle()
+        {
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet();
+            wb.DefinedNames.Add("Loop", "INDIRECT(\"Loop\")");
+            sheet.Cell("A1").FormulaA1 = "Loop";
+
+            Assert.Throws<InvalidOperationException>(() => _ = sheet.Cell("A1").Value);
+        }
+
+        [TestCase("INDIRECT(\"A1\")", "Sheet")]
+        [TestCase("INDIRECT(\"Other!A1\")", "Other")]
+        [TestCase("OFFSET(B2,-1,-1)", "Sheet")]
+        [TestCase("OFFSET(Other!B2,-1,-1)", "Other")]
+        public void Indirect_and_offset_are_recalculated_when_target_cell_changes(string formula, string targetSheet)
+        {
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet("Sheet");
+            var target = wb.AddWorksheet("Other").Cell("A1");
+            if (targetSheet == "Sheet")
+                target = sheet.Cell("A1");
+
+            target.Value = 1;
+            var cell = sheet.Cell("C3");
+            cell.FormulaA1 = formula;
+            Assert.AreEqual(1, cell.Value);
+
+            // The formula doesn't refer to A1 directly, it must be dirty anyway.
+            target.Value = 2;
+            Assert.AreEqual(2, cell.Value);
+        }
+
+        [Test]
         public void Lookup_vector_form()
         {
             // Example from the documentation
@@ -671,6 +765,36 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             var sheet = wb.AddWorksheet();
             sheet.Cell("A1").Value = 5;
             Assert.AreEqual(1, sheet.Evaluate("MATCH(5, A1)"));
+        }
+
+        [TestCase("OFFSET(D3,3,-2,1,1)", 6)]
+        [TestCase("SUM(OFFSET(D3:F5,3,-2,3,3))", 63)]
+        [TestCase("OFFSET(D3,-3,-3)", XLError.CellReference)]
+        [TestCase("OFFSET(D3,2.9,-1.9)", 13)]
+        [TestCase("SUM(OFFSET(B6,0,0,2))", 13)]
+        [TestCase("SUM(OFFSET(B6,0,0,,2))", 11)]
+        [TestCase("SUM(OFFSET(B6:C7,0,0,,))", 26)]
+        [TestCase("SUM(OFFSET(C7,0,0,-2,-2))", 26)]
+        [TestCase("OFFSET(B6,0,0,0)", XLError.CellReference)]
+        [TestCase("OFFSET(B6,0,0,1,0)", XLError.CellReference)]
+        [TestCase("OFFSET(B6,1048571,0)", XLError.CellReference)]
+        [TestCase("OFFSET(B6,0,0,1048572)", XLError.CellReference)]
+        [TestCase("OFFSET(B6,0,16383)", XLError.CellReference)]
+        [TestCase("OFFSET(1,0,0)", XLError.IncompatibleValue)]
+        [TestCase("OFFSET((B6,C6),0,0)", XLError.IncompatibleValue)]
+        [TestCase("OFFSET(B6,#DIV/0!,0)", XLError.DivisionByZero)]
+        public void Offset(string formula, object expected)
+        {
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet();
+            var data = new[,] { { 6, 5, 4 }, { 7, 8, 9 }, { 10, 11, 3 } };
+            for (var row = 0; row < 3; ++row)
+                for (var column = 0; column < 3; ++column)
+                    sheet.Cell(6 + row, 2 + column).Value = data[row, column];
+
+            sheet.Cell("C5").Value = 13;
+
+            Assert.AreEqual(expected, sheet.Evaluate(formula, "A1"));
         }
 
         [Test]

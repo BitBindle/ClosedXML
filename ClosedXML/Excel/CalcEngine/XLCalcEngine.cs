@@ -1,5 +1,6 @@
 using ClosedXML.Excel.CalcEngine.Functions;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using ClosedXML.Excel.CalcEngine.Exceptions;
@@ -21,6 +22,7 @@ namespace ClosedXML.Excel.CalcEngine
         private readonly CalculationVisitor _visitor;
         private DependencyTree? _dependencyTree;
         private XLCalculationChain? _chain;
+        private readonly HashSet<string> _evaluatedNames = new();
 
         public XLCalcEngine(CultureInfo culture)
         {
@@ -318,8 +320,58 @@ namespace ClosedXML.Excel.CalcEngine
 
         internal AnyValue EvaluateName(string nameFormula, XLWorksheet ws)
         {
-            var ctx = new CalcContext(this, _culture, ws.Workbook, ws, null);
-            return EvaluateFormula(nameFormula, ctx);
+            // A name can refer to itself, e.g. through INDIRECT. The evaluation of a name formula
+            // always gives same result, so a repeated formula is a cycle that would overflow the stack.
+            if (!_evaluatedNames.Add(nameFormula))
+                throw new InvalidOperationException($"Name formula '{nameFormula}' is part of a cycle.");
+
+            try
+            {
+                var ctx = new CalcContext(this, _culture, ws.Workbook, ws, null);
+                return EvaluateFormula(nameFormula, ctx);
+            }
+            finally
+            {
+                _evaluatedNames.Remove(nameFormula);
+            }
+        }
+
+        /// <summary>
+        /// Evaluate a text of a reference, e.g. for <c>INDIRECT</c>. The text can be a reference
+        /// in A1 or R1C1 style, a structured reference or a name. Anything that isn't
+        /// a reference is <c>#REF!</c>.
+        /// </summary>
+        internal AnyValue EvaluateReferenceText(string text, bool isA1, CalcContext ctx)
+        {
+            ValueNode root;
+            try
+            {
+                root = _parser.GetAst(text, isA1).AstRoot;
+            }
+            catch (ExpressionParseException)
+            {
+                return XLError.CellReference;
+            }
+
+            if (root is ReferenceNode referenceNode)
+            {
+                XLWorksheet? sheet = null;
+                var prefix = referenceNode.Prefix;
+                if (prefix is not null)
+                {
+                    if (prefix.File is not null || prefix.Sheet is null || !ctx.Workbook.TryGetWorksheet(prefix.Sheet, out sheet))
+                        return XLError.CellReference;
+                }
+
+                var anchor = isA1 ? default : ctx.FormulaPoint;
+                return new Reference(new XLReference(referenceNode.ReferenceArea).ToRangeAddress(sheet, anchor));
+            }
+
+            if (root is not (NameNode or StructuredReferenceNode))
+                return XLError.CellReference;
+
+            var value = root.Accept(ctx, _visitor);
+            return value.IsReference ? value : XLError.CellReference;
         }
 
         private AnyValue EvaluateFormula(string expression, CalcContext ctx)
