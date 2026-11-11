@@ -104,6 +104,111 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr("IPMT(0.1,2,1,1000)"));
         }
 
+        [TestCase("IRR(A2:A6)", -0.021244848273410961)]
+        [TestCase("IRR(A2:A7)", 0.086630948036531622)]
+        [TestCase("IRR(A2:A4,-10%)", -0.44350694133474067)]
+        public void Irr_ReferenceExamplesFromExcelDocumentations(string formula, double expectedResult)
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new object[] { "Data", -70000, 12000, 15000, 18000, 21000, 26000 });
+
+            var actual = (double)ws.Evaluate(formula);
+            Assert.AreEqual(expectedResult, actual, 1e-9);
+        }
+
+        [Test]
+        public void Irr_IgnoresTextLogicalAndBlankInReference()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new object[] { -100, "text", true, Blank.Value, 110 });
+
+            Assert.AreEqual(0.1, (double)ws.Evaluate("IRR(A1:A5)"), 1e-9);
+        }
+
+        [TestCase("IRR({100,200})")] // No negative value
+        [TestCase("IRR({-100,-200})")] // No positive value
+        public void Irr_WithoutResultReturnsNumError(string formula)
+        {
+            Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr(formula));
+        }
+
+        [Test]
+        public void Irr_PropagatesErrorInValues()
+        {
+            Assert.AreEqual(XLError.DivisionByZero, XLWorkbook.EvaluateExpr("IRR({-100,#DIV/0!,110})"));
+        }
+
+        [TestCase("NPER(0.12/12,-100,-1000,10000,1)", 59.673865674294571)]
+        [TestCase("NPER(0.12/12,-100,-1000,10000)", 60.082122853761661)]
+        [TestCase("NPER(0.12/12,-100,-1000)", -9.5785940398131613)]
+        public void Nper_ReferenceExamplesFromExcelDocumentations(string formula, double expectedResult)
+        {
+            var actual = (double)XLWorkbook.EvaluateExpr(formula);
+            Assert.AreEqual(expectedResult, actual, XLHelper.Epsilon);
+        }
+
+        [TestCase("NPER(0,-100,1000)", 10)] // Zero interest rate
+        [TestCase("NPER(0,-100,1000,500)", 15)] // Zero interest rate with future value
+        public void Nper_EdgeCases(string formula, double expectedResult)
+        {
+            var actual = (double)XLWorkbook.EvaluateExpr(formula);
+            Assert.AreEqual(expectedResult, actual, XLHelper.Epsilon);
+        }
+
+        [TestCase("NPER(0,0,1000)")] // Zero interest rate and no payment
+        [TestCase("NPER(0.1,-50,1000)")] // Payment is less than interest, logarithm of negative number
+        [TestCase("NPER(-1,-100,1000)")] // Rate less or equal -1
+        public void Nper_WithoutResultReturnsNumError(string formula)
+        {
+            Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr(formula));
+        }
+
+        [TestCase("NPV(10%,-10000,3000,4200,6800)", 1188.4434123352216)]
+        [TestCase("NPV(8%,8000,9200,10000,12000,14500)-40000", 1922.0615549323628)]
+        [TestCase("NPV(8%,8000,9200,10000,12000,14500,-9000)-40000", -3749.4650870155206)]
+        public void Npv_ReferenceExamplesFromExcelDocumentations(string formula, double expectedResult)
+        {
+            var actual = (double)XLWorkbook.EvaluateExpr(formula);
+            Assert.AreEqual(expectedResult, actual, XLHelper.Epsilon);
+        }
+
+        [Test]
+        public void Npv_ReferenceOnlyCountsNumbers()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new object[] { 110, "text", true, Blank.Value, 121 });
+
+            // Values in the reference that are not numbers are skipped and don't take a period.
+            Assert.AreEqual(200, (double)ws.Evaluate("NPV(10%,A1:A5)"), XLHelper.Epsilon);
+        }
+
+        [Test]
+        public void Npv_PropagatesErrorInReference()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = 110;
+            ws.Cell("A2").FormulaA1 = "1/0";
+
+            Assert.AreEqual(XLError.DivisionByZero, ws.Evaluate("NPV(10%,A1:A2)"));
+        }
+
+        [Test]
+        public void Npv_ScalarArgumentsAreConvertedToNumbers()
+        {
+            Assert.AreEqual(XLWorkbook.EvaluateExpr("NPV(10%,1,110)"), XLWorkbook.EvaluateExpr("NPV(10%,TRUE,\"110\")"));
+            Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr("NPV(10%,\"text\")"));
+        }
+
+        [Test]
+        public void Npv_RateMinusOneReturnsDivisionByZeroError()
+        {
+            Assert.AreEqual(XLError.DivisionByZero, XLWorkbook.EvaluateExpr("NPV(-1,100)"));
+        }
+
         [TestCase("PMT(0.08/12,10,10000)", -1037.03208935915)]
         [TestCase("PMT(0.08/12,10,10000,0,1)", -1030.16432717797)]
         public void Pmt_ReferenceExamplesFromExcelDocumentations(string formula, double expectedResult)
@@ -170,6 +275,55 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         public void Pmt_RateLessOrEqualMinusOneReturnsNumError(double rate)
         {
             Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr($"PMT({rate},1,1000,5000,1)"));
+        }
+
+        [TestCase("PV(0.08/12,12*20,500,,0)", -59777.145851187769)]
+        public void Pv_ReferenceExamplesFromExcelDocumentations(string formula, double expectedResult)
+        {
+            var actual = (double)XLWorkbook.EvaluateExpr(formula);
+            Assert.AreEqual(expectedResult, actual, XLHelper.Epsilon);
+        }
+
+        [TestCase("PV(0,10,-100)", 1000)] // Zero interest rate
+        [TestCase("PV(0,10,-100,-500)", 1500)] // Zero interest rate with future value
+        [TestCase("PV(0.1,2,0,-121)", 100)] // No payment, only future value
+        [TestCase("PV(0.1,2,-110,0,1)", 210)] // Payments at the beginning of the period
+        public void Pv_EdgeCases(string formula, double expectedResult)
+        {
+            var actual = (double)XLWorkbook.EvaluateExpr(formula);
+            Assert.AreEqual(expectedResult, actual, XLHelper.Epsilon);
+        }
+
+        [TestCase(-1)]
+        [TestCase(-2)]
+        public void Pv_RateLessOrEqualMinusOneReturnsNumError(double rate)
+        {
+            Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr($"PV({rate},2,100)"));
+        }
+
+        [TestCase("RATE(4*12,-200,8000)", 0.0077014724882333765)]
+        [TestCase("RATE(4*12,-200,8000)*12", 0.092417669858800518)]
+        public void Rate_ReferenceExamplesFromExcelDocumentations(string formula, double expectedResult)
+        {
+            var actual = (double)XLWorkbook.EvaluateExpr(formula);
+            Assert.AreEqual(expectedResult, actual, 1e-9);
+        }
+
+        [TestCase("RATE(2,0,-100,121)", 0.1)] // No payment, only future value
+        [TestCase("RATE(10,-100,1000)", 0)] // Zero interest rate
+        [TestCase("RATE(2,-110,210,0,1)", 0.1)] // Payments at the beginning of the period
+        [TestCase("RATE(2,0,-100,121,0,0.5)", 0.1)] // Different guess
+        public void Rate_EdgeCases(string formula, double expectedResult)
+        {
+            var actual = (double)XLWorkbook.EvaluateExpr(formula);
+            Assert.AreEqual(expectedResult, actual, 1e-9);
+        }
+
+        [TestCase("RATE(0,-100,1000)")] // No period
+        [TestCase("RATE(10,100,1000)")] // No solution, all cash flows are positive
+        public void Rate_WithoutResultReturnsNumError(string formula)
+        {
+            Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr(formula));
         }
     }
 }

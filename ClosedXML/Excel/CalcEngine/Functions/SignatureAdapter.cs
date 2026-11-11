@@ -477,6 +477,24 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             };
         }
 
+        public static CalcEngineFunction AdaptLastOptional(Func<CalcContext, AnyValue, double, AnyValue> f, double lastDefault)
+        {
+            return (ctx, args) =>
+            {
+                var arg0 = args[0];
+
+                var arg1 = lastDefault;
+                if (args.Length >= 2)
+                {
+                    var arg1Converted = ToNumber(args[1], ctx);
+                    if (!arg1Converted.TryPickT0(out arg1, out var err1))
+                        return err1;
+                }
+
+                return f(ctx, arg0, arg1);
+            };
+        }
+
         public static CalcEngineFunction AdaptLastOptional(Func<double, double, double, ScalarValue> f, double lastDefault)
         {
             return (ctx, args) =>
@@ -951,6 +969,21 @@ namespace ClosedXML.Excel.CalcEngine.Functions
                 }
 
                 return f(arg0, arg1, arg2, arg3, arg4Optional, arg5Optional);
+            };
+        }
+
+        public static CalcEngineFunction AdaptLastThreeOptional(Func<CalcContext, double, double, double, double, double, double, AnyValue> f, double defaultValue0, double defaultValue1, double defaultValue2)
+        {
+            return (ctx, args) =>
+            {
+                var values = new[] { 0, 0, 0, defaultValue0, defaultValue1, defaultValue2 };
+                for (var i = 0; i < args.Length; i++)
+                {
+                    if (!ToNumber(args[i], ctx).TryPickT0(out values[i], out var error))
+                        return error;
+                }
+
+                return f(ctx, values[0], values[1], values[2], values[3], values[4], values[5]);
             };
         }
 
