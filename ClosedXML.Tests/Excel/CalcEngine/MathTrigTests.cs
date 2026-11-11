@@ -1832,6 +1832,10 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase(-50.55, -2, ExpectedResult = -100.0)]
         [TestCase(31.565, 2, ExpectedResult = 31.57)]
         [TestCase(-31.565, 2, ExpectedResult = -31.57)]
+        [TestCase(1.005, 2, ExpectedResult = 1.01)] // Double is 1.00499999999999989, Excel rounds 15 significant digits
+        [TestCase(-1.005, 2, ExpectedResult = -1.01)]
+        [TestCase(14.999999999999998, -1, ExpectedResult = 20)]
+        [TestCase(-0.001, 2, ExpectedResult = 0)]
         [TestCase(1E+100, 2, ExpectedResult = 1E+100)]
         [TestCase(1.25, 0, ExpectedResult = 1)]
         [TestCase(1, -1E+100, ExpectedResult = 0)]

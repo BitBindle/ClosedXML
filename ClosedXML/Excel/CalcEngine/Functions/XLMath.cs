@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 
 namespace ClosedXML.Excel.CalcEngine.Functions
 {
@@ -106,9 +107,46 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             return hasNoFraction && isOdd;
         }
 
+        /// <summary>
+        /// Compare two numbers at 15 significant digits, like Excel. E.g. <c>0.1+0.2</c> is equal to <c>0.3</c>.
+        /// </summary>
+        public static int CompareAt15Digits(double left, double right)
+        {
+            if (left == right)
+                return 0;
+
+            return RoundTo15Digits(left).CompareTo(RoundTo15Digits(right));
+        }
+
+        private static double RoundTo15Digits(double value)
+        {
+            return double.Parse(value.ToString("G15", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+        }
+
         public static double Round(double value, double digits)
         {
             digits = Math.Truncate(digits);
+
+            // Excel rounds the number with 15 significant digits, so ROUND(1.005,2) is 1.01, although
+            // the double is 1.00499999999999989. A cast to decimal keeps 15 significant digits.
+            if (Math.Abs(value) < 1e27 && digits >= -27 && digits <= 27)
+            {
+                var number = (decimal)value;
+                decimal rounded;
+                if (digits >= 0)
+                {
+                    rounded = Math.Round(number, (int)digits, MidpointRounding.AwayFromZero);
+                }
+                else
+                {
+                    var coef = (decimal)Math.Pow(10, -digits);
+                    rounded = Math.Round(number / coef, MidpointRounding.AwayFromZero) * coef;
+                }
+
+                // Decimal keeps the sign of zero, e.g. ROUND(-0.001,2).
+                return rounded == 0 ? 0 : (double)rounded;
+            }
+
             if (digits < 0)
             {
                 var coef = Math.Pow(10, Math.Abs(digits));

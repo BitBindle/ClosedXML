@@ -558,7 +558,7 @@ namespace ClosedXML.Excel.CalcEngine
         ///     <item>Logical is always greater than any text (thus transitively greater than any number)</item>
         ///     <item>Text is always greater than any number, even if empty string</item>
         ///     <item>Logical are compared by value</item>
-        ///     <item>Numbers are compared by value</item>
+        ///     <item>Numbers are compared at 15 significant digits</item>
         ///     <item>Text is compared by through case insensitive comparison for workbook culture.</item>
         ///     <item>
         ///         If any argument is error, return error (general rule for all operators).
@@ -593,7 +593,7 @@ namespace ClosedXML.Excel.CalcEngine
                 (leftNumber, _) => right.Match<OneOf<int, XLError>, double>(leftNumber,
                         leftNumber => leftNumber.CompareTo(0.0),
                         (rightLogical, _) => -1,
-                        (rightNumber, leftNumber) => leftNumber.CompareTo(rightNumber),
+                        (rightNumber, leftNumber) => Functions.XLMath.CompareAt15Digits(leftNumber, rightNumber),
                         (rightText, _) => -1,
                         (rightError, _) => rightError),
                 (leftText, culture) => right.Match<OneOf<int, XLError>, string, CultureInfo>(leftText, culture,
