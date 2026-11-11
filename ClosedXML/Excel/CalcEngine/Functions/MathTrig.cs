@@ -1059,20 +1059,28 @@ namespace ClosedXML.Excel.CalcEngine
 
             var sum = 0.0;
             var hasPair = false;
+            XLError? yError = null;
             for (var i = 0; i < count; ++i)
             {
                 ctx.ThrowIfCancelled();
                 var x = xArray[i / xArray.Width, i % xArray.Width];
                 var y = yArray[i / yArray.Width, i % yArray.Width];
-                if (x.TryPickError(out var error) || y.TryPickError(out error))
+
+                // The first error of x has a priority over any error of y.
+                if (x.TryPickError(out var error))
                     return error;
 
-                if (x.TryPickNumber(out var xNumber) && y.TryPickNumber(out var yNumber))
+                if (y.TryPickError(out error))
+                    yError ??= error;
+                else if (x.TryPickNumber(out var xNumber) && y.TryPickNumber(out var yNumber))
                 {
                     sum += pairFunc(xNumber, yNumber);
                     hasPair = true;
                 }
             }
+
+            if (yError is not null)
+                return yError.Value;
 
             if (!hasPair)
                 return XLError.DivisionByZero;

@@ -2853,6 +2853,7 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         // Errors are propagated
         [TestCase("SUMX2MY2({1,#NULL!},{1,\"a\"})", XLError.NullValue)]
         [TestCase("SUMX2MY2({1,\"a\"},{1,#DIV/0!})", XLError.DivisionByZero)]
+        [TestCase("SUMX2MY2({1,#N/A},{#DIV/0!,1})", XLError.NoValueAvailable)] // The first error of x before any error of y
         public void SumX2MY2_SumX2PY2_SumXMY2(string formula, object expected)
         {
             using var wb = new XLWorkbook();

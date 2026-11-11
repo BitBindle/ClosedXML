@@ -859,7 +859,8 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             ws.Cell("B1").Value = "text";
             Assert.AreEqual(5, ws.Evaluate("MODE(A1:A4)"));
 
-            // Scalar value and single cell reference must be a number
+            // Scalar value and single cell reference must be a number. Excel gives #VALUE! for MODE(B9,2,D7) with
+            // B9=2 and D7 empty (cached value in Apache POI test file FormulaEvalTestData_Copy.xlsx).
             Assert.AreEqual(XLError.IncompatibleValue, ws.Evaluate("MODE(1,\"1\",2,1)"));
             Assert.AreEqual(XLError.IncompatibleValue, ws.Evaluate("MODE(1,B1,2,1)"));
             Assert.AreEqual(XLError.IncompatibleValue, ws.Evaluate("MODE(1,A3,2,1)"));
@@ -868,16 +869,16 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             AssertAnyErrorIsPropagated("MODE");
         }
 
-        [TestCase(2, 5, true, 0.124652)] // Example from specification
-        [TestCase(2, 5, false, 0.084224)] // Example from specification
-        [TestCase(2.9, 5, false, 0.084224)] // x is truncated
-        [TestCase(0, 0, false, 1)]
-        [TestCase(3, 0, true, 1)]
-        [TestCase(1000, 1000, false, 0.012614611)] // e^-mean underflows
-        [TestCase(1000, 1000, true, 0.508409367)]
-        public void Poisson(double x, double mean, bool cumulative, double expected)
+        [TestCase("POISSON(2, 5, TRUE)", 0.124652)] // Example from specification
+        [TestCase("POISSON(2, 5, FALSE)", 0.084224)] // Example from specification
+        [TestCase("POISSON(2.9, 5, FALSE)", 0.084224)] // x is truncated
+        [TestCase("POISSON(0, 0, FALSE)", 1)]
+        [TestCase("POISSON(3, 0, TRUE)", 1)]
+        [TestCase("POISSON(1000, 1000, FALSE)", 0.012614611)] // e^-mean underflows
+        [TestCase("POISSON(1000, 1000, TRUE)", 0.508409367)]
+        public void Poisson(string formula, double expected)
         {
-            var actual = (double)XLWorkbook.EvaluateExpr($"POISSON({x}, {mean}, {cumulative})");
+            var actual = (double)XLWorkbook.EvaluateExpr(formula);
             Assert.AreEqual(expected, actual, tolerance);
         }
 
