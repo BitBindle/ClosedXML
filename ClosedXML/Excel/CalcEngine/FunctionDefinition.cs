@@ -56,6 +56,13 @@ namespace ClosedXML.Excel.CalcEngine
                 return _function!(ctx, args);
             }
 
+            // Without a multi-value argument of a scalar parameter, there is nothing to calculate per item and
+            // the result can stay a reference or an array, e.g. INDEX(A1:B3,0,1).
+            if (!HasMultiValueScalarArgument(args))
+            {
+                return _function(ctx, args);
+            }
+
             // Step 1: For scalar parameters of function, determine maximum size of scalar
             // parameters from argument arrays
             var (totalRows, totalColumns) = GetScalarArgsMaxSize(args);
@@ -99,7 +106,7 @@ namespace ClosedXML.Excel.CalcEngine
                             : arg;
                     }
 
-                    var itemResult = _function(ctx, args);
+                    var itemResult = _function(ctx, itemArg);
 
                     // Even if function returns an array, only the top-left value of array is used
                     // as a result for the item, per tests with FILTERXML.
@@ -145,6 +152,19 @@ namespace ClosedXML.Excel.CalcEngine
             }
 
             return (maxRows, maxColumns);
+        }
+
+        private bool HasMultiValueScalarArgument(Span<AnyValue> args)
+        {
+            for (var i = 0; i < args.Length; ++i)
+            {
+                ref var arg = ref args[i];
+                var isMultiValue = arg.IsArray || (arg.TryPickReference(out var reference, out _) && !reference.IsSingleCell());
+                if (isMultiValue && IsParameterSingleValue(i))
+                    return true;
+            }
+
+            return false;
         }
 
         private bool IsParameterSingleValue(int paramIndex)
