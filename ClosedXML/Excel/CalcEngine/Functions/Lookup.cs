@@ -92,7 +92,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
 
             var transposedArray = new TransposedArray(array);
             var foundColumn = approximateSearchFlag
-                ? ApproximateSearch(ctx, lookupValue, transposedArray)
+                ? MatchAscending(ctx, lookupValue, transposedArray, ScalarValueComparer.SortIgnoreCase)
                 : ExactSearch(ctx, lookupValue, transposedArray);
             if (foundColumn == -1)
                 return XLError.NoValueAvailable;
@@ -245,19 +245,6 @@ namespace ClosedXML.Excel.CalcEngine.Functions
 
             return index + 1;
 
-            static int MatchAscending(CalcContext ctx, ScalarValue target, Array data, IComparer<ScalarValue> comparer)
-            {
-                var index = Bisection(ctx, target, data, comparer);
-                if (index == -1)
-                    return index;
-
-                // When there are multiple same elements, return position of the last one
-                while (index < data.Height - 1 && comparer.Compare(data[index + 1, 0], data[index, 0]) == 0)
-                    index++;
-
-                return index;
-            }
-
             static int MatchDescending(CalcContext ctx, ScalarValue target, Array data, IComparer<ScalarValue> comparer)
             {
                 // Data should be in ascending order, but Excel doesn't use bisection.
@@ -289,6 +276,19 @@ namespace ClosedXML.Excel.CalcEngine.Functions
 
                 return found;
             }
+        }
+
+        private static int MatchAscending(CalcContext ctx, ScalarValue target, Array data, IComparer<ScalarValue> comparer)
+        {
+            var index = Bisection(ctx, target, data, comparer);
+            if (index == -1)
+                return index;
+
+            // When there are multiple same elements, return position of the last one
+            while (index < data.Height - 1 && comparer.Compare(data[index + 1, 0], data[index, 0]) == 0)
+                index++;
+
+            return index;
         }
 
         /// <summary>
@@ -329,7 +329,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             for (var i = low; i >= 0; --i)
             {
                 var compare = comparer.Compare(data[i, 0], target);
-                if (compare <= 0) // data[i] <= target
+                if (data[i, 0].HaveSameType(target) && compare <= 0) // data[i] <= target
                     return i;
             }
 
@@ -359,43 +359,19 @@ namespace ClosedXML.Excel.CalcEngine.Functions
         /// <returns>Index of the first matching element or -1, if there is none.</returns>
         private static int ExactSearch(CalcContext ctx, ScalarValue target, Array data)
         {
-            var isText = target.TryPickText(out var targetText, out _);
-            var wildcard = new Wildcard(targetText ?? string.Empty);
+            var wildcard = target.TryPickText(out var targetText, out _) ? new Wildcard(targetText) : (Wildcard?)null;
             for (var i = 0; i < data.Height; ++i)
             {
                 ctx.ThrowIfCancelled();
                 var value = data[i, 0];
-                var isMatch = isText
-                    ? value.TryPickText(out var text, out _) && wildcard.Matches(text.AsSpan())
+                var isMatch = wildcard is { } pattern
+                    ? value.TryPickText(out var text, out _) && pattern.Matches(text.AsSpan())
                     : ScalarValueComparer.SortIgnoreCase.Compare(value, target) == 0;
                 if (isMatch)
                     return i;
             }
 
             return -1;
-        }
-
-        /// <summary>
-        /// Find index of the greatest value of the type of the <paramref name="target"/> that is smaller or equal
-        /// to the <paramref name="target"/>. It is the last one of a sequence of equal values.
-        /// </summary>
-        /// <returns>Index of found element or -1, if there is none.</returns>
-        private static int ApproximateSearch(CalcContext ctx, ScalarValue target, Array data)
-        {
-            var comparer = ScalarValueComparer.SortIgnoreCase;
-            var index = Bisection(ctx, target, data, comparer);
-
-            // Bisection can end at a smaller value of another type.
-            while (index >= 0 && !target.HaveSameType(data[index, 0]))
-                index--;
-
-            if (index == -1)
-                return -1;
-
-            while (index < data.Height - 1 && data[index + 1, 0].HaveSameType(target) && comparer.Compare(data[index + 1, 0], data[index, 0]) == 0)
-                index++;
-
-            return index;
         }
 
         private static AnyValue Row(CalcContext ctx, Span<AnyValue> p)
@@ -464,7 +440,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
                 return XLError.CellReference;
 
             var foundRow = approximateSearchFlag
-                ? ApproximateSearch(ctx, lookupValue, array)
+                ? MatchAscending(ctx, lookupValue, array, ScalarValueComparer.SortIgnoreCase)
                 : ExactSearch(ctx, lookupValue, array);
             if (foundRow == -1)
                 return XLError.NoValueAvailable;

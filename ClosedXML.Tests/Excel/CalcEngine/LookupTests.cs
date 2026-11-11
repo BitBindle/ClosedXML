@@ -282,9 +282,17 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [Test]
         public void Hlookup_approximate_search_matches_excel_for_unsorted_values()
         {
-            // Excel result from Apache POI test data FormulaEvalTestData.xls.
-            var actual = XLWorkbook.EvaluateExpr(@"HLOOKUP(""STRING"",{""INTEGRAL"",""DOUBLE"",""BLANK"",""STRING"",""REF"",""AREA (rows)"",TRUE;1,2,3,4,5,6,7},2,TRUE)");
-            Assert.AreEqual(4, actual);
+            // Data and Excel result from Apache POI test data FormulaEvalTestData.xls. The last text
+            // "AREA (rows)" is less than the lookup value, but Excel returns the column found by bisection.
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new object[]
+            {
+                new object[] { "INTEGRAL", "DOUBLE", "BLANK", "STRING", "REF", "AREA (rows)" },
+                new object[] { 1, 2, 3, 4, 5, 6, 7 },
+            });
+
+            Assert.AreEqual(4, ws.Evaluate(@"HLOOKUP(""STRING"",A1:G2,2,TRUE)"));
         }
 
         [Test]
@@ -552,6 +560,7 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase("MATCH(25,{20,TRUE,FALSE,38,40},1)", 1)] // If found value is <= target, return position of value, not subsequent types that are ignored
         [TestCase("MATCH(8, {FALSE;FALSE}, 1)", XLError.NoValueAvailable)] // Not even one value of target type
         [TestCase("MATCH(5, {1,2,3}, 1)", 3)] // If target value is greater than the last element of same type, return the position of the last element
+        [TestCase("MATCH(\"b\",{\"a\",1,\"z\"},1)", 1)] // Bisection ends at a value of a different type, return the position of a value with the target type
         public void Match_from_ascending(string formula, object result)
         {
             var actual = XLWorkbook.EvaluateExpr(formula);
@@ -866,6 +875,22 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         public void Vlookup_exact_search_uses_wildcards_for_text(string formula, object expected)
         {
             Assert.AreEqual(expected, XLWorkbook.EvaluateExpr(formula));
+        }
+
+        [Test]
+        public void Vlookup_exact_text_search_does_not_match_blank_cells()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A2").Value = string.Empty;
+            ws.Cell("A3").Value = "x";
+            ws.Cell("B1").InsertData(new[] { 1, 2, 3 });
+
+            Assert.AreEqual(2, ws.Evaluate(@"VLOOKUP("""",A1:B3,2,FALSE)"));
+            Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"VLOOKUP("""",A1:B1,2,FALSE)"));
+            Assert.AreEqual(2, ws.Evaluate(@"VLOOKUP(""*"",A1:B3,2,FALSE)"));
+            Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"VLOOKUP(""*"",A1:B1,2,FALSE)"));
+            Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"HLOOKUP(""*"",C1:D2,2,FALSE)"));
         }
 
         [Test]
