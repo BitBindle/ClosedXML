@@ -111,7 +111,7 @@ namespace ClosedXML.Excel.CalcEngine
 
         private static AnyValue Irr(CalcContext ctx, AnyValue values, double guess)
         {
-            if (!TallyNumbers.Default.Tally(ctx, new[] { values }, new ValuesState(new List<double>())).TryPickT0(out var state, out var error))
+            if (!TallyNumbers.Default.Tally(ctx, new[] { values }, new Statistical.ValuesState(new List<double>())).TryPickT0(out var state, out var error))
                 return error;
 
             var cashFlows = state.Values;
@@ -191,6 +191,9 @@ namespace ClosedXML.Excel.CalcEngine
 
         private static AnyValue Pv(double rate, double numberOfPayments, double pmt, double futureValue, double type)
         {
+            if (rate <= -1)
+                return XLError.NumberInvalid;
+
             if (rate == 0.0)
                 return -(futureValue + pmt * numberOfPayments);
 
@@ -251,15 +254,6 @@ namespace ClosedXML.Excel.CalcEngine
             }
 
             return XLError.NumberInvalid;
-        }
-
-        private readonly record struct ValuesState(List<double> Values) : ITallyState<ValuesState>
-        {
-            public ValuesState Tally(double number)
-            {
-                Values.Add(number);
-                return this;
-            }
         }
 
         private readonly record struct NpvState(double Rate, double Sum, int Period) : ITallyState<NpvState>

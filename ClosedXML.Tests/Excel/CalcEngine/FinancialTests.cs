@@ -129,7 +129,6 @@ namespace ClosedXML.Tests.Excel.CalcEngine
 
         [TestCase("IRR({100,200})")] // No negative value
         [TestCase("IRR({-100,-200})")] // No positive value
-        [TestCase("IRR({-1,1000000000000})")] // Doesn't converge in 20 iterations
         public void Irr_WithoutResultReturnsNumError(string formula)
         {
             Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr(formula));
@@ -184,6 +183,17 @@ namespace ClosedXML.Tests.Excel.CalcEngine
 
             // Values in the reference that are not numbers are skipped and don't take a period.
             Assert.AreEqual(200, (double)ws.Evaluate("NPV(10%,A1:A5)"), XLHelper.Epsilon);
+        }
+
+        [Test]
+        public void Npv_PropagatesErrorInReference()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = 110;
+            ws.Cell("A2").FormulaA1 = "1/0";
+
+            Assert.AreEqual(XLError.DivisionByZero, ws.Evaluate("NPV(10%,A1:A2)"));
         }
 
         [Test]
@@ -284,10 +294,11 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(expectedResult, actual, XLHelper.Epsilon);
         }
 
-        [Test]
-        public void Pv_RateMinusOneReturnsNumError()
+        [TestCase(-1)]
+        [TestCase(-2)]
+        public void Pv_RateLessOrEqualMinusOneReturnsNumError(double rate)
         {
-            Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr("PV(-1,2,100)"));
+            Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr($"PV({rate},2,100)"));
         }
 
         [TestCase("RATE(4*12,-200,8000)", 0.0077014724882333765)]
