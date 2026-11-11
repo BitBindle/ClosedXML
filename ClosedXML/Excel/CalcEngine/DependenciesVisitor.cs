@@ -247,13 +247,12 @@ namespace ClosedXML.Excel.CalcEngine
 
                 if (sumAreas is not null)
                 {
-                    var height = rangeAreas?.Max(x => x.Area.Height) ?? 1;
-                    var width = rangeAreas?.Max(x => x.Area.Width) ?? 1;
-                    context.AddAreas(sumAreas.Select(x => new SheetArea(x.Name, new Area(
-                        x.Area.TopRow,
-                        x.Area.LeftColumn,
-                        Math.Min(XLHelper.MaxRowNumber, x.Area.TopRow + Math.Max(height, x.Area.Height) - 1),
-                        Math.Min(XLHelper.MaxColumnNumber, x.Area.LeftColumn + Math.Max(width, x.Area.Width) - 1)))).ToList());
+                    // Range operator across sheets can return an empty list.
+                    var height = rangeAreas?.Select(x => x.Area.Height).DefaultIfEmpty(1).Max() ?? 1;
+                    var width = rangeAreas?.Select(x => x.Area.Width).DefaultIfEmpty(1).Max() ?? 1;
+                    context.AddAreas(sumAreas.Select(x => new SheetArea(x.Name, x.Area
+                        .ExtendBelow(Math.Max(0, height - x.Area.Height))
+                        .ExtendRight(Math.Max(0, width - x.Area.Width)))).ToList());
                 }
 
                 return null;

@@ -681,6 +681,16 @@ namespace ClosedXML.Tests.Excel.CalcEngine
                     }
                 };
 
+                // SUMIF with a range across sheets has no range size, sum range is kept
+                yield return new object[]
+                {
+                    "SUMIF(Sheet!A1:Other!A3,1,B1)",
+                    new[]
+                    {
+                        new SheetArea("Sheet", Area.Parse("B1")),
+                    }
+                };
+
                 // Non-ref functions add arguments
                 yield return new object[]
                 {
