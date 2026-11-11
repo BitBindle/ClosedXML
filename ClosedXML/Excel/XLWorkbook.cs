@@ -1111,10 +1111,25 @@ namespace ClosedXML.Excel
         public void RecalculateAllFormulas()
         {
             ThrowIfDisposed();
+            MarkAllFormulasDirty();
+            CalcEngine.Recalculate(this, null);
+        }
+
+        /// <inheritdoc/>
+        public void RecalculateAllFormulas(ICollection<IXLCell> failed)
+        {
+            ThrowIfDisposed();
+            if (failed is null)
+                throw new ArgumentNullException(nameof(failed));
+
+            MarkAllFormulasDirty();
+            CalcEngine.Recalculate(this, null, failed);
+        }
+
+        private void MarkAllFormulasDirty()
+        {
             foreach (var sheet in WorksheetsInternal)
                 sheet.Internals.CellsCollection.FormulaSlice.MarkDirty(Area.Full);
-
-            CalcEngine.Recalculate(this, null);
         }
 
         private static XLCalcEngine _calcEngineExpr;
