@@ -415,7 +415,7 @@ namespace ClosedXML.Excel.CalcEngine
         {
             return BinaryOperation(in left, in right, static (in ScalarValue leftItem, in ScalarValue rightItem, CalcContext ctx) =>
             {
-                return BinaryArithmeticOp(in leftItem, in rightItem, static (lhs, rhs) => lhs == 0 && rhs == 0 ? XLError.NumberInvalid : lhs == 0 && rhs < 0 ? XLError.DivisionByZero : Math.Pow(lhs, rhs), ctx);
+                return BinaryArithmeticOp(in leftItem, in rightItem, static (lhs, rhs) => lhs == 0 && rhs <= 0 ? (rhs == 0 ? XLError.NumberInvalid : XLError.DivisionByZero) : Math.Pow(lhs, rhs), ctx);
             }, context);
         }
 

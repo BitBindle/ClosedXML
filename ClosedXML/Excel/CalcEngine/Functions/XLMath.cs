@@ -115,6 +115,10 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             if (left == right)
                 return 0;
 
+            // Rounding never changes the order, so numbers that differ well above 15 digits need no rounding.
+            if (Math.Abs(left - right) > 1e-13 * Math.Max(Math.Abs(left), Math.Abs(right)))
+                return left.CompareTo(right);
+
             return RoundTo15Digits(left).CompareTo(RoundTo15Digits(right));
         }
 
@@ -128,8 +132,9 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             digits = Math.Truncate(digits);
 
             // Excel rounds the number with 15 significant digits, so ROUND(1.005,2) is 1.01, although
-            // the double is 1.00499999999999989. A cast to decimal keeps 15 significant digits.
-            if (Math.Abs(value) < 1e27 && digits >= -27 && digits <= 27)
+            // the double is 1.00499999999999989. A cast to decimal keeps 15 significant digits,
+            // so larger values use the double path to keep their integer digits.
+            if (Math.Abs(value) < 1e15 && digits >= -27 && digits <= 27)
             {
                 var number = (decimal)value;
                 decimal rounded;

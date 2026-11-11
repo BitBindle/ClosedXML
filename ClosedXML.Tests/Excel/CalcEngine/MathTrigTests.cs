@@ -1836,6 +1836,7 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase(-1.005, 2, ExpectedResult = -1.01)]
         [TestCase(14.999999999999998, -1, ExpectedResult = 20)]
         [TestCase(-0.001, 2, ExpectedResult = 0)]
+        [TestCase(123456789012345678, -1, ExpectedResult = 123456789012345680)] // Keeps integer digits above 15 digits
         [TestCase(1E+100, 2, ExpectedResult = 1E+100)]
         [TestCase(1.25, 0, ExpectedResult = 1)]
         [TestCase(1, -1E+100, ExpectedResult = 0)]
