@@ -38,6 +38,8 @@ namespace ClosedXML.Excel.CalcEngine
 
         public int MaxParams { get; }
 
+        public bool HasArrayParameters => _flags.HasFlag(FunctionFlags.ArrayParameters);
+
         public AnyValue CallFunction(CalcContext ctx, Span<AnyValue> args)
         {
             if (ctx.UseImplicitIntersection)

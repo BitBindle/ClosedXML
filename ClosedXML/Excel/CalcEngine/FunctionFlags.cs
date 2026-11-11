@@ -46,6 +46,13 @@ namespace ClosedXML.Excel.CalcEngine
         /// The prefix is there for backwards compatibility, to not clash with user defined
         /// functions and other such reasons. See [MS-XLSX] 2.3.3 for complete list.
         /// </summary>
-        Future = 16
+        Future = 16,
+
+        /// <summary>
+        /// All parameters of the function are arrays (parameter class <c>A</c> in Excel function table), e.g. SUMPRODUCT.
+        /// Arguments are evaluated as an array formula, even in a normal formula, so operators don't do implicit
+        /// intersection, e.g. <c>SUMPRODUCT(A1:A3*B1:B3)</c>.
+        /// </summary>
+        ArrayParameters = 32
     }
 }

@@ -17,7 +17,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             //ce.RegisterFunction("AREAS", , Areas); // Returns the number of areas in a reference
             //ce.RegisterFunction("CHOOSE", , Choose); // Chooses a value from a list of values
             ce.RegisterFunction("COLUMN", 0, 1, Column, FunctionFlags.Range, AllowRange.All); // Returns the column number of a reference
-            ce.RegisterFunction("COLUMNS", 1, 1, Adapt(Columns), FunctionFlags.Range, AllowRange.All); // Returns the number of columns in a reference
+            ce.RegisterFunction("COLUMNS", 1, 1, Adapt(Columns), FunctionFlags.Range | FunctionFlags.ArrayParameters, AllowRange.All); // Returns the number of columns in a reference
             //ce.RegisterFunction("FORMULATEXT", , Formulatext); // Returns the formula at the given reference as text
             //ce.RegisterFunction("GETPIVOTDATA", , Getpivotdata); // Returns data stored in a PivotTable report
             ce.RegisterFunction("HLOOKUP", 3, 4, AdaptLastOptional(Hlookup, true), FunctionFlags.Range, AllowRange.Only, 1); // Looks in the top row of an array and returns the value of the indicated cell
@@ -28,10 +28,16 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             ce.RegisterFunction("MATCH", 2, 3, AdaptMatch(Match), FunctionFlags.Range, AllowRange.Only, 1); // Looks up values in a reference or array
             //ce.RegisterFunction("OFFSET", , Offset); // Returns a reference offset from a given reference
             ce.RegisterFunction("ROW", 0, 1, Row, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Returns the row number of a reference
-            ce.RegisterFunction("ROWS", 1, 1, Adapt(Rows), FunctionFlags.Range, AllowRange.All); // Returns the number of rows in a reference
+            ce.RegisterFunction("ROWS", 1, 1, Adapt(Rows), FunctionFlags.Range | FunctionFlags.ArrayParameters, AllowRange.All); // Returns the number of rows in a reference
             //ce.RegisterFunction("RTD", , Rtd); // Retrieves real-time data from a program that supports COM automation
-            ce.RegisterFunction("TRANSPOSE", 1, 1, Adapt(Transpose), FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Returns the transpose of an array
+            ce.RegisterFunction("SINGLE", 1, 1, Single, FunctionFlags.Range | FunctionFlags.ReturnsArray | FunctionFlags.Future, AllowRange.All); // A function form of the implicit intersection operator @
+            ce.RegisterFunction("TRANSPOSE", 1, 1, Adapt(Transpose), FunctionFlags.Range | FunctionFlags.ReturnsArray | FunctionFlags.ArrayParameters, AllowRange.All); // Returns the transpose of an array
             ce.RegisterFunction("VLOOKUP", 3, 4, AdaptLastOptional(Vlookup, true), FunctionFlags.Range, AllowRange.Only, 1); // Looks in the first column of an array and moves across the row to return the value of a cell
+        }
+
+        private static AnyValue Single(CalcContext ctx, Span<AnyValue> p)
+        {
+            return p[0].ImplicitIntersectionOperator(ctx);
         }
 
         private static AnyValue Column(CalcContext ctx, Span<AnyValue> p)
