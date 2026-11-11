@@ -15,6 +15,7 @@ namespace ClosedXML.Excel.CalcEngine;
 internal sealed class CalcContext
 {
     private readonly bool _recursive;
+    private readonly IXLAddress? _formulaAddress;
     private long _allocatedBytes;
 
     public CalcContext(XLCalcEngine calcEngine, CultureInfo culture, XLCell cell)
@@ -27,7 +28,7 @@ internal sealed class CalcContext
         CalcEngine = calcEngine;
         Workbook = workbook;
         Worksheet = worksheet;
-        FormulaAddress = formulaAddress;
+        _formulaAddress = formulaAddress;
         _recursive = recursive;
         Culture = culture;
 
@@ -52,7 +53,12 @@ internal sealed class CalcContext
     /// <summary>
     /// Address of the calculated formula.
     /// </summary>
-    public IXLAddress FormulaAddress => field ?? throw new MissingContextException();
+    public IXLAddress FormulaAddress => _formulaAddress ?? throw new MissingContextException();
+
+    /// <summary>
+    /// Is the formula in a cell? A name formula has no cell.
+    /// </summary>
+    internal bool HasFormulaAddress => _formulaAddress is not null;
 
     /// <summary>
     /// A culture used for comparisons and conversions (e.g. text to number).

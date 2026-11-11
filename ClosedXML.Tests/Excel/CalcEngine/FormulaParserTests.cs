@@ -290,8 +290,8 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         }
 
         [TestCase("=INDEX(A1:B2,1,2)", "Lemons")]
-        //[TestCase("=OFFSET(C4,-1,-2)", "Pears")] Not implemented
-        //[TestCase("=INDIRECT(\"A2\")", "Bananas")] Not implemented
+        [TestCase("=OFFSET(C4,-2,-1)", "Pears")]
+        [TestCase("=INDIRECT(\"A2\")", "Bananas")]
         public void Ref_function_name_can_be_excel_ref_function(string formula, object expectedValue)
         {
             using var wb = new XLWorkbook();

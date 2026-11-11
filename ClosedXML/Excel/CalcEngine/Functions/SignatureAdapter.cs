@@ -647,6 +647,22 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             };
         }
 
+        public static CalcEngineFunction AdaptLastOptional(Func<CalcContext, string, bool, AnyValue> f, bool lastDefault)
+        {
+            return (ctx, args) =>
+            {
+                var arg0Converted = ToText(args[0], ctx);
+                if (!arg0Converted.TryPickT0(out var arg0, out var err0))
+                    return err0;
+
+                var arg1Converted = args.Length > 1 ? CoerceToLogical(args[1], ctx) : lastDefault;
+                if (!arg1Converted.TryPickT0(out var arg1, out var err1))
+                    return err1;
+
+                return f(ctx, arg0, arg1);
+            };
+        }
+
         public static CalcEngineFunction AdaptLastOptional(Func<CalcContext, ScalarValue, AnyValue, AnyValue?, AnyValue> f)
         {
             return (ctx, args) =>
@@ -657,6 +673,43 @@ namespace ClosedXML.Excel.CalcEngine.Functions
 
                 var arg2 = args.Length > 2 ? args[2] : default(AnyValue?);
                 return f(ctx, arg0, args[1], arg2);
+            };
+        }
+
+        /// <summary>
+        /// An adapter for <c>OFFSET</c>. A blank height or width is same as an omitted one.
+        /// </summary>
+        public static CalcEngineFunction AdaptOffset(Func<CalcContext, AnyValue, double, double, double?, double?, AnyValue> f)
+        {
+            return (ctx, args) =>
+            {
+                var arg1Converted = ToNumber(args[1], ctx);
+                if (!arg1Converted.TryPickT0(out var arg1, out var err1))
+                    return err1;
+
+                var arg2Converted = ToNumber(args[2], ctx);
+                if (!arg2Converted.TryPickT0(out var arg2, out var err2))
+                    return err2;
+
+                double? arg3 = null;
+                if (args.Length > 3 && !args[3].IsBlank)
+                {
+                    if (!ToNumber(args[3], ctx).TryPickT0(out var arg3Number, out var err3))
+                        return err3;
+
+                    arg3 = arg3Number;
+                }
+
+                double? arg4 = null;
+                if (args.Length > 4 && !args[4].IsBlank)
+                {
+                    if (!ToNumber(args[4], ctx).TryPickT0(out var arg4Number, out var err4))
+                        return err4;
+
+                    arg4 = arg4Number;
+                }
+
+                return f(ctx, args[0], arg1, arg2, arg3, arg4);
             };
         }
 

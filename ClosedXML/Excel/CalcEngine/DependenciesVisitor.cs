@@ -166,6 +166,14 @@ namespace ClosedXML.Excel.CalcEngine
             // Only these functions are allowed to return references, per grammar.
             // However, OFFSET and INDIRECT are volatile function that always have to be
             // recalculated (=are always marked dirty).
+            if (XLHelper.FunctionComparer.Equals(node.Name, "INDIRECT") ||
+                XLHelper.FunctionComparer.Equals(node.Name, "OFFSET"))
+            {
+                // The result reference is known only at evaluation, so the formula depends on
+                // every cell. A change anywhere marks it dirty, like a volatile function in Excel.
+                foreach (var sheet in context.Workbook.WorksheetsInternal)
+                    context.AddAreas(new List<SheetArea> { new(sheet.Name, Area.Full) });
+            }
 
             if (XLHelper.FunctionComparer.Equals(node.Name, "IF"))
             {
