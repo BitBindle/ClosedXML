@@ -467,8 +467,8 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(5, ws.Evaluate(formula));
         }
 
-        [TestCase("=SUM(Sheet1:Sheet5!A1)")]
-        [TestCase("=SUM(Jan:Dec!A1)")]
+        [TestCase("=Sheet1:Sheet5!A1")]
+        [TestCase("=Jan:Dec!A1")]
         public void Prefix_can_be_sheets_for_3d_reference(string formula)
         {
             using var wb = new XLWorkbook();

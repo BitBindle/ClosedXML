@@ -94,6 +94,12 @@ namespace ClosedXML.Excel.CalcEngine
             Purge(sheet.Workbook.WorksheetsInternal);
         }
 
+        internal void OnMovedSheet(XLWorksheet sheet)
+        {
+            // 3D references depend on the order of sheets.
+            Purge(sheet.Workbook.WorksheetsInternal);
+        }
+
         public void OnInsertAreaAndShiftDown(XLWorksheet sheet, Area area)
         {
             Purge(sheet.Workbook.WorksheetsInternal);

@@ -248,6 +248,20 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(1 + 100 + 3, cell.Value);
         }
 
+        [Test]
+        public void ThreeDReference_MoveOfSheetRecalculatesFormula()
+        {
+            using var wb = CreateThreeDWorkbook();
+            var cell = wb.Worksheet("Sheet 4").Cell("D1");
+            cell.FormulaA1 = "SUM(Sheet1:Sheet2!A1)";
+            Assert.AreEqual(1 + 2, cell.Value);
+
+            // Sheet order is Sheet1, Sheet3, Sheet2, Sheet 4
+            wb.Worksheet("Sheet3").Position = 2;
+
+            Assert.AreEqual(1 + 3 + 2, cell.Value);
+        }
+
         private static XLWorkbook CreateThreeDWorkbook()
         {
             var wb = new XLWorkbook();
