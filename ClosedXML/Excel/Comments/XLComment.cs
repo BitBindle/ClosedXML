@@ -62,14 +62,6 @@ namespace ClosedXML.Excel
 
         #region IXLDrawing
 
-        public String Name { get; set; }
-        public String Description { get; set; }
-        public XLDrawingAnchor Anchor { get; set; }
-        public Boolean HorizontalFlip { get; set; }
-        public Boolean VerticalFlip { get; set; }
-        public Int32 Rotation { get; set; }
-        public Int32 ExtentLength { get; set; }
-        public Int32 ExtentWidth { get; set; }
         public Int32 ShapeId { get; internal set; }
         public Boolean Visible { get; set; }
 
@@ -97,60 +89,6 @@ namespace ClosedXML.Excel
 
         public IXLDrawingStyle Style { get; private set; }
 
-        public IXLComment SetName(String name)
-        {
-            Name = name;
-            return Container;
-        }
-
-        public IXLComment SetDescription(String description)
-        {
-            Description = description;
-            return Container;
-        }
-
-        public IXLComment SetHorizontalFlip()
-        {
-            HorizontalFlip = true;
-            return Container;
-        }
-
-        public IXLComment SetHorizontalFlip(Boolean horizontalFlip)
-        {
-            HorizontalFlip = horizontalFlip;
-            return Container;
-        }
-
-        public IXLComment SetVerticalFlip()
-        {
-            VerticalFlip = true;
-            return Container;
-        }
-
-        public IXLComment SetVerticalFlip(Boolean verticalFlip)
-        {
-            VerticalFlip = verticalFlip;
-            return Container;
-        }
-
-        public IXLComment SetRotation(Int32 rotation)
-        {
-            Rotation = rotation;
-            return Container;
-        }
-
-        public IXLComment SetExtentLength(Int32 extentLength)
-        {
-            ExtentLength = extentLength;
-            return Container;
-        }
-
-        public IXLComment SetExtentWidth(Int32 extentWidth)
-        {
-            ExtentWidth = extentWidth;
-            return Container;
-        }
-
         #endregion IXLDrawing
 
         internal static XLComment Create(XLCell cell, int? shapeId)
@@ -175,6 +113,16 @@ namespace ClosedXML.Excel
             foreach (XLRichString rt in originalComment)
                 comment.AddText(rt.Text, rt);
 
+            if (originalComment.HasPhonetics)
+            {
+                var originalPhonetics = originalComment.Phonetics;
+                var phonetics = comment.Phonetics;
+                phonetics.Type = originalPhonetics.Type;
+                phonetics.Alignment = originalPhonetics.Alignment;
+                foreach (var phonetic in originalPhonetics)
+                    phonetics.Add(phonetic.Text, phonetic.Start, phonetic.End);
+            }
+
             comment.Initialize(targetCell, originalComment.Style);
             return comment;
         }
@@ -186,7 +134,6 @@ namespace ClosedXML.Excel
 
             Author = cell.Worksheet.Author;
             Container = this;
-            Anchor = XLDrawingAnchor.MoveAndSizeWithCells;
             Style = new XLDrawingStyle();
             Int32 previousRowNumber = cell.Address.RowNumber;
             Double previousRowOffset = 0;
