@@ -39,7 +39,9 @@ namespace ClosedXML.Examples.Misc
                 ws.Cell(3, 3).Value = dateTime1;
                 ws.Cell(3, 4).Value = dateTime2;
                 ws.Cell(3, 5).Value = dateTime3;
-                ws.Cell(3, 6).Value = "'" + dateTimeString;
+                // Newer ICU versions (Linux, recent Windows) separate the time from AM/PM by a narrow no-break space,
+                // older ones by a space. Normalize it, so the example output is the same everywhere.
+                ws.Cell(3, 6).Value = "'" + dateTimeString.Replace('\u202F', ' ');
                 ws.Cell(3, 7).Value = "'" + dateTimeFormattedString;
 
                 //////////////////////////////////////////////////////////////////

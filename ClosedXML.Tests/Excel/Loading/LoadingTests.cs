@@ -505,6 +505,18 @@ public class LoadingTests
         }, @"TryToLoad\CellsWithDateTimeWithLocalePrefix.xlsx");
     }
 
+    // Column width depends on max digit width of the default font of a file. The files use fonts that are available
+    // only on Windows, so the max digit widths (measured by Excel at 96 DPI) are fixed to make the tests independent
+    // of installed fonts.
+    private static LoadOptions ArialAndYuGothicLoadOptions => new()
+    {
+        GraphicEngine = new FixedDigitWidthGraphicEngine(new Dictionary<(string, double), double>
+        {
+            [("Arial", 8d)] = 6,
+            [("\u6E38\u30B4\u30B7\u30C3\u30AF", 11d)] = 8, // Yu Gothic
+        })
+    };
+
     [Test]
     public void CanCorrectLoadWorkbookDefaultColumnWidth()
     {
@@ -518,7 +530,7 @@ public class LoadingTests
         }
 
         using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\DefaultColumnWidth.xlsx")))
-        using (var wb = new XLWorkbook(stream))
+        using (var wb = new XLWorkbook(stream, ArialAndYuGothicLoadOptions))
         {
             var defaultColumnWidth = wb.ColumnWidth;
             var pixelWidth = XLHelper.NoCToPixels(defaultColumnWidth, wb.Format.Font, wb);
@@ -541,7 +553,7 @@ public class LoadingTests
 
         // worksheet has base column width.
         using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\BaseColumnWidth.xlsx")))
-        using (var wb = new XLWorkbook(stream))
+        using (var wb = new XLWorkbook(stream, ArialAndYuGothicLoadOptions))
         {
             var ws = wb.Worksheet(1);
             Assert.AreEqual(11.17, ws.ColumnWidth, XLHelper.Epsilon);
@@ -554,7 +566,7 @@ public class LoadingTests
     {
         // worksheet has default column width.
         using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"TryToLoad\SheetDefaultColumnWidth.xlsx")))
-        using (var wb = new XLWorkbook(stream))
+        using (var wb = new XLWorkbook(stream, ArialAndYuGothicLoadOptions))
         {
             var ws = wb.Worksheet(1);
             double pixelWidth = XLHelper.NoCToPixels(ws.Column(1).Width, ws.Style.Font, wb);
