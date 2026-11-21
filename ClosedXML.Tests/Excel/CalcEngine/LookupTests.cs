@@ -269,6 +269,32 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual("Column 3", actual);
         }
 
+        [TestCase(@"HLOOKUP(""b*"",{""apple"",""banana"";1,2},2,FALSE)", 2)]
+        [TestCase(@"HLOOKUP(""?pple"",{""banana"",""apple"";1,2},2,FALSE)", 2)]
+        [TestCase(@"HLOOKUP(""~*"",{""a*"",""*"";1,2},2,FALSE)", 2)]
+        [TestCase(@"HLOOKUP(""1*"",{1,""10"";1,2},2,FALSE)", 2)]
+        [TestCase(@"HLOOKUP(""*"",{1,TRUE;1,2},2,FALSE)", XLError.NoValueAvailable)]
+        public void Hlookup_exact_search_uses_wildcards_for_text(string formula, object expected)
+        {
+            Assert.AreEqual(expected, XLWorkbook.EvaluateExpr(formula));
+        }
+
+        [Test]
+        public void Hlookup_approximate_search_matches_excel_for_unsorted_values()
+        {
+            // Data and Excel result from Apache POI test data FormulaEvalTestData.xls. The last text
+            // "AREA (rows)" is less than the lookup value, but Excel returns the column found by bisection.
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new object[]
+            {
+                new object[] { "INTEGRAL", "DOUBLE", "BLANK", "STRING", "REF", "AREA (rows)" },
+                new object[] { 1, 2, 3, 4, 5, 6, 7 },
+            });
+
+            Assert.AreEqual(4, ws.Evaluate(@"HLOOKUP(""STRING"",A1:G2,2,TRUE)"));
+        }
+
         [Test]
         public void Hlookup_with_range_containing_only_cells_with_different_type_returns_NA_error()
         {
@@ -519,6 +545,10 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase("MATCH(\"35\",{35,38,24,\"35\",70},0)", 4)] // String target is not converted, must match type
         [TestCase("MATCH(\"c*\",{\"a\",\"cd\"},0)", 2)] // Consider string targets wildcards
         [TestCase("MATCH(TRUE, {0,\"TRUE\",FALSE,TRUE,1},0)", 4)]
+        [TestCase("MATCH(\">5\",{9,\">5\"},0)", 2)] // String target is not a comparison
+        [TestCase("MATCH(\"TRUE\",{TRUE,\"TRUE\"},0)", 2)] // String target is not a logical value
+        [TestCase("MATCH(\"5\",{5,\"05\",\"5\"},0)", 3)] // String target is not a number
+        [TestCase("MATCH(\"~*\",{\"a\",\"*\"},0)", 2)] // Tilde escapes a wildcard
         public void Match_from_unsorted(string formula, object result)
         {
             var actual = XLWorkbook.EvaluateExpr(formula);
@@ -530,6 +560,7 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase("MATCH(25,{20,TRUE,FALSE,38,40},1)", 1)] // If found value is <= target, return position of value, not subsequent types that are ignored
         [TestCase("MATCH(8, {FALSE;FALSE}, 1)", XLError.NoValueAvailable)] // Not even one value of target type
         [TestCase("MATCH(5, {1,2,3}, 1)", 3)] // If target value is greater than the last element of same type, return the position of the last element
+        [TestCase("MATCH(\"b\",{\"a\",1,\"z\"},1)", 1)] // Bisection ends at a value of a different type, return the position of a value with the target type
         public void Match_from_ascending(string formula, object result)
         {
             var actual = XLWorkbook.EvaluateExpr(formula);
@@ -834,6 +865,40 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             // If the last value is in the highest row, just return value outright
             actual = sheet.Evaluate("VLOOKUP(3, A2:B7, 2, TRUE)");
             Assert.AreEqual(7, actual);
+        }
+
+        [TestCase(@"VLOOKUP(""b*"",{""apple"",1;""banana"",2},2,FALSE)", 2)]
+        [TestCase(@"VLOOKUP(""?pple"",{""banana"",1;""apple"",2},2,FALSE)", 2)]
+        [TestCase(@"VLOOKUP(""~*"",{""a*"",1;""*"",2},2,FALSE)", 2)]
+        [TestCase(@"VLOOKUP(""1*"",{1,1;""10"",2},2,FALSE)", 2)]
+        [TestCase(@"VLOOKUP(""*"",{1,1;TRUE,2},2,FALSE)", XLError.NoValueAvailable)]
+        public void Vlookup_exact_search_uses_wildcards_for_text(string formula, object expected)
+        {
+            Assert.AreEqual(expected, XLWorkbook.EvaluateExpr(formula));
+        }
+
+        [Test]
+        public void Vlookup_exact_text_search_does_not_match_blank_cells()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A2").Value = string.Empty;
+            ws.Cell("A3").Value = "x";
+            ws.Cell("B1").InsertData(new[] { 1, 2, 3 });
+
+            Assert.AreEqual(2, ws.Evaluate(@"VLOOKUP("""",A1:B3,2,FALSE)"));
+            Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"VLOOKUP("""",A1:B1,2,FALSE)"));
+            Assert.AreEqual(2, ws.Evaluate(@"VLOOKUP(""*"",A1:B3,2,FALSE)"));
+            Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"VLOOKUP(""*"",A1:B1,2,FALSE)"));
+            Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate(@"HLOOKUP(""*"",C1:D2,2,FALSE)"));
+        }
+
+        [Test]
+        public void Vlookup_approximate_search_matches_excel_for_unsorted_values()
+        {
+            // Excel result from Apache POI test data FormulaEvalTestData.xls.
+            var actual = XLWorkbook.EvaluateExpr(@"VLOOKUP(534,{""INTEGRAL"",1;0,2;1,3;2,4;534,5;9999999999,6;-9999999999,7},2)");
+            Assert.AreEqual(5, actual);
         }
 
         [Test]
