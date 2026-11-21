@@ -26,6 +26,8 @@ namespace ClosedXML.Tests.Excel.CalcEngine
 
         [TestCase(1900, 1, -1)] // Serial date -1, below 0
         [TestCase(9999, 12, 32)]
+        [TestCase(9999, 13, 1)]
+        [TestCase(10000, 1, 1)]
         public void Date_returns_error_when_result_outside_base_date_to_max_date_of_calendar_system(int year, int month, int day)
         {
             var actual = XLWorkbook.EvaluateExpr($"DATE({year},{month},{day})");
@@ -127,6 +129,11 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase("2006-2-1", ExpectedResult = 38749)]
         [TestCase("22-MAY-2011", ExpectedResult = 40685)]
         [TestCase("February 1, 2006 17:45", ExpectedResult = 38749)]
+        [TestCase("2011/1/15", ExpectedResult = 40558)]
+        [TestCase("2011/01/15 13:30", ExpectedResult = 40558)]
+        [TestCase("2011-1-15 3:30 PM", ExpectedResult = 40558)]
+        [TestCase("15-Jan-2011 3:30 PM", ExpectedResult = 40558)]
+        [TestCase("15-January-11 13:30", ExpectedResult = 40558)]
         public double DateValue_returns_truncated_serial_date_extracted_from_text(string date)
         {
             return (double)XLWorkbook.EvaluateExprCurrent($"DATEVALUE(\"{date}\")");
@@ -328,6 +335,20 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         {
             Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr("EDATE(-0.1,0)"));
             Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr("EDATE(2958466,0)"));
+        }
+
+        [TestCase("EDATE(TRUE,1)")]
+        [TestCase("EDATE(1,TRUE)")]
+        [TestCase("EDATE(A1,1)")]
+        [TestCase("EOMONTH(TRUE,1)")]
+        [TestCase("EOMONTH(1,FALSE)")]
+        [TestCase("EOMONTH(1,A1)")]
+        public void EDate_and_Eomonth_dont_accept_logical_arguments(string formula)
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = true;
+            Assert.AreEqual(XLError.IncompatibleValue, ws.Evaluate(formula));
         }
 
         [TestCase("1900-01-01", -1)]
@@ -755,6 +776,10 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr("WEEKDAY(1, 10)"));
             Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr("WEEKDAY(1, 18)"));
 
+            // Empty flag or blank cell is 0, not the default 1
+            Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr("WEEKDAY(1,)"));
+            Assert.AreEqual(XLError.NumberInvalid, ws.Evaluate("WEEKDAY(1,B1)"));
+
             // Error is propagated
             Assert.AreEqual(XLError.NoValueAvailable, XLWorkbook.EvaluateExpr("WEEKDAY(#N/A)"));
             Assert.AreEqual(XLError.NoValueAvailable, XLWorkbook.EvaluateExpr("WEEKDAY(5, #N/A)"));
@@ -942,6 +967,14 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         {
             var actual = XLWorkbook.EvaluateExpr($"WORKDAY({startDate}, {dayOffset})");
             Assert.AreEqual(expected, actual);
+        }
+
+        [TestCase(2958465, 5)] // 9999-12-31 + 5 workdays
+        [TestCase(2958464, 2)] // 9999-12-30 (Thursday) + 2 workdays
+        [TestCase(1, -5)]
+        public void Workdays_returns_number_error_when_result_is_out_of_date_system(int startDate, int dayOffset)
+        {
+            Assert.AreEqual(XLError.NumberInvalid, XLWorkbook.EvaluateExpr($"WORKDAY({startDate}, {dayOffset})"));
         }
 
         [TestCase(0, 1, new[] { 1 }, 2)]

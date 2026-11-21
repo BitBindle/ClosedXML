@@ -277,6 +277,13 @@ namespace ClosedXML.Excel.CalcEngine
             }
         }
 
+        private static readonly string[] DateFormat15Patterns =
+        {
+            "d-MMM-yyyy", "d-MMMM-yyyy", "d-MMM-yy", "d-MMMM-yy",
+            "d-MMM-yyyy h:m tt", "d-MMMM-yyyy h:m tt", "d-MMM-yy h:m tt", "d-MMMM-yy h:m tt",
+            "d-MMM-yyyy H:m", "d-MMMM-yyyy H:m", "d-MMM-yy H:m", "d-MMMM-yy H:m",
+        };
+
         public static bool ToSerialDateTime(string text, CultureInfo culture, out double serialDateTime)
         {
             const DateTimeStyles dateStyle = DateTimeStyles.NoCurrentDateDefault | DateTimeStyles.AllowInnerWhite | DateTimeStyles.AllowTrailingWhite;
@@ -290,8 +297,8 @@ namespace ClosedXML.Excel.CalcEngine
             }
 
             // Date with names of months. The names of months differ across cultures.
-            // Format 15 'd-mmm-yy'
-            if (DateTime.TryParseExact(text, new[] { "d-MMM-yyyy", "d-MMMM-yyyy", "d-MMM-yy", "d-MMMM-yy" }, culture, dateStyle, out var dateFormat15))
+            // Format 15 'd-mmm-yy', optionally with time (e.g. '15-Jan-2011 3:30 PM')
+            if (DateTime.TryParseExact(text, DateFormat15Patterns, culture, dateStyle, out var dateFormat15))
             {
                 return ToSerialDate(dateFormat15, out serialDateTime);
             }

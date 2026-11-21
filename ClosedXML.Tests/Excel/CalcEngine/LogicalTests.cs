@@ -47,9 +47,20 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         }
 
         [Test]
-        public void And_UnconvertableScalarArgumentsSkipped()
+        public void And_UnconvertableScalarArgumentsReturnError()
         {
-            Assert.AreEqual(true, XLWorkbook.EvaluateExpr("AND(TRUE,\"z\")"));
+            Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr("AND(TRUE,\"z\")"));
+        }
+
+        [Test]
+        public void And_ErrorInCollectionIsReturned()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").FormulaA1 = "1/0";
+            ws.Cell("A2").Value = true;
+            Assert.AreEqual(XLError.DivisionByZero, ws.Evaluate("AND(A1:A2)"));
+            Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("AND({TRUE,#N/A})"));
         }
 
         [Test]
@@ -269,9 +280,20 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         }
 
         [Test]
-        public void Or_UnconvertableScalarArgumentsSkipped()
+        public void Or_UnconvertableScalarArgumentsReturnError()
         {
-            Assert.AreEqual(true, XLWorkbook.EvaluateExpr("OR(TRUE,\"z\")"));
+            Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr("OR(TRUE,\"z\")"));
+        }
+
+        [Test]
+        public void Or_ErrorInCollectionIsReturned()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").FormulaA1 = "1/0";
+            ws.Cell("A2").Value = true;
+            Assert.AreEqual(XLError.DivisionByZero, ws.Evaluate("OR(A1:A2)"));
+            Assert.AreEqual(XLError.NoValueAvailable, ws.Evaluate("OR({TRUE,#N/A})"));
         }
 
         [Test]
