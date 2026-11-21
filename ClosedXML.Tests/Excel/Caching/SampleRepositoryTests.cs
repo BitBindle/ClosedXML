@@ -37,8 +37,8 @@ namespace ClosedXML.Tests.Excel.Caching
             var sampleRepository = this.CreateSampleRepository();
 
             // Act
-            // In net8, JIT could make a hidden temporary variable for created object that would prevent
-            // GC collection. Therefore, make the reference in another method, so the hidden variable
+            // On .NET 5 and later, the JIT can make a hidden temporary variable for the created object.
+            // This variable can prevent GC collection. Therefore, make the reference in another method, so the hidden variable
             // doesn't get inlined. https://github.com/dotnet/runtime/issues/63568#issuecomment-1008602069
             var storedEntityRef1 = AddEntityToRepository(sampleRepository, ref key);
 
