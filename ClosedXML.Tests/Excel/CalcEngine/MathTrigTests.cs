@@ -1843,7 +1843,9 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase(1.123456, 1E+100, ExpectedResult = 1.123456)] // Excel says 0 for anything over 2147483646
         public double Round(double number, double digits)
         {
-            return (double)XLWorkbook.EvaluateExpr($"ROUND({number}, {digits})");
+            // On .NET Framework, the default text of a double has only 15 significant digits. 17 digits parse back to the same double.
+            var numberText = number.ToString("G17", CultureInfo.InvariantCulture);
+            return (double)XLWorkbook.EvaluateExpr($"ROUND({numberText}, {digits})");
         }
 
         [TestCase(3.2, 0, ExpectedResult = 3.0)]
