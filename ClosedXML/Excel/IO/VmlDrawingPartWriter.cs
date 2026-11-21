@@ -62,7 +62,7 @@ namespace ClosedXML.Excel.IO
                 {
                     ms.Position = 0;
                     var xdoc = XDocumentExtensions.Load(ms);
-                    xdoc.Root.Elements().ForEach(e => writer.WriteRaw(e.ToString()));
+                    xdoc.Root.Elements().ForEach(e => writer.WriteRaw(e.ToStringCrLf()));
                     hasAnyVmlElements |= xdoc.Root.HasElements;
                 }
 

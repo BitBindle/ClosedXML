@@ -1,10 +1,15 @@
 using System;
+using System.Globalization;
 using ClosedXML.Excel;
 
 namespace ClosedXML.Examples.Misc
 {
     public class DataTypes : IXLExample
     {
+        // Same text as DateTime.ToString() produces on en-US, but independent of the ICU version of the OS
+        // (newer ICU puts a narrow no-break space before AM/PM).
+        private const String DateTimeTextFormat = "M/d/yyyy h:mm:ss tt";
+
         public void Create(String filePath)
         {
             var workbook = new XLWorkbook();
@@ -42,10 +47,10 @@ namespace ClosedXML.Examples.Misc
             ws.Cell(ro, co + 1).Value = "'Hello World.";
 
             ws.Cell(++ro, co).Value = "Date as Text:";
-            ws.Cell(ro, co + 1).Value = "'" + new DateTime(2010, 9, 2);
+            ws.Cell(ro, co + 1).Value = "'" + new DateTime(2010, 9, 2).ToString(DateTimeTextFormat, CultureInfo.InvariantCulture);
 
             ws.Cell(++ro, co).Value = "DateTime as Text:";
-            ws.Cell(ro, co + 1).Value = "'" + new DateTime(2010, 9, 2, 13, 45, 22);
+            ws.Cell(ro, co + 1).Value = "'" + new DateTime(2010, 9, 2, 13, 45, 22).ToString(DateTimeTextFormat, CultureInfo.InvariantCulture);
 
             ws.Cell(++ro, co).Value = "Boolean as Text:";
             ws.Cell(ro, co + 1).Value = "'TRUE";
