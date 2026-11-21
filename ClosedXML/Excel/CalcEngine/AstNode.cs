@@ -2,6 +2,7 @@ using ClosedXML.Parser;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 
 namespace ClosedXML.Excel.CalcEngine
 {
@@ -245,12 +246,31 @@ namespace ClosedXML.Excel.CalcEngine
                 throw new NotImplementedException("References from other files are not yet implemented.");
 
             if (FirstSheet is not null || LastSheet is not null)
-                throw new NotImplementedException("3D references are not yet implemented.");
+                throw new InvalidOperationException("3D reference doesn't have a single sheet.");
 
             if (!wb.TryGetWorksheet(Sheet, out XLWorksheet worksheet))
                 return XLError.CellReference;
 
             return OneOf<IXLWorksheet, XLError>.FromT0(worksheet);
+        }
+
+        /// <summary>
+        /// Get sheets of a 3D reference, from the first to the last sheet in the order of tabs.
+        /// The order of <see cref="FirstSheet"/> and <see cref="LastSheet"/> doesn't matter.
+        /// </summary>
+        /// <returns>The sheets or <c>null</c>, if the workbook doesn't contain one of the sheets.</returns>
+        internal List<XLWorksheet>? GetWorksheets(XLWorkbook wb)
+        {
+            if (!wb.TryGetWorksheet(FirstSheet!, out XLWorksheet firstSheet) ||
+                !wb.TryGetWorksheet(LastSheet!, out XLWorksheet lastSheet))
+                return null;
+
+            var from = Math.Min(firstSheet.Position, lastSheet.Position);
+            var to = Math.Max(firstSheet.Position, lastSheet.Position);
+            return ((IEnumerable<XLWorksheet>)wb.WorksheetsInternal)
+                .Where(sheet => sheet.Position >= from && sheet.Position <= to)
+                .OrderBy(sheet => sheet.Position)
+                .ToList();
         }
     }
 
@@ -293,6 +313,16 @@ namespace ClosedXML.Excel.CalcEngine
         {
             if (Prefix is null)
                 return new Reference(new XLRangeAddress(null, Address));
+
+            if (Prefix is { File: null, FirstSheet: not null, LastSheet: not null })
+            {
+                // 3D reference has one area for each sheet.
+                var sheets = Prefix.GetWorksheets(ctx.Workbook);
+                if (sheets is null)
+                    return XLError.CellReference;
+
+                return new Reference(sheets.Select(sheet => new XLRangeAddress(sheet, Address)).ToList());
+            }
 
             if (!Prefix.GetWorksheet(ctx.Workbook).TryPickT0(out var ws, out var err))
                 return err;

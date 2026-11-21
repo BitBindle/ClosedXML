@@ -1322,6 +1322,15 @@ namespace ClosedXML.Excel
             _calcEngine.OnDeletingSheet(sheet);
         }
 
+        /// <summary>
+        /// Notify various component of a workbook that sheet has changed its position.
+        /// </summary>
+        internal void NotifyWorksheetMoved(XLWorksheet sheet)
+        {
+            ThrowIfDisposed();
+            _calcEngine.OnMovedSheet(sheet);
+        }
+
         public override string ToString()
         {
             ThrowIfDisposed();

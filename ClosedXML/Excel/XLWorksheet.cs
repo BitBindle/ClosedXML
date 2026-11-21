@@ -253,7 +253,10 @@ namespace ClosedXML.Excel
                         .ForEach(w => (w)._position -= 1);
                 }
 
+                var moved = _position != value;
                 _position = value;
+                if (moved)
+                    Workbook.NotifyWorksheetMoved(this);
             }
         }
 

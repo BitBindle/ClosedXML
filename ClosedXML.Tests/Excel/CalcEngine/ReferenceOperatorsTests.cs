@@ -187,5 +187,94 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         }
 
         #endregion
+
+        #region 3D reference
+
+        [TestCase("SUM(Sheet1:Sheet3!A1)", 1 + 2 + 3)]
+        [TestCase("SUM(Sheet1:Sheet3!A1:B2)", 11 + 22 + 33)]
+        [TestCase("SUM(Sheet2:Sheet2!A1:B2)", 22)]
+        [TestCase("SUM(Sheet3:Sheet1!A1)", 1 + 2 + 3)] // Reverse order uses the same sheets
+        [TestCase("SUM('Sheet 4:Sheet2'!A1)", 2 + 3 + 4)]
+        [TestCase("COUNT(Sheet1:Sheet3!A1:B2)", 6)]
+        [TestCase("AVERAGE(Sheet1:Sheet3!A1)", 2)]
+        [TestCase("MAX(Sheet1:Sheet3!B2)", 30)]
+        [TestCase("MIN('Sheet2:Sheet 4'!B2)", 20)]
+        public void ThreeDReference_HasAreaInEachSheetFromFirstToLast(string formula, double expectedValue)
+        {
+            using var wb = CreateThreeDWorkbook();
+
+            Assert.AreEqual(expectedValue, wb.Worksheet("Sheet1").Evaluate(formula));
+        }
+
+        [Test]
+        public void ThreeDReference_UsesOrderOfSheetsInWorkbook()
+        {
+            using var wb = CreateThreeDWorkbook();
+            wb.Worksheet("Sheet3").Position = 1;
+
+            // Sheet order is Sheet3, Sheet1, Sheet2, Sheet 4
+            Assert.AreEqual(3 + 1, wb.Worksheet("Sheet1").Evaluate("SUM(Sheet3:Sheet1!A1)"));
+            Assert.AreEqual(1 + 2, wb.Worksheet("Sheet1").Evaluate("SUM(Sheet1:Sheet2!A1)"));
+        }
+
+        [TestCase("SUM(Sheet1:Missing!A1)")]
+        [TestCase("SUM(Missing:Sheet1!A1)")]
+        [TestCase("Sheet1:Missing!A1")]
+        public void ThreeDReference_WithMissingSheetIsReferenceError(string formula)
+        {
+            using var wb = CreateThreeDWorkbook();
+
+            Assert.AreEqual(XLError.CellReference, wb.Worksheet("Sheet1").Evaluate(formula));
+        }
+
+        [Test]
+        public void ThreeDReference_CantBeUsedAsScalar()
+        {
+            using var wb = CreateThreeDWorkbook();
+
+            Assert.AreEqual(XLError.IncompatibleValue, wb.Worksheet("Sheet1").Evaluate("Sheet1:Sheet3!A1+1"));
+        }
+
+        [Test]
+        public void ThreeDReference_ChangeOnAnySheetRecalculatesFormula()
+        {
+            using var wb = CreateThreeDWorkbook();
+            var cell = wb.Worksheet("Sheet 4").Cell("D1");
+            cell.FormulaA1 = "SUM(Sheet1:Sheet3!A1)";
+            Assert.AreEqual(6, cell.Value);
+
+            wb.Worksheet("Sheet2").Cell("A1").Value = 100;
+
+            Assert.AreEqual(1 + 100 + 3, cell.Value);
+        }
+
+        [Test]
+        public void ThreeDReference_MoveOfSheetRecalculatesFormula()
+        {
+            using var wb = CreateThreeDWorkbook();
+            var cell = wb.Worksheet("Sheet 4").Cell("D1");
+            cell.FormulaA1 = "SUM(Sheet1:Sheet2!A1)";
+            Assert.AreEqual(1 + 2, cell.Value);
+
+            // Sheet order is Sheet1, Sheet3, Sheet2, Sheet 4
+            wb.Worksheet("Sheet3").Position = 2;
+
+            Assert.AreEqual(1 + 3 + 2, cell.Value);
+        }
+
+        private static XLWorkbook CreateThreeDWorkbook()
+        {
+            var wb = new XLWorkbook();
+            foreach (var (name, value) in new[] { ("Sheet1", 1), ("Sheet2", 2), ("Sheet3", 3), ("Sheet 4", 4) })
+            {
+                var ws = wb.AddWorksheet(name);
+                ws.Cell("A1").Value = value;
+                ws.Cell("B2").Value = 10 * value;
+            }
+
+            return wb;
+        }
+
+        #endregion
     }
 }

@@ -471,7 +471,9 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase("=Jan:Dec!A1")]
         public void Prefix_can_be_sheets_for_3d_reference(string formula)
         {
-            AssertCanParseButNotEvaluate(formula, "3D references are not yet implemented.");
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            Assert.AreEqual(XLError.CellReference, ws.Evaluate(formula));
         }
 
         [TestCase("=[1]Sheet4!A1")]
