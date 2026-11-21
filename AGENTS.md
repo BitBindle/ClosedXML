@@ -35,7 +35,14 @@ Do these steps before the review gate. The commands are based on `.github/workfl
    ```
 
 3. Measure the line coverage of the new code from the Cobertura report. For example, use `diff-cover` against `origin/develop`.
-4. Run the text check:
+4. Run the tests against the `netstandard2.0` build of ClosedXML. .NET Framework applications use this build. This build replaces the test output, so do this step after step 3:
+
+   ```bash
+   dotnet build ClosedXML.Tests/ClosedXML.Tests.csproj --configuration Release --framework net10.0 -p:ClosedXMLTargetFramework=netstandard2.0
+   dotnet test ClosedXML.Tests/ClosedXML.Tests.csproj --configuration Release --no-build --framework net10.0 -p:ClosedXMLTargetFramework=netstandard2.0 --filter "TestCategory!=OLEDB"
+   ```
+
+5. Run the text check:
 
    ```bash
    scripts/check.sh
@@ -43,7 +50,7 @@ Do these steps before the review gate. The commands are based on `.github/workfl
 
    If you change `scripts/check.sh`, also run `scripts/check-test.sh`.
 
-5. If a step fails, fix the cause. Do not skip, disable or ignore a test to make a step pass.
+6. If a step fails, fix the cause. Do not skip, disable or ignore a test to make a step pass.
 
 ## Review gate
 

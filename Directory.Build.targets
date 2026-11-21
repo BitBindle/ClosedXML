@@ -1,0 +1,21 @@
+<Project>
+  <!-- ClosedXMLTargetFramework selects the build of ClosedXML and ClosedXML.IO that the other projects reference.
+       For example, -p:ClosedXMLTargetFramework=netstandard2.0 runs the net10.0 tests against the netstandard2.0 build.
+       If the property is empty, each project uses the nearest target framework. -->
+  <PropertyGroup>
+    <_ReferencesClosedXML Condition="'$(MSBuildProjectName)' == 'ClosedXML.Tests' Or '$(MSBuildProjectName)' == 'ClosedXML.Examples' Or '$(MSBuildProjectName)' == 'ClosedXML.Sandbox'">true</_ReferencesClosedXML>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(ClosedXMLTargetFramework)' != '' And '$(_ReferencesClosedXML)' == 'true'">
+    <ProjectReference Update="..\ClosedXML\ClosedXML.csproj" SetTargetFramework="TargetFramework=$(ClosedXMLTargetFramework)" />
+    <!-- Without this reference, the SDK adds a transitive reference to ClosedXML.IO for the nearest target framework. -->
+    <ProjectReference Include="$(MSBuildThisFileDirectory)ClosedXML.IO\ClosedXML.IO.csproj" SetTargetFramework="TargetFramework=$(ClosedXMLTargetFramework)" />
+  </ItemGroup>
+
+  <!-- NuGet restores a project reference for the nearest target framework, not for ClosedXMLTargetFramework.
+       Thus the consumer doesn't get the packages that only the netstandard2.0 build uses.
+       The .NET runtime contains System.Memory and System.Buffers, but not Microsoft.Bcl.HashCode. -->
+  <ItemGroup Condition="'$(ClosedXMLTargetFramework)' == 'netstandard2.0' And '$(_ReferencesClosedXML)' == 'true'">
+    <PackageReference Include="Microsoft.Bcl.HashCode" Version="$(MicrosoftBclHashCodeVersion)" />
+  </ItemGroup>
+</Project>
