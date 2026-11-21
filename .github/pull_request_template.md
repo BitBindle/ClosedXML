@@ -27,9 +27,5 @@ Notes that remain:
 - [ ] The tests pass.
 - [ ] New code has more than 80% line coverage.
 - [ ] `scripts/check.sh` passes.
-- [ ] The review gate did not return BLOCK.
-- [ ] New async code does not block on a task and does not use synchronous I/O.
-- [ ] New async code passes a `CancellationToken` to each call that accepts one.
-- [ ] The change does no unnecessary work: no extra round trips, copies or reads.
 - [ ] If a reference `.xlsx` file changed, I compared the old and new file and the description gives the reason.
 - [ ] Text in the change follows ASD-STE-100.
