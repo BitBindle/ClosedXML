@@ -14,7 +14,9 @@ namespace ClosedXML.Excel.IO
     {
         internal static XLPivotCache Load(WorkbookPart workbookPart, PivotTableCacheDefinitionPart pivotTableCacheDefinitionPart, XLWorkbook workbook)
         {
-            var cacheDefinition = pivotTableCacheDefinitionPart.PivotCacheDefinition;
+            if (pivotTableCacheDefinitionPart.PivotCacheDefinition is not { } cacheDefinition)
+                throw PartStructureException.RequiredElementIsMissing("pivotCacheDefinition");
+
             if (cacheDefinition.CacheSource is not { } cacheSource)
                 throw PartStructureException.RequiredElementIsMissing("cacheSource");
 
