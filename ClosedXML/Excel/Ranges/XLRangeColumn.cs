@@ -163,7 +163,7 @@ namespace ClosedXML.Excel
                     lastRow = trimmedPair;
                 }
 
-                retVal.Add(Range(firstRow, lastRow).FirstColumn());
+                retVal.Add(Range(firstRow + ":" + lastRow).FirstColumn());
             }
 
             return retVal;
@@ -219,59 +219,6 @@ namespace ClosedXML.Excel
 
             var rangeAddress = new XLRangeAddress(Worksheet, rangeAddressToUse);
             return Range(rangeAddress);
-        }
-
-        public int CompareTo(XLRangeColumn otherColumn, IXLSortElements rowsToSort)
-        {
-            foreach (IXLSortElement e in rowsToSort)
-            {
-                var thisCell = Cell(e.ElementNumber);
-                var otherCell = otherColumn.Cell(e.ElementNumber);
-                int comparison;
-                bool thisCellIsBlank = thisCell.IsEmpty();
-                bool otherCellIsBlank = otherCell.IsEmpty();
-                if (e.IgnoreBlanks && (thisCellIsBlank || otherCellIsBlank))
-                {
-                    if (thisCellIsBlank && otherCellIsBlank)
-                        comparison = 0;
-                    else
-                    {
-                        if (thisCellIsBlank)
-                            comparison = e.SortOrder == XLSortOrder.Ascending ? 1 : -1;
-                        else
-                            comparison = e.SortOrder == XLSortOrder.Ascending ? -1 : 1;
-                    }
-                }
-                else
-                {
-                    if (thisCell.DataType == otherCell.DataType)
-                    {
-                        if (thisCell.DataType == XLDataType.Blank)
-                            comparison = 0;
-                        else if (thisCell.DataType == XLDataType.Boolean)
-                            comparison = thisCell.GetBoolean().CompareTo(otherCell.GetBoolean());
-                        else if (thisCell.DataType == XLDataType.Text)
-                        {
-                            comparison = e.MatchCase
-                                             ? thisCell.GetText().CompareTo(otherCell.GetText())
-                                             : String.Compare(thisCell.GetText(), otherCell.GetText(), true);
-                        }
-                        else if (thisCell.DataType == XLDataType.Error)
-                            comparison = 0; // Errors are incomparable
-                        else
-                            comparison = thisCell.CachedValue.GetUnifiedNumber().CompareTo(thisCell.CachedValue.GetUnifiedNumber());
-                    }
-                    else if (e.MatchCase)
-                        comparison = String.Compare(thisCell.GetString(), otherCell.GetString(), true);
-                    else
-                        comparison = thisCell.GetString().CompareTo(otherCell.GetString());
-                }
-
-                if (comparison != 0)
-                    return e.SortOrder == XLSortOrder.Ascending ? comparison : comparison * -1;
-            }
-
-            return 0;
         }
 
         private XLRangeColumn ColumnShift(Int32 columnsToShift)
