@@ -687,7 +687,7 @@ namespace ClosedXML.Excel.CalcEngine
             }
         }
 
-        private readonly record struct ValuesState(List<double> Values) : ITallyState<ValuesState>
+        internal readonly record struct ValuesState(List<double> Values) : ITallyState<ValuesState>
         {
             public ValuesState Tally(double number)
             {

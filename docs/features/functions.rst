@@ -379,7 +379,7 @@ Standard functions
      - YES
 
    * - IRR
-     - No
+     - **Yes**
 
    * - ISPMT
      - No
@@ -394,10 +394,10 @@ Standard functions
      - No
 
    * - NPER
-     - No
+     - **Yes**
 
    * - NPV
-     - No
+     - **Yes**
 
    * - ODDFPRICE
      - No
@@ -427,10 +427,10 @@ Standard functions
      - No
 
    * - PV
-     - No
+     - **Yes**
 
    * - RATE
-     - No
+     - **Yes**
 
    * - RECEIVED
      - No
