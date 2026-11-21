@@ -52,7 +52,7 @@ namespace ClosedXML.Excel.CalcEngine
 
         internal bool IsEmpty => _sheetTrees.All(sheetTree => sheetTree.Value.IsEmpty) && _dependencies.Count == 0;
 
-        internal static DependencyTree CreateFrom(XLWorkbook workbook)
+        internal static DependencyTree CreateFrom(XLWorkbook workbook, bool skipUnparsable = false)
         {
             var tree = new DependencyTree();
 
@@ -67,24 +67,31 @@ namespace ClosedXML.Excel.CalcEngine
                 {
                     var formula = enumerator.Current;
                     var point = enumerator.Point;
-                    if (formula.Type == FormulaType.Normal)
+                    try
                     {
-                        var bookArea = new SheetArea(sheet.Name, new Area(point, point));
-                        tree.AddFormula(bookArea, formula, workbook);
-                    }
-                    else if (formula.Type == FormulaType.Array)
-                    {
-                        // Ignore all non-master cells
-                        var isMasterCell = formula.Range.FirstPoint == point;
-                        if (isMasterCell)
+                        if (formula.Type == FormulaType.Normal)
                         {
-                            var bookArea = new SheetArea(sheet.Name, formula.Range);
+                            var bookArea = new SheetArea(sheet.Name, new Area(point, point));
                             tree.AddFormula(bookArea, formula, workbook);
                         }
+                        else if (formula.Type == FormulaType.Array)
+                        {
+                            // Ignore all non-master cells
+                            var isMasterCell = formula.Range.FirstPoint == point;
+                            if (isMasterCell)
+                            {
+                                var bookArea = new SheetArea(sheet.Name, formula.Range);
+                                tree.AddFormula(bookArea, formula, workbook);
+                            }
+                        }
+                        else
+                        {
+                            // TODO: Implement other formulas. Don't throw on data table or shared formulas.
+                        }
                     }
-                    else
+                    catch (ExpressionParseException) when (skipUnparsable)
                     {
-                        // TODO: Implement other formulas. Don't throw on data table or shared formulas.
+                        // The calculation of the cell throws the same exception and reports the cell.
                     }
                 }
             }
