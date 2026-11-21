@@ -5,6 +5,10 @@ end_of_line = crlf
 insert_final_newline = true
 trim_trailing_whitespace = true
 
+# Bash does not run a script with CRLF line endings.
+[*.sh]
+end_of_line = lf
+
 # 4 space indentation
 [*.cs]
 charset=utf-8
