@@ -1,7 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <LangVersion>11.0</LangVersion>
+    <!-- Polyfill 11 uses C# 14 extension blocks. -->
+    <LangVersion>14.0</LangVersion>
     <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
     <!-- netstandard 2.0 doesn't contain nullable annotations for BCL, so we want to export
          annotations for our consumers, but no warnings for our code. Warnings will be
@@ -15,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Polyfill" Version="1.29.0">
+    <PackageReference Include="Polyfill" Version="11.4.5">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>

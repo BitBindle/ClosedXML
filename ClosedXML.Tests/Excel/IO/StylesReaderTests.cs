@@ -557,7 +557,9 @@ internal class StylesReaderTests
             """,
             styles =>
             {
-                var (dxfId, dxf) = styles.DifferentialFormats.Single();
+                var differentialFormat = styles.DifferentialFormats.Single();
+                var dxfId = differentialFormat.Key;
+                var dxf = differentialFormat.Value;
                 Assert.AreEqual(0, dxfId);
                 Assert.IsTrue(dxf.Font.Bold);
                 Assert.AreEqual("0.00", dxf.NumberFormat);
