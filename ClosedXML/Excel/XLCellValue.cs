@@ -147,6 +147,10 @@ namespace ClosedXML.Excel
         public static implicit operator XLCellValue(ulong number) => new(number);
         public static implicit operator XLCellValue(float number) => new(number);
         public static implicit operator XLCellValue(double number) => new(number);
+        /// <summary>
+        /// Converts a <see cref="decimal"/> to a number value. The value keeps the number as a
+        /// <see cref="double"/>, so a number with more than 15 significant digits can change.
+        /// </summary>
         public static implicit operator XLCellValue(decimal number) => new(decimal.ToDouble(number));
 
         public static implicit operator XLCellValue(sbyte? numberOrBlank) => numberOrBlank.HasValue ? numberOrBlank.Value : Blank.Value;
