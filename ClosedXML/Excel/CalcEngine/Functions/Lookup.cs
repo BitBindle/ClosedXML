@@ -282,7 +282,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
                 // Array form: a wide array is searched in the first row, otherwise in the first column.
                 // The result is from the last row or column.
                 var searched = lookupArray.Width > lookupArray.Height ? new TransposedArray(lookupArray) : lookupArray;
-                var foundRow = Bisection(ctx, searched, lookupValue);
+                var foundRow = MatchAscending(ctx, lookupValue, searched, ScalarValueComparer.SortIgnoreCase);
                 if (foundRow == -1)
                     return XLError.NoValueAvailable;
 
@@ -294,7 +294,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
                 return XLError.NoValueAvailable;
 
             var lookupVector = lookupArray.Width > 1 ? new TransposedArray(lookupArray) : lookupArray;
-            var index = Bisection(ctx, lookupVector, lookupValue);
+            var index = MatchAscending(ctx, lookupValue, lookupVector, ScalarValueComparer.SortIgnoreCase);
             if (index == -1)
                 return XLError.NoValueAvailable;
 
