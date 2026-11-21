@@ -562,7 +562,13 @@ namespace ClosedXML.Excel
             if (_loadSource == XLLoadSource.New)
             {
                 if (File.Exists(file))
+                {
+                    // File.Delete throws for a read-only file on Windows, but deletes it on Unix. Behave the same everywhere.
+                    if ((File.GetAttributes(file) & FileAttributes.ReadOnly) != 0)
+                        throw new UnauthorizedAccessException($"Access to the path '{file}' is denied, the file is read-only.");
+
                     File.Delete(file);
+                }
 
                 CreatePackage(file, GetSpreadsheetDocumentType(file), options);
             }
