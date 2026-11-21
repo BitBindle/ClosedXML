@@ -20,7 +20,7 @@ namespace ClosedXML.Graphics
         protected override bool CheckHeader(Stream stream)
         {
             Span<byte> s = stackalloc byte[2];
-            if (stream.Read(s) != s.Length)
+            if (stream.ReadAtLeast(s, s.Length, throwOnEndOfStream: false) != s.Length)
                 return false;
 
             // Excel can't read V1.x CI-Color Icon, CP-Color Pointer, IC-Icon or PT-Pointer for OS/2, so don't decode them.

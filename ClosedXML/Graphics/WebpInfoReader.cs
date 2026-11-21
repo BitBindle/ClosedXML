@@ -24,7 +24,7 @@ namespace ClosedXML.Graphics
         protected override bool CheckHeader(Stream stream)
         {
             Span<byte> header = stackalloc byte[12];
-            if (stream.Read(header) != header.Length)
+            if (stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false) != header.Length)
             {
                 return false;
             }
@@ -117,7 +117,7 @@ namespace ClosedXML.Graphics
                 }
 
                 Span<byte> header = stackalloc byte[4];
-                var readBytes = stream.Read(header);
+                var readBytes = stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false);
                 if (readBytes != 4)
                 {
                     throw new ArgumentException("Unexpected end of file.");

@@ -17,7 +17,7 @@ namespace ClosedXML.Graphics
         protected override bool CheckHeader(Stream stream)
         {
             Span<byte> header = stackalloc byte[3];
-            if (stream.Read(header) != header.Length)
+            if (stream.ReadAtLeast(header, header.Length, throwOnEndOfStream: false) != header.Length)
                 return false;
 
             return header[0] == 0xA &&

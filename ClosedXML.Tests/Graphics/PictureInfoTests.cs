@@ -1,4 +1,6 @@
+using System;
 using System.Drawing;
+using System.IO;
 using System.Reflection;
 using ClosedXML.Excel.Drawings;
 using ClosedXML.Graphics;
@@ -109,6 +111,35 @@ namespace ClosedXML.Tests.Graphics
             AssertRasterImage("SampleImageWebpLossless.webp", XLPictureFormat.Webp, new Size(395, 136), 72, 72);
         }
 
+        [Issue("17")]
+        [TestCase("SampleImagePng.png", XLPictureFormat.Png)]
+        [TestCase("Jpg.SampleImageJfif.jpg", XLPictureFormat.Jpeg)]
+        [TestCase("SampleImageGif89a.gif", XLPictureFormat.Gif)]
+        [TestCase("SampleImageBmpWin24bit.bmp", XLPictureFormat.Bmp)]
+        [TestCase("SampleImageTiffLittleEndian.tiff", XLPictureFormat.Tiff)]
+        [TestCase("SampleImagePcx.pcx", XLPictureFormat.Pcx)]
+        [TestCase("SampleImagePlaceableWmf.wmf", XLPictureFormat.Wmf)]
+        [TestCase("SampleImageOriginalWmf.wmf", XLPictureFormat.Wmf)]
+        [TestCase("SampleImageEmf.emf", XLPictureFormat.Emf)]
+        [TestCase("SampleImageWebpLossless.webp", XLPictureFormat.Webp)]
+        public void Picture_info_is_same_when_stream_returns_one_byte_per_read(string imageName, XLPictureFormat expectedFormat)
+        {
+            // Stream.Read can return fewer bytes than the buffer length before the end of the stream.
+            using var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"ClosedXML.Tests.Resource.Images.{imageName}");
+            using var memoryStream = new MemoryStream();
+            resourceStream.CopyTo(memoryStream);
+            var expectedInfo = DefaultGraphicEngine.Instance.Value.GetPictureInfo(memoryStream, XLPictureFormat.Unknown);
+
+            using var oneBytePerReadStream = new OneBytePerReadStream(memoryStream.ToArray());
+            var info = DefaultGraphicEngine.Instance.Value.GetPictureInfo(oneBytePerReadStream, XLPictureFormat.Unknown);
+
+            Assert.AreEqual(expectedFormat, info.Format);
+            Assert.AreEqual(expectedInfo.SizePx, info.SizePx);
+            Assert.AreEqual(expectedInfo.SizePhys, info.SizePhys);
+            Assert.AreEqual(expectedInfo.DpiX, info.DpiX);
+            Assert.AreEqual(expectedInfo.DpiY, info.DpiY);
+        }
+
         private static void AssertRasterImage(string imageName, XLPictureFormat expectedFormat, Size expectedPxSize, double expectedDpiX, double expectedDpiY)
         {
             AssertImage(imageName, expectedFormat, expectedPxSize, Size.Empty, expectedDpiX, expectedDpiY);
@@ -131,6 +162,25 @@ namespace ClosedXML.Tests.Graphics
             // Some DPI is stored as pixels per meter, causing a rounding errors.
             Assert.AreEqual(expectedDpiX, info.DpiX, 0.02);
             Assert.AreEqual(expectedDpiY, info.DpiY, 0.02);
+        }
+
+        private sealed class OneBytePerReadStream : MemoryStream
+        {
+            public OneBytePerReadStream(byte[] data) : base(data, false)
+            {
+            }
+
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                return base.Read(buffer, offset, Math.Min(count, 1));
+            }
+
+#if NET
+            public override int Read(Span<byte> buffer)
+            {
+                return base.Read(buffer.Slice(0, Math.Min(buffer.Length, 1)));
+            }
+#endif
         }
     }
 }
