@@ -34,7 +34,8 @@
     <Description>See release notes $(RepositoryUrl)/releases/tag/$(Version) ClosedXML is a .NET library for reading, manipulating and writing Excel 2007+ (.xlsx, .xlsm) files. It aims to provide an intuitive and user-friendly interface to dealing with the underlying OpenXML API.</Description>
     <PackageReleaseNotes>See $(RepositoryUrl)/releases/tag/$(Version)</PackageReleaseNotes>
 
-    <!-- Sourcelink: https://github.com/dotnet/sourcelink/ -->
+    <!-- Source Link: https://github.com/dotnet/sourcelink/. The .NET 8 SDK and later include Source Link,
+         so the project doesn't need a package for it. -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
