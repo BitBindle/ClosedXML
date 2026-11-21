@@ -7,6 +7,9 @@ on:
   pull_request:
     branches: [ develop ]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: windows-2025-vs2026
@@ -50,22 +53,72 @@ jobs:
         run: dotnet restore ClosedXML.slnx
 
       - name: Build
+        # RepositoryUrl is overridden, so that GitHub Packages links the package to the repository
+        # that builds it (Directory.Build.props points to the upstream repository).
         run: |
           dotnet build ClosedXML.slnx --configuration Release --no-restore `
             -p:AssemblyVersion="${{ env.fileVersion }}" `
             -p:FileVersion="${{ env.fileVersion }}" `
             -p:Version="${{ env.productVersion }}" `
-            -p:InformationalVersion="${{ env.productVersion }}"
+            -p:InformationalVersion="${{ env.productVersion }}" `
+            -p:RepositoryUrl="${{ github.server_url }}/${{ github.repository }}"
+
+      - name: Pack ClosedXML.IO
+        # ClosedXML references ClosedXML.IO, so its package depends on a ClosedXML.IO package of the
+        # same version. Only ClosedXML is packed by the build, ClosedXML.IO has to be packed explicitly.
+        run: |
+          dotnet pack ClosedXML.IO/ClosedXML.IO.csproj --configuration Release --no-build `
+            -p:Version="${{ env.productVersion }}" `
+            -p:RepositoryUrl="${{ github.server_url }}/${{ github.repository }}"
 
       - name: Test
         # GitHub build image doesn't have installed Access OLEDB driver
         run: dotnet test ClosedXML.slnx --configuration Release --no-build `
                --filter "TestCategory!=OLEDB"
 
+      - name: Collect NuGet Packages
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path artifacts | Out-Null
+          Copy-Item ClosedXML/bin/Release/*.nupkg, ClosedXML/bin/Release/*.snupkg, `
+                    ClosedXML.IO/bin/Release/*.nupkg, ClosedXML.IO/bin/Release/*.snupkg `
+                    -Destination artifacts -ErrorAction SilentlyContinue
+          Get-ChildItem artifacts | Format-Table Name, Length
+          foreach ($pattern in "ClosedXML.[0-9]*.nupkg", "ClosedXML.IO.[0-9]*.nupkg") {
+            if (-not (Test-Path "artifacts/$pattern")) { throw "Package $pattern is missing." }
+          }
+
       - name: Upload NuGet Packages
         uses: actions/upload-artifact@v4
         with:
           name: NuGet-Packages
-          path: |
-            ClosedXML/bin/Release/*.nupkg
-            ClosedXML/bin/Release/*.snupkg
+          path: artifacts/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish to GitHub Packages
+    needs: build
+    # Release tags publish a release version, develop publishes a -ci prerelease. Pull requests never publish.
+    if: github.event_name == 'push' && (github.ref_type == 'tag' || github.ref == 'refs/heads/develop')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Download NuGet Packages
+        uses: actions/download-artifact@v4
+        with:
+          name: NuGet-Packages
+          path: packages
+
+      - name: Push to GitHub Packages
+        # Symbol packages (.snupkg) are not supported by GitHub Packages (symbols are embedded in the
+        # package pdb instead, see Directory.Build.props). Re-running a workflow doesn't fail on
+        # already published versions.
+        run: |
+          dotnet nuget push "packages/*.nupkg" \
+            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+            --api-key "${{ secrets.GITHUB_TOKEN }}" \
+            --no-symbols \
+            --skip-duplicate
