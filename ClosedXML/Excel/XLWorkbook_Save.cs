@@ -384,7 +384,7 @@ namespace ClosedXML.Excel
 
                 using (var writer = new XmlTextWriter(vmlStream, Encoding.UTF8))
                 {
-                    var contents = xdoc.ToString();
+                    var contents = xdoc.ToStringCrLf();
                     writer.WriteRaw(contents);
                     vmlStream.SetLength(contents.Length);
                 }
