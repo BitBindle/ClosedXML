@@ -498,7 +498,9 @@ public class LoadingTests
         {
             var ws = wb.Worksheet(1);
 
-            Assert.AreEqual("21 January 2019", ws.Cell(1, 1).GetFormattedString());
+            // The [$-F800] prefix is the system long date format. Excel ignores the rest of the
+            // format and uses the long date format of the locale. The tests use en-US.
+            Assert.AreEqual("Monday, January 21, 2019", ws.Cell(1, 1).GetFormattedString());
             Assert.AreEqual("21-Jan-19", ws.Cell(2, 1).GetFormattedString());
             Assert.AreEqual("Monday, 21 January 2019", ws.Cell(3, 1).GetFormattedString());
             Assert.AreEqual("21 Jan 2019", ws.Cell(4, 1).GetFormattedString());
