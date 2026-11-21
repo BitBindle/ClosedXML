@@ -20,6 +20,15 @@ namespace ClosedXML.Graphics
         /// font through strip-fonts.sh script.
         /// </summary>
         private const string EmbeddedFontName = "CarlitoBare";
+
+        /// <summary>
+        /// Vertical metrics (in 2048 units per em) of Calibri. Carlito has glyphs and advances of Calibri, but its
+        /// vertical metrics are different (ascender 1950, descender -550), so the row heights would be different from
+        /// Excel. When the embedded font is used as a fallback, use these metrics to get the heights of Calibri.
+        /// </summary>
+        private const int CalibriAscender = 1536;
+        private const int CalibriDescender = -512;
+        private const int CalibriUnitsPerEm = 2048;
         private const float FontMetricSize = 16f;
         private readonly ImageInfoReader[] _imageReaders =
         {
@@ -158,7 +167,8 @@ namespace ClosedXML.Graphics
 
         private double GetDescent(IXLFontBase font, double dpiY, FontMetrics metrics)
         {
-            return PointsToPixels(-metrics.VerticalMetrics.Descender * font.FontSize / metrics.UnitsPerEm, dpiY);
+            var (_, descender) = GetVerticalMetrics(metrics);
+            return PointsToPixels(-descender * font.FontSize / metrics.UnitsPerEm, dpiY);
         }
 
         public double GetMaxDigitWidth(IXLFontBase fontBase, double dpiX)
@@ -171,7 +181,8 @@ namespace ClosedXML.Graphics
         public double GetTextHeight(IXLFontBase font, double dpiY)
         {
             var metrics = GetMetrics(font);
-            return PointsToPixels((metrics.VerticalMetrics.Ascender - 2 * metrics.VerticalMetrics.Descender) * font.FontSize / metrics.UnitsPerEm, dpiY);
+            var (ascender, descender) = GetVerticalMetrics(metrics);
+            return PointsToPixels((ascender - 2 * descender) * font.FontSize / metrics.UnitsPerEm, dpiY);
         }
 
         public double GetTextWidth(string text, IXLFontBase fontBase, double dpiX)
@@ -224,6 +235,20 @@ namespace ClosedXML.Graphics
         {
             var font = GetFont(fontBase);
             return font.FontMetrics;
+        }
+
+        /// <summary>
+        /// Get ascender and descender in font units of <paramref name="metrics"/>.
+        /// </summary>
+        private static (double Ascender, double Descender) GetVerticalMetrics(FontMetrics metrics)
+        {
+            if (metrics.Description.FontFamilyInvariantCulture == EmbeddedFontName)
+            {
+                var scale = (double)metrics.UnitsPerEm / CalibriUnitsPerEm;
+                return (CalibriAscender * scale, CalibriDescender * scale);
+            }
+
+            return (metrics.VerticalMetrics.Ascender, metrics.VerticalMetrics.Descender);
         }
 
         private Font GetFont(IXLFontBase fontBase)
