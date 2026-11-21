@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using ClosedXML.Excel;
 using NUnit.Framework;
 
@@ -225,7 +224,7 @@ namespace ClosedXML.Tests.Excel.ConditionalFormats
                 return lhs.FormatValue == rhs.FormatValue;
             }
 
-            public int GetHashCode([DisallowNull] IXLConditionalFormat obj)
+            public int GetHashCode(IXLConditionalFormat obj)
             {
                 return HashCode.Combine(((XLConditionalFormat)obj).FormatValue);
             }
