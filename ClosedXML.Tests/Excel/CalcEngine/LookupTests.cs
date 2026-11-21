@@ -86,6 +86,60 @@ namespace ClosedXML.Tests.Excel.CalcEngine
 
         #endregion Setup and teardown
 
+        [TestCase("ADDRESS(2,3)", "$C$2")]
+        [TestCase("ADDRESS(2,3,2)", "C$2")]
+        [TestCase("ADDRESS(2,3,3)", "$C2")]
+        [TestCase("ADDRESS(2,3,4)", "C2")]
+        [TestCase("ADDRESS(2,3,2,FALSE)", "R2C[3]")]
+        [TestCase("ADDRESS(2,3,4,FALSE)", "R[2]C[3]")]
+        [TestCase("ADDRESS(2,3,1,FALSE,\"[Book1]Sheet1\")", "'[Book1]Sheet1'!R2C3")]
+        [TestCase("ADDRESS(2,3,1,FALSE,\"EXCEL SHEET\")", "'EXCEL SHEET'!R2C3")]
+        [TestCase("ADDRESS(2.9,3.9,1,TRUE,\"Sheet1\")", "Sheet1!$C$2")]
+        [TestCase("ADDRESS(1048576,16384)", "$XFD$1048576")]
+        public void Address(string formula, string expected)
+        {
+            Assert.AreEqual(expected, XLWorkbook.EvaluateExpr(formula));
+        }
+
+        [TestCase("ADDRESS(0,1)")]
+        [TestCase("ADDRESS(1,0)")]
+        [TestCase("ADDRESS(1048577,1)")]
+        [TestCase("ADDRESS(1,16385)")]
+        [TestCase("ADDRESS(1,1,0)")]
+        [TestCase("ADDRESS(1,1,5)")]
+        public void Address_out_of_range_arguments_return_value_error(string formula)
+        {
+            Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr(formula));
+        }
+
+        [Test]
+        public void Choose()
+        {
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet();
+            sheet.Cell("A2").InsertData(new[] { "1st", "2nd", "3rd", "Finished" });
+            sheet.Cell("B2").InsertData(new[] { "Nails", "Screws", "Nuts", "Bolts" });
+            sheet.Cell("C2").InsertData(new[] { 23, 45, 12, 10 });
+
+            // Examples from the documentation
+            Assert.AreEqual("2nd", sheet.Evaluate("CHOOSE(2,A2,A3,A4,A5)"));
+            Assert.AreEqual("Bolts", sheet.Evaluate("CHOOSE(4,B2,B3,B4,B5)"));
+            Assert.AreEqual("world", sheet.Evaluate("CHOOSE(3,\"Wide\",115,\"world\",8)"));
+
+            // CHOOSE returns a reference, so it can be a part of a range
+            Assert.AreEqual(80, sheet.Evaluate("SUM(C2:CHOOSE(2,C3,C4,C5))"));
+        }
+
+        [TestCase("CHOOSE(2.9,1,2)", 2)]
+        [TestCase("CHOOSE(2,1,)", 0)]
+        [TestCase("CHOOSE(0,1)", XLError.IncompatibleValue)]
+        [TestCase("CHOOSE(3,1,2)", XLError.IncompatibleValue)]
+        [TestCase("CHOOSE(#DIV/0!,1,2)", XLError.DivisionByZero)]
+        public void Choose_index(string formula, object expected)
+        {
+            Assert.AreEqual(expected, XLWorkbook.EvaluateExpr(formula));
+        }
+
         [Test]
         public void Column()
         {
@@ -596,12 +650,227 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         }
 
         [Test]
+        public void Indirect()
+        {
+            // Example from the documentation
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet("Data");
+            sheet.Cell("A2").InsertData(new object[] { "B2", "B3", "George", 5 });
+            sheet.Cell("B2").InsertData(new[] { 1.333, 45, 10, 62 });
+            wb.DefinedNames.Add("George", "Data!$B$4");
+
+            Assert.AreEqual(1.333, sheet.Evaluate("INDIRECT(A2)"));
+            Assert.AreEqual(45, sheet.Evaluate("INDIRECT(A3)"));
+            Assert.AreEqual(10, sheet.Evaluate("INDIRECT(A4)"));
+            Assert.AreEqual(62, sheet.Evaluate("INDIRECT(\"B\"&A5)"));
+        }
+
+        [TestCase("INDIRECT(\"B3\")", 45)]
+        [TestCase("INDIRECT(\"$B$3\")", 45)]
+        [TestCase("SUM(INDIRECT(\"B2:B3\"))", 46)]
+        [TestCase("INDIRECT(\"'Other Sheet'!B3\")", 77)]
+        [TestCase("INDIRECT(\"R3C2\",FALSE)", 45)]
+        [TestCase("INDIRECT(\"R[-1]C[-1]\",FALSE)", 1)]
+        [TestCase("SUM(INDIRECT(\"Tbl[Amount]\"))", 7)]
+        [TestCase("INDIRECT(\"Range\")", 45)]
+        [TestCase("INDIRECT(\"Number\")", XLError.CellReference)]
+        [TestCase("INDIRECT(\"Missing\")", XLError.CellReference)]
+        [TestCase("INDIRECT(\"1+1\")", XLError.CellReference)]
+        [TestCase("INDIRECT(\"\")", XLError.CellReference)]
+        [TestCase("INDIRECT(\"%%%\")", XLError.CellReference)]
+        [TestCase("INDIRECT(\"B3\",FALSE)", XLError.CellReference)]
+        [TestCase("INDIRECT(\"Missing!A1\")", XLError.CellReference)]
+        [TestCase("INDIRECT(\"[1]Data!A1\")", XLError.CellReference)]
+        [TestCase("INDIRECT(\"INDIRECT(\"\"B3\"\")\")", XLError.CellReference)]
+        [TestCase("INDIRECT(#DIV/0!)", XLError.DivisionByZero)]
+        public void Indirect_reference_text(string formula, object expected)
+        {
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet("Data");
+            sheet.Cell("B2").Value = 1;
+            sheet.Cell("B3").Value = 45;
+            wb.AddWorksheet("Other Sheet").Cell("B3").Value = 77;
+            sheet.Cell("E1").InsertTable(new[] { new { Amount = 3 }, new { Amount = 4 } }, "Tbl");
+            wb.DefinedNames.Add("Range", "Data!$B$3");
+            wb.DefinedNames.Add("Number", "5");
+
+            Assert.AreEqual(expected, sheet.Evaluate(formula, "C3"));
+        }
+
+        [Test]
+        public void Indirect_refuses_text_longer_than_255_characters()
+        {
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet("S");
+            sheet.Cell("A1").Value = 5;
+            var name253 = new string('n', 253);
+            var name254 = new string('n', 254);
+            sheet.DefinedNames.Add(name253, "S!$A$1");
+            sheet.DefinedNames.Add(name254, "S!$A$1");
+
+            // Both names are valid, only the length of the text is different.
+            Assert.AreEqual(5, sheet.Evaluate($"S!{name254}"));
+            Assert.AreEqual(5, sheet.Evaluate($"INDIRECT(\"S!{name253}\")"));
+            Assert.AreEqual(XLError.CellReference, sheet.Evaluate($"INDIRECT(\"S!{name254}\")"));
+        }
+
+        [Test]
+        public void Indirect_in_name_formula_with_r1c1_text()
+        {
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet();
+            sheet.Cell("B2").Value = 7;
+            wb.DefinedNames.Add("AbsName", "INDIRECT(\"R2C2\",FALSE)");
+            wb.DefinedNames.Add("RelName", "INDIRECT(\"R[1]C[1]\",FALSE)");
+            sheet.Cell("A1").FormulaA1 = "AbsName";
+            sheet.Cell("A2").FormulaA1 = "RelName";
+            sheet.Cell("A3").FormulaA1 = "B2*2";
+
+            Assert.AreEqual(7, sheet.Cell("A1").Value);
+
+            // A name formula has no cell, so a relative R1C1 text has no anchor.
+            Assert.AreEqual(XLError.CellReference, sheet.Cell("A2").Value);
+            Assert.AreEqual(14, sheet.Cell("A3").Value);
+        }
+
+        [Test]
+        public void Indirect_of_name_that_refers_to_itself_is_a_cycle()
+        {
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet();
+            wb.DefinedNames.Add("Loop", "INDIRECT(\"Loop\")");
+            sheet.Cell("A1").FormulaA1 = "Loop";
+
+            Assert.Throws<InvalidOperationException>(() => _ = sheet.Cell("A1").Value);
+        }
+
+        [TestCase("INDIRECT(\"A1\")", "Sheet")]
+        [TestCase("INDIRECT(\"Other!A1\")", "Other")]
+        [TestCase("OFFSET(B2,-1,-1)", "Sheet")]
+        [TestCase("OFFSET(Other!B2,-1,-1)", "Other")]
+        public void Indirect_and_offset_are_recalculated_when_target_cell_changes(string formula, string targetSheet)
+        {
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet("Sheet");
+            var target = wb.AddWorksheet("Other").Cell("A1");
+            if (targetSheet == "Sheet")
+                target = sheet.Cell("A1");
+
+            target.Value = 1;
+            var cell = sheet.Cell("C3");
+            cell.FormulaA1 = formula;
+            Assert.AreEqual(1, cell.Value);
+
+            // The formula doesn't refer to A1 directly, it must be dirty anyway.
+            target.Value = 2;
+            Assert.AreEqual(2, cell.Value);
+        }
+
+        [Test]
+        public void Edit_with_many_indirect_formulas_is_fast()
+        {
+            // Each INDIRECT formula depends on the full sheet, i.e. also on the other INDIRECT
+            // formulas. Without a check of visited areas, one edit took quadratic time (seconds).
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet();
+            const int count = 10000;
+            for (var row = 1; row <= count; row++)
+                sheet.Cell(row, 2).FormulaA1 = $"INDIRECT(\"A{row}\")";
+            wb.RecalculateAllFormulas();
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            sheet.Cell("A1").Value = 1;
+            stopwatch.Stop();
+
+            Assert.Less(stopwatch.ElapsedMilliseconds, 1000);
+            Assert.AreEqual(1, sheet.Cell("B1").Value);
+        }
+
+        [Test]
+        public void Lookup_vector_form()
+        {
+            // Example from the documentation
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet();
+            sheet.Cell("A2").InsertData(new[] { 4.14, 4.19, 5.17, 5.77, 6.39 });
+            sheet.Cell("B2").InsertData(new[] { "red", "orange", "yellow", "green", "blue" });
+            sheet.Cell("D2").InsertData(new[] { "a", "b", "c", "d", "e" }, true);
+
+            Assert.AreEqual("orange", sheet.Evaluate("LOOKUP(4.19,A2:A6,B2:B6)"));
+            Assert.AreEqual("yellow", sheet.Evaluate("LOOKUP(5.75,A2:A6,B2:B6)"));
+            Assert.AreEqual("blue", sheet.Evaluate("LOOKUP(7.66,A2:A6,B2:B6)"));
+            Assert.AreEqual(XLError.NoValueAvailable, sheet.Evaluate("LOOKUP(0,A2:A6,B2:B6)"));
+
+            // Lookup and result vectors can have different orientation
+            Assert.AreEqual("c", sheet.Evaluate("LOOKUP(5.17,A2:A6,D2:H2)"));
+            Assert.AreEqual("yellow", sheet.Evaluate("LOOKUP(\"c\",D2:H2,B2:B6)"));
+
+            // A shorter result vector is read further in its direction
+            Assert.AreEqual("yellow", sheet.Evaluate("LOOKUP(5.17,A2:A6,B2:B3)"));
+            Assert.AreEqual("yellow", sheet.Evaluate("LOOKUP(5.17,A2:A6,B2)"));
+            Assert.AreEqual("c", sheet.Evaluate("LOOKUP(5.17,A2:A6,D2:E2)"));
+        }
+
+        [TestCase("LOOKUP(2,{1,2,2,3},{\"a\",\"b\",\"c\",\"d\"})", "c")]
+        [TestCase("LOOKUP(2.5,{1;2;3},{\"a\";\"b\";\"c\"})", "b")]
+        [TestCase("LOOKUP(2.5,{1,\"x\",2,TRUE,3},{1,2,3,4,5})", 3)]
+        [TestCase("LOOKUP(3,{1,2,3},{\"a\",\"b\"})", XLError.NoValueAvailable)]
+        [TestCase("LOOKUP(2,{1,2;3,4},{\"a\",\"b\"})", XLError.NoValueAvailable)]
+        [TestCase("LOOKUP(#DIV/0!,{1,2},{3,4})", XLError.DivisionByZero)]
+        public void Lookup_vector_form_with_arrays(string formula, object expected)
+        {
+            Assert.AreEqual(expected, XLWorkbook.EvaluateExpr(formula));
+        }
+
+        [TestCase("LOOKUP(\"C\",{\"a\",\"b\",\"c\",\"d\";1,2,3,4})", 3)]
+        [TestCase("LOOKUP(\"bump\",{\"a\",1;\"b\",2;\"c\",3})", 2)]
+        [TestCase("LOOKUP(2,{1,\"x\";2,\"y\"})", "y")]
+        [TestCase("LOOKUP(0,{1,\"x\";2,\"y\"})", XLError.NoValueAvailable)]
+        public void Lookup_array_form(string formula, object expected)
+        {
+            // Examples from the documentation
+            Assert.AreEqual(expected, XLWorkbook.EvaluateExpr(formula));
+        }
+
+        [Test]
         public void Match_accepts_single_cell_as_values()
         {
             using var wb = new XLWorkbook();
             var sheet = wb.AddWorksheet();
             sheet.Cell("A1").Value = 5;
             Assert.AreEqual(1, sheet.Evaluate("MATCH(5, A1)"));
+        }
+
+        [TestCase("OFFSET(D3,3,-2,1,1)", 6)]
+        [TestCase("SUM(OFFSET(D3:F5,3,-2,3,3))", 63)]
+        [TestCase("OFFSET(D3,-3,-3)", XLError.CellReference)]
+        [TestCase("OFFSET(D3,2.9,-1.9)", 13)]
+        [TestCase("SUM(OFFSET(B6,0,0,2))", 13)]
+        [TestCase("SUM(OFFSET(B6,0,0,,2))", 11)]
+        [TestCase("SUM(OFFSET(B6:C7,0,0,,))", 26)]
+        [TestCase("SUM(OFFSET(C7,0,0,-2,-2))", 26)]
+        [TestCase("OFFSET(B6,0,0,0)", XLError.CellReference)]
+        [TestCase("OFFSET(B6,0,0,1,0)", XLError.CellReference)]
+        [TestCase("OFFSET(B6,1048571,0)", XLError.CellReference)]
+        [TestCase("OFFSET(B6,0,0,1048572)", XLError.CellReference)]
+        [TestCase("OFFSET(B6,0,16383)", XLError.CellReference)]
+        [TestCase("OFFSET(1,0,0)", XLError.IncompatibleValue)]
+        [TestCase("OFFSET((B6,C6),0,0)", XLError.IncompatibleValue)]
+        [TestCase("OFFSET(#REF!,0,0)", XLError.CellReference)]
+        [TestCase("OFFSET(INDIRECT(\"bad\"),0,0)", XLError.CellReference)]
+        [TestCase("OFFSET(B6,#DIV/0!,0)", XLError.DivisionByZero)]
+        public void Offset(string formula, object expected)
+        {
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet();
+            var data = new[,] { { 6, 5, 4 }, { 7, 8, 9 }, { 10, 11, 3 } };
+            for (var row = 0; row < 3; ++row)
+                for (var column = 0; column < 3; ++column)
+                    sheet.Cell(6 + row, 2 + column).Value = data[row, column];
+
+            sheet.Cell("C5").Value = 13;
+
+            Assert.AreEqual(expected, sheet.Evaluate(formula, "A1"));
         }
 
         [Test]
