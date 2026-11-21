@@ -19,3 +19,4 @@
 *.xlsx binary
 
 core.autocrlf=true
+*.sh text eol=lf
