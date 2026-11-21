@@ -432,6 +432,7 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual("1234567.5556", wb.Evaluate("FIXED(1234567.555555,4,TRUE)"));
             Assert.AreEqual("0.5555550000", wb.Evaluate("FIXED(.555555,10)"));
             Assert.AreEqual("1,235,000", wb.Evaluate("FIXED(1234567,-3)"));
+            Assert.AreEqual("1.01", wb.Evaluate("FIXED(1.005,2)"));
         }
 
         [Test]
