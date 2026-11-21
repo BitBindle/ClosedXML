@@ -36,7 +36,7 @@ namespace ClosedXML.Excel.CalcEngine
                 UnaryOp.Subtract => arg.UnaryMinus(context),
                 UnaryOp.Percentage => arg.UnaryPercent(context),
                 UnaryOp.SpillRange => throw new NotImplementedException("Evaluation of spill range operator is not implemented."),
-                UnaryOp.ImplicitIntersection => throw new NotImplementedException("Excel 2016 implicit intersection is different from @ intersection of E2019+"),
+                UnaryOp.ImplicitIntersection => arg.ImplicitIntersectionOperator(context),
                 _ => throw new NotSupportedException($"Unknown operator {node.Operation}.")
             };
         }
@@ -78,7 +78,14 @@ namespace ClosedXML.Excel.CalcEngine
             try
             {
                 for (var i = 0; i < parameters.Count; ++i)
+                {
+                    // Arguments of array parameters are evaluated as an array formula, e.g. SUMPRODUCT(A1:A3*B1:B3).
+                    var isArrayArgument = !context.IsArrayCalculation && fn.IsArrayParameter(i);
+                    context.IsArrayCalculation |= isArrayArgument;
                     args[i] = parameters[i].Accept(context, this);
+                    if (isArrayArgument)
+                        context.IsArrayCalculation = false;
+                }
 
                 return !context.IsArrayCalculation
                     ? fn.CallFunction(context, args)

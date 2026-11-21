@@ -28,6 +28,7 @@ internal sealed class CalcContext
         Workbook = workbook;
         Worksheet = worksheet;
         FormulaAddress = formulaAddress;
+        HasFormulaAddress = formulaAddress is not null;
         _recursive = recursive;
         Culture = culture;
 
@@ -53,6 +54,11 @@ internal sealed class CalcContext
     /// Address of the calculated formula.
     /// </summary>
     public IXLAddress FormulaAddress => field ?? throw new MissingContextException();
+
+    /// <summary>
+    /// Is the formula calculated for a cell? E.g. a formula of a defined name isn't.
+    /// </summary>
+    internal bool HasFormulaAddress { get; }
 
     /// <summary>
     /// A culture used for comparisons and conversions (e.g. text to number).

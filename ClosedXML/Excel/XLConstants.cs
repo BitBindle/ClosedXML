@@ -162,6 +162,7 @@ namespace ClosedXML.Excel
             "SEQUENCE",
             "SHEET",
             "SHEETS",
+            "SINGLE",
             "SKEW.P",
             "SORTBY",
             "STDEV.P",
