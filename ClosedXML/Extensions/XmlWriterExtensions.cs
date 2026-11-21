@@ -103,8 +103,8 @@ namespace ClosedXML.Extensions
 
         public static void WriteNumberValue(this XmlWriter w, Double value)
         {
-            // G17 will survive roundtrip to file and back
-            w.WriteValue(value.ToInvariantString());
+            // The text parses back to the same value, so a load of the saved file gives the same number.
+            w.WriteValue(ObjectExtensions.ToRoundTripString(value));
         }
 
         public static void WritePreserveSpaceAttr(this XmlWriter w)

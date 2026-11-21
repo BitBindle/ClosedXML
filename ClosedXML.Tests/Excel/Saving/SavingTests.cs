@@ -20,6 +20,67 @@ namespace ClosedXML.Tests.Excel.Saving
     public class SavingTests
     {
         [Test]
+        [Issue("14")]
+        public void Number_cell_value_is_same_after_save_and_load()
+        {
+            // The text in the sheet XML must parse back to the same double. Otherwise a value
+            // that needs 16 or 17 significant digits changes when the workbook is saved.
+            var values = new[]
+            {
+                0.1 + 0.2,
+                1234567.123456789,
+                9007199254740992d,
+                1234567890123456d,
+                0.1,
+                -123.45,
+            };
+
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                for (var i = 0; i < values.Length; i++)
+                    ws.Cell(i + 1, 1).Value = values[i];
+
+                ws.Cell("B1").Value = 1234567890123456L;
+                wb.SaveAs(ms);
+            }
+
+            ms.Position = 0;
+            using (var wb = new XLWorkbook(ms))
+            {
+                var ws = wb.Worksheet(1);
+                for (var i = 0; i < values.Length; i++)
+                    Assert.AreEqual(values[i], ws.Cell(i + 1, 1).GetDouble());
+
+                Assert.AreEqual(1234567890123456d, ws.Cell("B1").GetDouble());
+            }
+
+            ms.Position = 0;
+            using var package = SpreadsheetDocument.Open(ms, false);
+            using var sheetStream = package.WorkbookPart!.WorksheetParts.Single().GetStream();
+            var sheetXml = XDocument.Load(sheetStream);
+            var cellTexts = sheetXml
+                .Descendants(XName.Get("v", OpenXmlConst.Main2006SsNs))
+                .Select(v => v.Value)
+                .ToArray();
+
+            // A value that parses back at 15 significant digits keeps its short text.
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    "0.30000000000000004",
+                    "1234567890123456",
+                    "1234567.123456789",
+                    "9007199254740992",
+                    "1234567890123456",
+                    "0.1",
+                    "-123.45",
+                },
+                cellTexts);
+        }
+
+        [Test]
         public void BooleanValueSavesAsZeroOrOne()
         {
             // When a cell evaluates to a boolean value, the text in the XML has to be true/false (lowercase only) or 0/1
