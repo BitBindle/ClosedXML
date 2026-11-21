@@ -544,13 +544,13 @@ Standard functions
 
    * - :rspan:`17` Lookup and Reference
      - ADDRESS
-     - No
+     - **YES**
 
    * - AREAS
      - No
 
    * - CHOOSE
-     - No
+     - **YES**
 
    * - COLUMN
      - **YES**
@@ -571,16 +571,16 @@ Standard functions
      - **YES**
 
    * - INDIRECT
-     - No
+     - **YES**
 
    * - LOOKUP
-     - No
+     - **YES**
 
    * - MATCH
      - **YES**
 
    * - OFFSET
-     - No
+     - **YES**
 
    * - ROW
      - **YES**

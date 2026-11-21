@@ -3,7 +3,10 @@
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
+using ClosedXML.Extensions;
 using static ClosedXML.Excel.CalcEngine.Functions.SignatureAdapter;
 
 namespace ClosedXML.Excel.CalcEngine.Functions
@@ -12,9 +15,9 @@ namespace ClosedXML.Excel.CalcEngine.Functions
     {
         public static void Register(FunctionRegistry ce)
         {
-            //ce.RegisterFunction("ADDRESS", , Address); // Returns a reference as text to a single cell in a worksheet
+            ce.RegisterFunction("ADDRESS", 2, 5, AdaptAddress(Address), FunctionFlags.Scalar); // Returns a reference as text to a single cell in a worksheet
             //ce.RegisterFunction("AREAS", , Areas); // Returns the number of areas in a reference
-            //ce.RegisterFunction("CHOOSE", , Choose); // Chooses a value from a list of values
+            ce.RegisterFunction("CHOOSE", 2, 255, Adapt(Choose), FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.Except, 0); // Chooses a value from a list of values
             ce.RegisterFunction("COLUMN", 0, 1, Column, FunctionFlags.Range, AllowRange.All); // Returns the column number of a reference
             ce.RegisterFunction("COLUMNS", 1, 1, Adapt(Columns), FunctionFlags.Range | FunctionFlags.ArrayParameters, AllowRange.All); // Returns the number of columns in a reference
             //ce.RegisterFunction("FORMULATEXT", , Formulatext); // Returns the formula at the given reference as text
@@ -22,10 +25,10 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             ce.RegisterFunction("HLOOKUP", 3, 4, AdaptLastOptional(Hlookup, true), FunctionFlags.Range, AllowRange.Only, 1); // Looks in the top row of an array and returns the value of the indicated cell
             ce.RegisterFunction("HYPERLINK", 1, 2, Adapt(Hyperlink), FunctionFlags.Scalar | FunctionFlags.SideEffect); // Creates a shortcut or jump that opens a document stored on a network server, an intranet, or the Internet
             ce.RegisterFunction("INDEX", 2, 4, AdaptIndex(Index), FunctionFlags.Range | FunctionFlags.ReturnsArray | FunctionFlags.ArrayParameters, AllowRange.Only, 0); // Uses an index to choose a value from a reference or array
-            //ce.RegisterFunction("INDIRECT", , Indirect); // Returns a reference indicated by a text value
-            //ce.RegisterFunction("LOOKUP", , Lookup); // Looks up values in a vector or array
+            ce.RegisterFunction("INDIRECT", 1, 2, AdaptLastOptional(Indirect, true), FunctionFlags.Scalar | FunctionFlags.Volatile); // Returns a reference indicated by a text value
+            ce.RegisterFunction("LOOKUP", 2, 3, AdaptLastOptional(LookupFunction), FunctionFlags.Range, AllowRange.Except, 0); // Looks up values in a vector or array
             ce.RegisterFunction("MATCH", 2, 3, AdaptMatch(Match), FunctionFlags.Range, AllowRange.Only, 1); // Looks up values in a reference or array
-            //ce.RegisterFunction("OFFSET", , Offset); // Returns a reference offset from a given reference
+            ce.RegisterFunction("OFFSET", 3, 5, AdaptOffset(Offset), FunctionFlags.Range | FunctionFlags.ReturnsArray | FunctionFlags.Volatile, AllowRange.Only, 0); // Returns a reference offset from a given reference
             ce.RegisterFunction("ROW", 0, 1, Row, FunctionFlags.Range | FunctionFlags.ReturnsArray, AllowRange.All); // Returns the row number of a reference
             ce.RegisterFunction("ROWS", 1, 1, Adapt(Rows), FunctionFlags.Range | FunctionFlags.ArrayParameters, AllowRange.All); // Returns the number of rows in a reference
             //ce.RegisterFunction("RTD", , Rtd); // Retrieves real-time data from a program that supports COM automation
@@ -37,6 +40,38 @@ namespace ClosedXML.Excel.CalcEngine.Functions
         private static AnyValue Single(CalcContext ctx, Span<AnyValue> p)
         {
             return p[0].ImplicitIntersectionOperator(ctx);
+        }
+
+        private static ScalarValue Address(CalcContext ctx, double rowNumber, double columnNumber, double absNumber, bool a1, string sheetText)
+        {
+            var row = (int)Math.Truncate(rowNumber);
+            var column = (int)Math.Truncate(columnNumber);
+            var absKind = (int)Math.Truncate(absNumber);
+            if (row < 1 || row > XLHelper.MaxRowNumber || column < 1 || column > XLHelper.MaxColumnNumber || absKind is < 1 or > 4)
+                return XLError.IncompatibleValue;
+
+            var absRow = absKind is 1 or 2;
+            var absColumn = absKind is 1 or 3;
+            var address = a1
+                ? (absColumn ? "$" : "") + XLHelper.GetColumnLetterFromNumber(column) + (absRow ? "$" : "") + row.ToString(CultureInfo.InvariantCulture)
+                : "R" + (absRow ? row.ToString(CultureInfo.InvariantCulture) : $"[{row.ToString(CultureInfo.InvariantCulture)}]") +
+                  "C" + (absColumn ? column.ToString(CultureInfo.InvariantCulture) : $"[{column.ToString(CultureInfo.InvariantCulture)}]");
+
+            if (sheetText is null)
+                return address;
+
+            return sheetText.EscapeSheetName() + "!" + address;
+        }
+
+        private static AnyValue Choose(CalcContext ctx, double indexNumber, AnyValue[] values)
+        {
+            var index = Math.Truncate(indexNumber);
+            if (index < 1 || index > values.Length)
+                return XLError.IncompatibleValue;
+
+            // An empty argument is a zero, but a reference is returned as a reference.
+            var value = values[(int)index - 1];
+            return value.IsBlank ? 0 : value;
         }
 
         private static AnyValue Column(CalcContext ctx, Span<AnyValue> p)
@@ -220,6 +255,71 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             }
         }
 
+        private static AnyValue Indirect(CalcContext ctx, string refText, bool a1)
+        {
+            // Excel refuses a text longer than 255 characters. The limit also keeps
+            // the parsing, which runs in the stack of the formula, small.
+            if (refText.Length > 255)
+                return XLError.CellReference;
+
+            return ctx.CalcEngine.EvaluateReferenceText(refText, a1, ctx);
+        }
+
+        private static AnyValue LookupFunction(CalcContext ctx, ScalarValue lookupValue, AnyValue lookupValues, AnyValue? resultValues)
+        {
+            if (lookupValue.IsError)
+                return lookupValue.ToAnyValue();
+
+            if (lookupValue.IsBlank)
+                return XLError.NoValueAvailable;
+
+            var lookupArray = lookupValues.TryPickSingleOrMultiValue(out var lookupScalar, out var lookupMulti, ctx)
+                ? new ScalarArray(lookupScalar, 1, 1)
+                : lookupMulti;
+
+            if (resultValues is null)
+            {
+                // Array form: a wide array is searched in the first row, otherwise in the first column.
+                // The result is from the last row or column.
+                var searched = lookupArray.Width > lookupArray.Height ? new TransposedArray(lookupArray) : lookupArray;
+                var foundRow = Bisection(ctx, searched, lookupValue);
+                if (foundRow == -1)
+                    return XLError.NoValueAvailable;
+
+                return searched[foundRow, searched.Width - 1].ToAnyValue();
+            }
+
+            // Vector form
+            if (lookupArray.Width > 1 && lookupArray.Height > 1)
+                return XLError.NoValueAvailable;
+
+            var lookupVector = lookupArray.Width > 1 ? new TransposedArray(lookupArray) : lookupArray;
+            var index = Bisection(ctx, lookupVector, lookupValue);
+            if (index == -1)
+                return XLError.NoValueAvailable;
+
+            if (resultValues.Value.TryPickArea(out var resultArea, out _))
+            {
+                // Excel reads a result vector that is shorter than the lookup vector further in its direction.
+                var down = resultArea.RowSpan > 1 || resultArea.ColumnSpan == 1;
+                var row = resultArea.FirstAddress.RowNumber + (down ? index : 0);
+                var column = resultArea.FirstAddress.ColumnNumber + (down ? 0 : index);
+                if (row > XLHelper.MaxRowNumber || column > XLHelper.MaxColumnNumber)
+                    return XLError.CellReference;
+
+                return ctx.GetCellValue(resultArea.Worksheet, row, column).ToAnyValue();
+            }
+
+            var resultArray = resultValues.Value.TryPickSingleOrMultiValue(out var resultScalar, out var resultMulti, ctx)
+                ? new ScalarArray(resultScalar, 1, 1)
+                : resultMulti;
+            var resultVector = resultArray.Height == 1 ? new TransposedArray(resultArray) : resultArray;
+            if (index >= resultVector.Height)
+                return XLError.NoValueAvailable;
+
+            return resultVector[index, 0].ToAnyValue();
+        }
+
         private static ScalarValue Match(CalcContext ctx, ScalarValue target, AnyValue lookupArray, int matchType)
         {
             if (target.IsBlank)
@@ -378,6 +478,31 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             }
 
             return -1;
+        }
+
+        private static AnyValue Offset(CalcContext ctx, AnyValue reference, double rows, double columns, double? height, double? width)
+        {
+            if (!reference.TryPickArea(out var area, out var error))
+                return reference.IsReference ? XLError.IncompatibleValue : error;
+
+            var heightCells = (int)Math.Truncate(height ?? area.RowSpan);
+            var widthCells = (int)Math.Truncate(width ?? area.ColumnSpan);
+            if (heightCells == 0 || widthCells == 0)
+                return XLError.CellReference;
+
+            // Negative height or width extends the reference up or left.
+            var firstRow = area.FirstAddress.RowNumber + (int)Math.Truncate(rows);
+            var firstColumn = area.FirstAddress.ColumnNumber + (int)Math.Truncate(columns);
+            var lastRow = firstRow + heightCells - Math.Sign(heightCells);
+            var lastColumn = firstColumn + widthCells - Math.Sign(widthCells);
+            var top = Math.Min(firstRow, lastRow);
+            var bottom = Math.Max(firstRow, lastRow);
+            var left = Math.Min(firstColumn, lastColumn);
+            var right = Math.Max(firstColumn, lastColumn);
+            if (top < XLHelper.MinRowNumber || left < XLHelper.MinColumnNumber || bottom > XLHelper.MaxRowNumber || right > XLHelper.MaxColumnNumber)
+                return XLError.CellReference;
+
+            return new Reference(XLRangeAddress.FromSheetRange(area.Worksheet, new Area(top, left, bottom, right)));
         }
 
         private static AnyValue Row(CalcContext ctx, Span<AnyValue> p)
