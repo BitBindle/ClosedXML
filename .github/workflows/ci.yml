@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          # The SDK builds the solution, tests run on net8.0.
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore ClosedXML.slnx
+
+      - name: Build
+        run: dotnet build ClosedXML.slnx --configuration Release --no-restore
+
+      - name: Test
+        # The tests also target net462, but that framework can't run on Linux.
+        # The OLEDB tests need the Access OLEDB driver, which exists only on Windows.
+        run: >
+          dotnet test ClosedXML.Tests/ClosedXML.Tests.csproj
+          --configuration Release --no-build --framework net8.0
+          --filter "TestCategory!=OLEDB"
+          --logger "trx;LogFileName=test-results.trx" --results-directory test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results
+          if-no-files-found: ignore

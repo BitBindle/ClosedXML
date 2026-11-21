@@ -1,0 +1,113 @@
+name: Release
+
+# Manually triggered. Builds and tests the commit, publishes the NuGet packages to GitHub Packages and
+# creates a GitHub release with generated release notes.
+#
+# The major and minor version are defined by VersionMajorMinor in Directory.Build.props. The patch
+# version is the highest patch of existing tags of that major.minor plus one (.github/scripts/next-version.sh).
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build, test and pack, but don't create a tag, publish packages or create a release
+        type: boolean
+        default: false
+
+# Two releases at the same time would pick the same version.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Release
+    # Releases are made only from develop.
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # Create the tag and the release
+      packages: write   # Push the packages to GitHub Packages
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # All tags are needed to find the next patch version.
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Determine version
+        run: |
+          version="$(.github/scripts/next-version.sh)"
+          echo "version=$version" >> "$GITHUB_ENV"
+          echo "Releasing $version" >> "$GITHUB_STEP_SUMMARY"
+          echo "Releasing $version"
+
+      - name: Restore dependencies
+        run: dotnet restore ClosedXML.slnx
+
+      - name: Build
+        # VersionPrefix is major.minor.patch, the suffix comes from Directory.Build.props. RepositoryUrl is
+        # overridden, so the packages are linked to this repository (Directory.Build.props has the upstream one).
+        run: >
+          dotnet build ClosedXML.slnx --configuration Release --no-restore
+          -p:VersionPrefix="${version%%-*}"
+          -p:RepositoryUrl="${{ github.server_url }}/${{ github.repository }}"
+
+      - name: Test
+        run: >
+          dotnet test ClosedXML.Tests/ClosedXML.Tests.csproj
+          --configuration Release --no-build --framework net8.0
+          --filter "TestCategory!=OLEDB"
+
+      - name: Pack
+        # ClosedXML depends on ClosedXML.IO, so both packages are needed.
+        run: |
+          for project in ClosedXML.IO/ClosedXML.IO.csproj ClosedXML/ClosedXML.csproj; do
+            dotnet pack "$project" --configuration Release --no-build --output artifacts \
+              -p:VersionPrefix="${version%%-*}" \
+              -p:RepositoryUrl="${{ github.server_url }}/${{ github.repository }}"
+          done
+
+      - name: Check packages
+        run: |
+          ls -l artifacts
+          for id in ClosedXML ClosedXML.IO; do
+            [[ -f "artifacts/$id.$version.nupkg" ]] || { echo "::error::Package $id.$version.nupkg is missing"; exit 1; }
+          done
+
+      - name: Create tag
+        # The tag claims the version. If a later step fails, the version is not reused by the next release.
+        if: ${{ !inputs.dry_run }}
+        run: |
+          git tag "$version" "$GITHUB_SHA"
+          git push origin "refs/tags/$version"
+
+      - name: Push to GitHub Packages
+        # GitHub Packages has no support for symbol packages (.snupkg), the pdb is in the package.
+        # An already published version is an error, a version is never published twice.
+        if: ${{ !inputs.dry_run }}
+        run: >
+          dotnet nuget push "artifacts/*.nupkg"
+          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          --api-key "${{ secrets.GITHUB_TOKEN }}"
+          --no-symbols
+
+      - name: Create GitHub release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=()
+          [[ "$version" == *-* ]] && prerelease=(--prerelease)
+          gh release create "$version" artifacts/*.nupkg \
+            --verify-tag --title "$version" --generate-notes "${prerelease[@]}"

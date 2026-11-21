@@ -4,8 +4,17 @@
     <SourceRoot>$(MSBuildThisFileDirectory)</SourceRoot>
   </PropertyGroup>
 
+  <!-- Major and minor version are defined here. The patch version is assigned by the release workflow
+       (it is the next free patch for the major.minor, see .github/workflows/release.yml), the release passes
+       it as VersionPrefix. A local build is always major.minor.0.
+       Remove VersionSuffix to release a stable version. That is possible only after ClosedXML.Parser is
+       no longer a prerelease, a stable package can't have a prerelease dependency (NU5104). -->
   <PropertyGroup>
-    <Version>0.106.0-preview1</Version>
+    <VersionMajorMinor>0.106</VersionMajorMinor>
+    <VersionPrefix Condition="'$(VersionPrefix)' == ''">$(VersionMajorMinor).0</VersionPrefix>
+    <VersionSuffix>preview</VersionSuffix>
+    <Version Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</Version>
+    <Version Condition="'$(VersionSuffix)' == ''">$(VersionPrefix)</Version>
   </PropertyGroup>
 
   <!-- Set common properties regarding assembly information and nuget packages -->
@@ -16,13 +25,14 @@
     <Owners>Jan Havlíček, Francois Botha, Aleksei Pankratev</Owners>
 
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/ClosedXML/ClosedXML</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+
     <PackageProjectUrl>https://github.com/ClosedXML/ClosedXML</PackageProjectUrl>
     <PackageIcon>nuget-logo.png</PackageIcon>
     <PackageTags>Excel OpenXml xlsx</PackageTags>
-    <Description>See release notes https://github.com/ClosedXML/ClosedXML/releases/tag/$(productVersion) ClosedXML is a .NET library for reading, manipulating and writing Excel 2007+ (.xlsx, .xlsm) files. It aims to provide an intuitive and user-friendly interface to dealing with the underlying OpenXML API.</Description>
-    <PackageReleaseNotes>See https://github.com/ClosedXML/ClosedXML/releases/tag/$(productVersion)</PackageReleaseNotes>
-    <RepositoryUrl>https://github.com/ClosedXML/ClosedXML</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
+    <Description>See release notes $(RepositoryUrl)/releases/tag/$(Version) ClosedXML is a .NET library for reading, manipulating and writing Excel 2007+ (.xlsx, .xlsm) files. It aims to provide an intuitive and user-friendly interface to dealing with the underlying OpenXML API.</Description>
+    <PackageReleaseNotes>See $(RepositoryUrl)/releases/tag/$(Version)</PackageReleaseNotes>
 
     <!-- Sourcelink: https://github.com/dotnet/sourcelink/ -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
