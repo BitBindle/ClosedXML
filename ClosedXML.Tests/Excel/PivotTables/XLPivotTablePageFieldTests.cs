@@ -253,6 +253,23 @@ internal class XLPivotTablePageFieldTests
     }
 
     [Test]
+    [Issue("41")]
+    public void GetAllItems_finds_items_of_field_with_subtotal_item_before_data_items()
+    {
+        // Excel does not save a subtotal item before a data item, but other producers can.
+        // An insert must not move the existing data items, because saved values are positions in the items.
+        using var ms = CreateFileWithoutRomeItem(defaultItemFirst: true);
+        using var wb = new XLWorkbook(ms);
+        var pt = (XLPivotTable)wb.Worksheet(1).PivotTable("pt");
+        var cityField = pt.PivotFields[1];
+
+        var items = cityField.GetAllItems(value => value.GetText().Contains('o'));
+
+        Assert.AreEqual(new int?[] { 0, 2, 3 }, items.Select(i => i.ItemIndex));
+        Assert.AreEqual(new int?[] { null, 0, 1, 3, 2 }, cityField.Items.Select(i => i.ItemIndex));
+    }
+
+    [Test]
     public void Filter_field_is_only_in_filter_list()
     {
         using var wb = new XLWorkbook();
@@ -311,9 +328,10 @@ internal class XLPivotTablePageFieldTests
 
     /// <summary>
     /// Creates a file with a City filter. The City field has no item for the shared item "Rome".
-    /// Excel does not save such a field, but other producers can.
+    /// Excel does not save such a field, but other producers can. If <paramref name="defaultItemFirst"/>
+    /// is true, the default subtotal item is the first item.
     /// </summary>
-    private static MemoryStream CreateFileWithoutRomeItem()
+    private static MemoryStream CreateFileWithoutRomeItem(bool defaultItemFirst = false)
     {
         var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -328,6 +346,13 @@ internal class XLPivotTablePageFieldTests
             var definition = document.WorkbookPart!.WorksheetParts.Single().PivotTableParts.Single().PivotTableDefinition!;
             var cityItems = definition.PivotFields!.Elements<PivotField>().ElementAt(1).Items!;
             cityItems.Elements<Item>().Single(i => i.Index?.Value == 2).Remove();
+            if (defaultItemFirst)
+            {
+                var defaultItem = cityItems.Elements<Item>().Single(i => i.ItemType?.Value == ItemValues.Default);
+                defaultItem.Remove();
+                cityItems.InsertAt(defaultItem, 0);
+            }
+
             cityItems.Count = (uint)cityItems.Elements<Item>().Count();
         }
 

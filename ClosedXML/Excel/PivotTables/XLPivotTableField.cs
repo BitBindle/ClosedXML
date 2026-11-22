@@ -329,12 +329,13 @@ internal class XLPivotTableField
     }
 
     /// <summary>
-    /// Get the position of the first subtotal item, or the end of the items if the field has no subtotal item.
+    /// Get the position after the last data item. Saved values such as <c>pageField@item</c> are positions
+    /// in the items, thus an insert must not move a data item, also in a file with a subtotal item before
+    /// a data item.
     /// </summary>
     private int GetDataItemInsertIndex()
     {
-        var index = _items.FindIndex(static x => x.ItemType != XLPivotItemType.Data);
-        return index >= 0 ? index : _items.Count;
+        return _items.FindLastIndex(static x => x.ItemType == XLPivotItemType.Data) + 1;
     }
 
     private static XLPivotItemType GetItemTypeForSubtotal(XLSubtotalFunction value)
