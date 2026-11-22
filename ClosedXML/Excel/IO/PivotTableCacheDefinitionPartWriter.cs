@@ -194,11 +194,23 @@ namespace ClosedXML.Excel.IO
                     cacheField = new CacheField
                     {
                         Name = cacheFieldName,
-                        SharedItems = new SharedItems()
                     };
                     cacheFields.AppendChild(cacheField);
                 }
-                var sharedItems = cacheField.SharedItems;
+
+                cacheField.Formula = fieldValues.Formula is { } formula ? new StringValue(formula) : null;
+                cacheField.DatabaseField = fieldValues.IsDatabaseField ? null : false;
+                cacheField.FieldGroup = fieldValues.FieldGroupXml is { } fieldGroupXml
+                    ? new FieldGroup(fieldGroupXml)
+                    : null;
+
+                // The records have no values for a calculated field or a group field. If such a
+                // field has no shared items, Excel writes no sharedItems element. The writer then
+                // drops the statistics.
+                if (!fieldValues.IsDatabaseField && fieldValues.SharedCount == 0)
+                    continue;
+
+                var sharedItems = cacheField.SharedItems ??= new SharedItems();
 
                 var stats = fieldValues.Stats;
 

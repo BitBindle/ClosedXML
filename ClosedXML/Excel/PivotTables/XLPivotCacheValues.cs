@@ -91,6 +91,39 @@ namespace ClosedXML.Excel
             }
         }
 
+        /// <summary>
+        /// The formula of a calculated field. Null, if the field is not a calculated field.
+        /// </summary>
+        internal string? Formula { get; init; }
+
+        /// <summary>
+        /// True, if each record has a value for the field. A calculated field and a group field
+        /// are not database fields. The records have no values for them.
+        /// </summary>
+        internal bool IsDatabaseField { get; init; } = true;
+
+        /// <summary>
+        /// The XML of the <c>fieldGroup</c> element of the field. ClosedXML does not use the groups,
+        /// but it writes the element back on save. Null, if the field has no groups.
+        /// </summary>
+        internal string? FieldGroupXml { get; init; }
+
+        /// <summary>
+        /// True, if ClosedXML can read and add pivot field items of the field. An item of a field
+        /// with groups can be an index into the group items, and ClosedXML doesn't read the
+        /// group items. A new shared item of a field with groups makes the groups incorrect.
+        /// </summary>
+        internal bool SupportsItems => IsDatabaseField && FieldGroupXml is null;
+
+        /// <summary>
+        /// Throw <see cref="NotSupportedException"/>, if ClosedXML can't use pivot field items of the field.
+        /// </summary>
+        internal void ThrowIfItemsNotSupported()
+        {
+            if (!SupportsItems)
+                throw new NotSupportedException("ClosedXML doesn't support items of a calculated field or a field with groups.");
+        }
+
         internal int Count => _values.Count;
 
         internal int SharedCount => _sharedItems.Count;

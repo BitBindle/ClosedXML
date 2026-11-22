@@ -260,6 +260,75 @@ namespace ClosedXML.Tests.Excel.CalcEngine
 
         #endregion
 
+        #region Reference intersection
+
+        [TestCase("A1:C3 B2:D4", 4)]
+        [TestCase("Areas B2:E3", 4 + 2)]
+        [TestCase("A1:B2 Cells", 2)]
+        [TestCase("Cells A1:B2 B1:B2", 1)]
+        [TestCase("Other!A1:B2 Other!B2:C3", 10)]
+        [TestCase("A1:C3 B2", 1)]
+        [TestCase("A1:C3 INDEX(B2:D4,1,1)", 1)]
+        [Issue("48")]
+        public void Intersection_ContainsCellsOfBothOperands(string formula, int expectedSum)
+        {
+            // The names give operands with more than one area.
+            using var wb = CreateIntersectionWorkbook();
+
+            Assert.AreEqual(expectedSum, wb.Worksheet("Current").Evaluate($"SUM({formula})"));
+        }
+
+        [TestCase("A1:B2 C3:D4", XLError.NullValue)]
+        [TestCase("A1:B2 Other!A1:B2", XLError.IncompatibleValue)]
+        [TestCase("OtherAndCurrent A1:B2", XLError.IncompatibleValue)]
+        [TestCase("Number A1:B2", XLError.IncompatibleValue)]
+        [TestCase("A1:B2 Text", XLError.IncompatibleValue)]
+        [TestCase("Error A1:B2", XLError.DivisionByZero)]
+        [TestCase("A1:B2 Error", XLError.DivisionByZero)]
+        [Issue("48")]
+        public void Intersection_WithoutSharedCellsOrOfNonReferenceIsError(string formula, XLError expectedError)
+        {
+            // No shared cells give #NULL!. Areas on different sheets and a value that is not a reference
+            // give #VALUE!. An error operand gives the same error.
+            using var wb = CreateIntersectionWorkbook();
+
+            Assert.AreEqual(expectedError, wb.Worksheet("Current").Evaluate($"SUM({formula})"));
+        }
+
+        [Test]
+        [Issue("48")]
+        public void Intersection_ChangeOfSharedCellRecalculatesFormula()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cells("A1:D4").Value = 1;
+            var cell = ws.Cell("F1");
+            cell.FormulaA1 = "SUM(A1:C3 B2:D4)";
+            Assert.AreEqual(4, cell.Value);
+
+            ws.Cell("C3").Value = 10;
+
+            Assert.AreEqual(13, cell.Value);
+        }
+
+        private static XLWorkbook CreateIntersectionWorkbook()
+        {
+            var wb = new XLWorkbook();
+            var currentSheet = wb.AddWorksheet("Current");
+            currentSheet.Cells("A1:F10").Value = 1;
+            var otherSheet = wb.AddWorksheet("Other");
+            otherSheet.Cells("A1:F10").Value = 10;
+            wb.DefinedNames.Add("Areas", "Current!$A$1:$C$3,Current!$E$1:$F$4");
+            wb.DefinedNames.Add("Cells", "Current!$A$1,Current!$B$2");
+            wb.DefinedNames.Add("OtherAndCurrent", "Other!$A$1,Current!$A$1");
+            wb.DefinedNames.Add("Number", "1");
+            wb.DefinedNames.Add("Text", "\"text\"");
+            wb.DefinedNames.Add("Error", "#DIV/0!");
+            return wb;
+        }
+
+        #endregion
+
         #region 3D reference
 
         [TestCase("SUM(Sheet1:Sheet3!A1)", 1 + 2 + 3)]

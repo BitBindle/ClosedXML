@@ -255,7 +255,11 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase]
         public void Reference_function_call_can_be_intersection_of_two_references()
         {
-            AssertCanParseButNotEvaluate("=A1:A3 A2:B2", "Evaluation of range intersection operator is not implemented.");
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A2").Value = 5;
+
+            Assert.AreEqual(5, ws.Evaluate("A1:A3 A2:B2", "Z100"));
         }
 
         [TestCase]
