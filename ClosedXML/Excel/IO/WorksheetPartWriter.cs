@@ -54,26 +54,7 @@ namespace ClosedXML.Excel.IO
 
             #region Worksheet
 
-            Worksheet worksheet;
-            if (!partIsEmpty)
-            {
-                // Accessing the worksheet through worksheetPart.Worksheet creates an attached DOM
-                // worksheet that is tracked and later saved automatically to the part.
-                // Using the reader, we get a detached DOM.
-                // The OpenXmlReader.Create method only reads xml declaration, but doesn't read content.
-                using var reader = OpenXmlReader.Create(worksheetPart);
-                if (!reader.Read())
-                {
-                    throw new ArgumentException("Worksheet part should contain worksheet xml, but is empty.");
-                }
-
-                worksheet = reader.LoadCurrentElement() as Worksheet
-                    ?? throw new ArgumentException("Worksheet part should contain worksheet xml.");
-            }
-            else
-            {
-                worksheet = new Worksheet();
-            }
+            var worksheet = partIsEmpty ? new Worksheet() : LoadWorksheetWithoutCells(worksheetPart);
 
             if (worksheet.NamespaceDeclarations.All(ns => ns.Value != RelationshipsNs))
                 worksheet.AddNamespaceDeclaration("r", RelationshipsNs);
@@ -85,7 +66,11 @@ namespace ClosedXML.Excel.IO
             if (worksheet.NamespaceDeclarations.All(ns => ns.Value != X14Ac2009SsNs))
             {
                 worksheet.AddNamespaceDeclaration("x14ac", X14Ac2009SsNs);
-                worksheet.SetAttribute(new OpenXmlAttribute("mc", "Ignorable", MarkupCompatibilityNs, "x14ac"));
+
+                // Keep the other namespaces that the worksheet ignores.
+                var ignorable = worksheet.MCAttributes?.Ignorable?.Value;
+                worksheet.MCAttributes ??= new MarkupCompatibilityAttributes();
+                worksheet.MCAttributes.Ignorable = String.IsNullOrWhiteSpace(ignorable) ? "x14ac" : ignorable + " x14ac";
             }
 
             #endregion Worksheet
@@ -1429,7 +1414,7 @@ namespace ClosedXML.Excel.IO
                     {
                         var sharedStringId = context.GetSharedStringId(xlCell, text);
                         w.WriteStartElement("v", Main2006SsNs);
-                        w.WriteValue(sharedStringId);
+                        w.WriteNumberValue(sharedStringId);
                         w.WriteEndElement();
                     }
                     else
@@ -1496,6 +1481,100 @@ namespace ClosedXML.Excel.IO
                 w.WriteStartElement("v", Main2006SsNs);
                 w.WriteNumberValue(value);
                 w.WriteEndElement();
+            }
+        }
+
+        /// <summary>
+        /// Load a detached worksheet DOM from the part, but without the rows in the sheet data.
+        /// The writer writes the rows from the workbook, so the rows in the part are not necessary.
+        /// For a large worksheet, the DOM of the rows is the largest part of the memory that a save uses.
+        /// </summary>
+        private static Worksheet LoadWorksheetWithoutCells(WorksheetPart worksheetPart)
+        {
+            // The worksheetPart.Worksheet property creates an attached DOM. The package tracks
+            // this DOM and saves it to the part on save. The reader gives a detached DOM.
+            // The OpenXmlReader.Create method reads only the XML declaration, not the content.
+            using var reader = OpenXmlReader.Create(worksheetPart);
+            if (!reader.Read())
+                throw new ArgumentException("Worksheet part should contain worksheet xml, but is empty.");
+
+            if (reader.ElementType != typeof(Worksheet))
+                throw new ArgumentException("Worksheet part should contain worksheet xml.");
+
+            var worksheet = new Worksheet();
+            foreach (var (prefix, namespaceUri) in reader.NamespaceDeclarations)
+            {
+                // The DOM writes each element with a prefix, so the default namespace is not necessary.
+                // A load of the full worksheet element also removes the default namespace.
+                if (prefix.Length > 0)
+                    worksheet.AddNamespaceDeclaration(prefix, namespaceUri);
+            }
+
+            worksheet.SetAttributes(reader.Attributes.Where(attr => attr.NamespaceUri != XmlnsNs));
+
+            // The reader is on the first child or on the end of the worksheet.
+            reader.Read();
+            while (!(reader.IsEndElement && reader.Depth == 0))
+            {
+                if (reader.IsStartElement && reader.Depth == 1)
+                {
+                    if (reader.ElementType == typeof(SheetData))
+                    {
+                        var sheetData = new SheetData();
+                        sheetData.SetAttributes(reader.Attributes);
+                        worksheet.AppendChild(sheetData);
+
+                        // The reader moves to the next sibling or to the end of the worksheet.
+                        reader.Skip();
+                        continue;
+                    }
+
+                    // The reader stays on the end of the loaded element.
+                    var child = reader.LoadCurrentElement()!;
+
+                    if (child is AlternateContent)
+                    {
+                        // The SDK uses the parent element to get the types of the elements in the
+                        // alternate content. Without a parent, the elements are unknown elements.
+                        // A parse of the XML after the append gives the correct types. The
+                        // constructor keeps the XML, and the SDK parses it when
+                        // RemoveRedundantNamespaceDeclarations reads the descendants.
+                        child = new AlternateContent(child.OuterXml);
+                        worksheet.AppendChild(child);
+                        RemoveRedundantNamespaceDeclarations(child);
+                    }
+                    else
+                    {
+                        worksheet.AppendChild(child);
+                    }
+                }
+
+                if (!reader.Read())
+                    break;
+            }
+
+            return worksheet;
+        }
+
+        /// <summary>
+        /// The XML of an element without a parent declares each namespace that the element uses.
+        /// The worksheet declares most of these namespaces, so remove the declarations that an
+        /// ancestor has too. A load of the full worksheet element doesn't have these declarations.
+        /// </summary>
+        private static void RemoveRedundantNamespaceDeclarations(OpenXmlElement element)
+        {
+            foreach (var descendant in element.Descendants())
+            {
+                // The SDK keeps the declaration of the markup compatibility namespace on each
+                // alternate content element.
+                if (descendant is AlternateContent)
+                    continue;
+
+                foreach (var (prefix, namespaceUri) in descendant.NamespaceDeclarations.ToList())
+                {
+                    if (descendant.Parent?.LookupNamespace(prefix) == namespaceUri)
+                        descendant.RemoveNamespaceDeclaration(prefix);
+                }
             }
         }
 
@@ -1799,13 +1878,10 @@ namespace ClosedXML.Excel.IO
                 imagePart = drawingsPart.AddImagePart(pic.Format.ToOpenXml(), relId);
             }
 
-            using (var stream = new MemoryStream())
-            {
-                pic.ImageStream.Position = 0;
-                pic.ImageStream.CopyTo(stream);
-                stream.Seek(0, SeekOrigin.Begin);
-                imagePart.FeedData(stream);
-            }
+            // The part copies the data from the current position of the stream, and doesn't close the
+            // stream. A copy of the stream is not necessary.
+            pic.ImageStream.Position = 0;
+            imagePart.FeedData(pic.ImageStream);
             /////////
 
             // Clear current anchors
@@ -2057,12 +2133,14 @@ namespace ClosedXML.Excel.IO
 
             xml.WriteStartElement("sheetData", Main2006SsNs);
 
-            var tableTotalCells = new HashSet<IXLAddress>(
+            // A point is a struct, so a check for each cell doesn't allocate memory. An address is
+            // a struct too, but the IXLAddress key boxes the address of each cell.
+            var tableTotalCells = new HashSet<Point>(
                 xlWorksheet.Tables
                 .Where<XLTable>(table => table.ShowTotalsRow)
                 .SelectMany<XLTable, IXLCell>(table =>
                     table.ShownTotalsRow().CellsUsed())
-                .Select(cell => cell.Address));
+                .Select(cell => ((XLCell)cell).Point));
 
             // A rather complicated state machine, so rows and cells can be written in a single loop
             var openedRowNumber = 0;
@@ -2166,15 +2244,13 @@ namespace ClosedXML.Excel.IO
             {
                 w.WriteStartElement("row", Main2006SsNs);
 
-                w.WriteStartAttribute("r");
-                w.WriteValue(rowNumber);
-                w.WriteEndAttribute();
+                w.WriteAttribute("r", rowNumber);
 
                 if (maxColumn > 0)
                 {
                     w.WriteStartAttribute("spans");
-                    w.WriteString("1:");
-                    w.WriteValue(maxColumn);
+                    w.WriteRaw("1:");
+                    w.WriteNumberValue(maxColumn);
                     w.WriteEndAttribute();
                 }
 
@@ -2255,7 +2331,7 @@ namespace ClosedXML.Excel.IO
                     w.WriteAttribute("vm", xlCell.ValueMetaIndex.Value);
             }
 
-            static void WriteCell(XmlWriter xml, XLCell xlCell, char[] cellRef, SaveContext context, SaveOptions options, HashSet<IXLAddress> tableTotalCells, uint rowStyleId)
+            static void WriteCell(XmlWriter xml, XLCell xlCell, char[] cellRef, SaveContext context, SaveOptions options, HashSet<Point> tableTotalCells, uint rowStyleId)
             {
                 var styleId = context.GetStyleId(xlCell.GetFormat());
 
@@ -2343,24 +2419,19 @@ namespace ClosedXML.Excel.IO
 
                     xml.WriteEndElement(); // cell
                 }
-                else if (tableTotalCells.Contains(xlCell.Address))
+                else if (tableTotalCells.Count > 0 &&
+                         tableTotalCells.Contains(xlCell.Point) &&
+                         GetTableTotalLabel(xlCell) is { } totalsRowLabel)
                 {
-                    var table = xlCell.Worksheet.Tables.First<XLTable>(t => t.AsRange().Contains(xlCell));
-                    var field = (XLTableField)table.Fields.First(f => f.Column.ColumnNumber() == xlCell.Address.ColumnNumber);
-
-                    // If this is a cell in the totals row that contains a label (xor with function), write label
                     // Only label can be written. Total functions are basically formulas that use structured
                     // references and SR are not yet supported, so not yet possible to calculate total values.
-                    if (!String.IsNullOrWhiteSpace(field.TotalsRowLabel))
-                    {
-                        // Excel requires that table totals row label attribute in tableColumn must match the cell
-                        // string from SST. If they don't match, Excel will consider it a corrupt workbook.
-                        var sharedStringId = context.GetSharedStringId(xlCell, field.TotalsRowLabel);
-                        WriteStartCell(xml, xlCell, cellRef, cellRefLen, "s", styleId);
-                        xml.WriteStartElement("v", Main2006SsNs);
-                        xml.WriteValue(sharedStringId);
-                        xml.WriteEndElement();
-                    }
+                    // Excel requires that table totals row label attribute in tableColumn must match the cell
+                    // string from SST. If they don't match, Excel will consider it a corrupt workbook.
+                    var sharedStringId = context.GetSharedStringId(xlCell, totalsRowLabel);
+                    WriteStartCell(xml, xlCell, cellRef, cellRefLen, "s", styleId);
+                    xml.WriteStartElement("v", Main2006SsNs);
+                    xml.WriteNumberValue(sharedStringId);
+                    xml.WriteEndElement();
                     xml.WriteEndElement(); // cell
                 }
                 else if (xlCell.DataType != XLDataType.Blank)
@@ -2379,6 +2450,17 @@ namespace ClosedXML.Excel.IO
                     WriteStartCell(xml, xlCell, cellRef, cellRefLen, null, styleId);
                     xml.WriteEndElement(); // cell
                 }
+            }
+
+            // Get the label of a cell in the totals row (xor with function). If the label is white space,
+            // return null and the writer writes the cell value. The lambdas capture the cell, so they
+            // are in a separate method. The compiler allocates the closure for a captured parameter at
+            // the start of the method, and WriteCell runs for each cell.
+            static string? GetTableTotalLabel(XLCell xlCell)
+            {
+                var table = xlCell.Worksheet.Tables.First<XLTable>(t => t.AsRange().Contains(xlCell));
+                var field = (XLTableField)table.Fields.First(f => f.Column.ColumnNumber() == xlCell.Address.ColumnNumber);
+                return String.IsNullOrWhiteSpace(field.TotalsRowLabel) ? null : field.TotalsRowLabel;
             }
         }
 

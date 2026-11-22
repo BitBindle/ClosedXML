@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Xml;
 using ClosedXML.Excel;
 using ClosedXML.Excel.IO;
@@ -23,14 +24,14 @@ namespace ClosedXML.Extensions
         public static void WriteAttribute(this XmlWriter w, String attrName, Int32 value)
         {
             w.WriteStartAttribute(attrName);
-            w.WriteValue(value);
+            w.WriteNumberValue(value);
             w.WriteEndAttribute();
         }
 
         public static void WriteAttribute(this XmlWriter w, String attrName, UInt32 value)
         {
             w.WriteStartAttribute(attrName);
-            w.WriteValue(value);
+            w.WriteNumberValue(value);
             w.WriteEndAttribute();
         }
 
@@ -104,8 +105,42 @@ namespace ClosedXML.Extensions
         public static void WriteNumberValue(this XmlWriter w, Double value)
         {
             // The text parses back to the same value, so a load of the saved file gives the same number.
-            w.WriteValue(ObjectExtensions.ToRoundTripString(value));
+            var buffer = NumberBuffer;
+            var length = ObjectExtensions.FormatRoundTrip(value, buffer);
+            w.WriteRaw(buffer, 0, length);
         }
+
+        /// <summary>
+        /// Write a number with the same text as <see cref="XmlWriter.WriteValue(int)"/>, but without
+        /// a string allocation.
+        /// </summary>
+        public static void WriteNumberValue(this XmlWriter w, Int32 value)
+        {
+            var buffer = NumberBuffer;
+            value.TryFormat(buffer, out var length, provider: CultureInfo.InvariantCulture);
+            w.WriteRaw(buffer, 0, length);
+        }
+
+        /// <summary>
+        /// Write a number with the same text as <see cref="XmlWriter.WriteValue(long)"/>, but without
+        /// a string allocation.
+        /// </summary>
+        public static void WriteNumberValue(this XmlWriter w, UInt32 value)
+        {
+            var buffer = NumberBuffer;
+            value.TryFormat(buffer, out var length, provider: CultureInfo.InvariantCulture);
+            w.WriteRaw(buffer, 0, length);
+        }
+
+        /// <summary>
+        /// A buffer for the text of a number. The text of a number has no characters that XML escapes,
+        /// so the writer writes the text without escaping. Each thread has its own buffer, because
+        /// two threads can save two workbooks at the same time.
+        /// </summary>
+        private static char[] NumberBuffer => t_numberBuffer ??= new char[ObjectExtensions.RoundTripLength];
+
+        [ThreadStatic]
+        private static char[]? t_numberBuffer;
 
         public static void WritePreserveSpaceAttr(this XmlWriter w)
         {
