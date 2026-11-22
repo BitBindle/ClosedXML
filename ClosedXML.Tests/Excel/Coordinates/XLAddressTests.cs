@@ -1,3 +1,4 @@
+using System;
 using ClosedXML.Excel;
 using NUnit.Framework;
 
@@ -187,5 +188,17 @@ namespace ClosedXML.Tests
         }
 
         #endregion Private Methods
+
+        [Test]
+        [Issue("64")]
+        public void Address_without_worksheet_throws_when_sheet_is_included()
+        {
+            var address = new XLAddress(1, 1, false, false);
+
+            Assert.AreEqual("A1", address.ToString(XLReferenceStyle.A1, false));
+            Assert.Throws<InvalidOperationException>(() => address.ToString(XLReferenceStyle.A1, true));
+            Assert.Throws<InvalidOperationException>(() => address.ToStringRelative(true));
+            Assert.Throws<InvalidOperationException>(() => address.ToStringFixed(XLReferenceStyle.A1, true));
+        }
     }
 }

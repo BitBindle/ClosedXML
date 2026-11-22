@@ -1,5 +1,3 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Collections;
@@ -16,7 +14,7 @@ namespace ClosedXML.Excel.InsertData
         public SimpleTypeReader(IEnumerable data)
         {
             _data = data?.Cast<object>() ?? throw new ArgumentNullException(nameof(data));
-            _itemType = data.GetItemType();
+            _itemType = data.GetItemType() ?? throw new ArgumentException("The data has no item type.", nameof(data));
         }
 
         public IEnumerable<IEnumerable<XLCellValue>> GetRecords()

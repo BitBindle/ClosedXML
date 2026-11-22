@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 
 namespace ClosedXML.Excel
@@ -12,9 +10,9 @@ namespace ClosedXML.Excel
         {
             _style = style;
         }
-        public XLColor FillColor { get; set; }		public IXLDrawingStyle SetFillColor(XLColor value) { FillColor = value; return _style; }
+        public XLColor FillColor { get; set; } = XLColor.FromArgb(255, 255, 225);		public IXLDrawingStyle SetFillColor(XLColor value) { FillColor = value; return _style; }
         public Double FillTransparency { get; set; }		public IXLDrawingStyle SetFillTransparency(Double value) { FillTransparency = value; return _style; }
-        public XLColor LineColor { get; set; }		public IXLDrawingStyle SetLineColor(XLColor value) { LineColor = value; return _style; }
+        public XLColor LineColor { get; set; } = XLColor.Black;		public IXLDrawingStyle SetLineColor(XLColor value) { LineColor = value; return _style; }
         public Double LineTransparency { get; set; }		public IXLDrawingStyle SetLineTransparency(Double value) { LineTransparency = value; return _style; }
         public Double LineWeight { get; set; }		public IXLDrawingStyle SetLineWeight(Double value) { LineWeight = value; return _style; }
         public XLDashStyle LineDash { get; set; }		public IXLDrawingStyle SetLineDash(XLDashStyle value) { LineDash = value; return _style; }

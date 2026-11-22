@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 
 namespace ClosedXML.Excel
@@ -22,11 +20,11 @@ namespace ClosedXML.Excel
         IXLPivotValues Values { get; }
 
         String Name { get; set; }
-        String Title { get; set; }
-        String Description { get; set; }
+        String? Title { get; set; }
+        String? Description { get; set; }
 
-        String ColumnHeaderCaption { get; set; }
-        String RowHeaderCaption { get; set; }
+        String? ColumnHeaderCaption { get; set; }
+        String? RowHeaderCaption { get; set; }
 
         /// <summary>
         /// Top left corner cell of a pivot table. If the pivot table contains filters fields, the target cell is top
@@ -56,7 +54,7 @@ namespace ClosedXML.Excel
         /// </summary>
         /// <exception cref="ArgumentOutOfRangeException">If value &lt; 0.</exception>
         Int32 FilterFieldsPageWrap { get; set; } // PageWrap
-        String ErrorValueReplacement { get; set; } // ErrorCaption
+        String? ErrorValueReplacement { get; set; } // ErrorCaption
         String EmptyCellReplacement { get; set; } // MissingCaption
         Boolean AutofitColumns { get; set; } //UseAutoFormatting
         Boolean PreserveCellFormatting { get; set; } // PreserveFormatting
@@ -89,9 +87,9 @@ namespace ClosedXML.Excel
 
         IXLPivotTable SetName(String value);
 
-        IXLPivotTable SetTitle(String value);
+        IXLPivotTable SetTitle(String? value);
 
-        IXLPivotTable SetDescription(String value);
+        IXLPivotTable SetDescription(String? value);
 
         IXLPivotTable SetMergeAndCenterWithLabels(); IXLPivotTable SetMergeAndCenterWithLabels(Boolean value);
 
@@ -101,7 +99,7 @@ namespace ClosedXML.Excel
 
         IXLPivotTable SetFilterFieldsPageWrap(Int32 value);
 
-        IXLPivotTable SetErrorValueReplacement(String value);
+        IXLPivotTable SetErrorValueReplacement(String? value);
 
         IXLPivotTable SetEmptyCellReplacement(String value);
 
@@ -160,9 +158,9 @@ namespace ClosedXML.Excel
 
         IXLPivotTable SetEnableCellEditing(); IXLPivotTable SetEnableCellEditing(Boolean value);
 
-        IXLPivotTable SetColumnHeaderCaption(String value);
+        IXLPivotTable SetColumnHeaderCaption(String? value);
 
-        IXLPivotTable SetRowHeaderCaption(String value);
+        IXLPivotTable SetRowHeaderCaption(String? value);
 
         Boolean ShowRowHeaders { get; set; }
         Boolean ShowColumnHeaders { get; set; }

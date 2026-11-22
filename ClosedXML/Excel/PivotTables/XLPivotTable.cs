@@ -1,5 +1,3 @@
-#nullable disable
-
 using ClosedXML.Excel.CalcEngine;
 using System;
 using System.Collections.Generic;
@@ -12,9 +10,9 @@ namespace ClosedXML.Excel
     internal class XLPivotTable : IXLPivotTable
     {
         private readonly XLWorksheet _worksheet;
-        private String _name;
+        private String _name = String.Empty;
         private XLPivotTableTheme _theme;
-        private String _customStyleName;
+        private String? _customStyleName;
 
         /// <summary>
         /// List of all fields in the pivot table, roughly represents <c>pivotTableDefinition.
@@ -115,7 +113,7 @@ namespace ClosedXML.Excel
         /// The name of a custom pivot table style of the workbook. If the name is set, the
         /// <see cref="Theme"/> is <see cref="XLPivotTableTheme.None"/>.
         /// </summary>
-        internal String CustomStyleName
+        internal String? CustomStyleName
         {
             get => _customStyleName;
             set
@@ -279,7 +277,7 @@ namespace ClosedXML.Excel
                 if (!String.IsNullOrWhiteSpace(oldname) && !String.Equals(oldname, _name, StringComparison.OrdinalIgnoreCase))
                 {
                     Worksheet.PivotTables.Delete(oldname);
-                    (Worksheet.PivotTables as XLPivotTables).Add(_name, this);
+                    ((XLPivotTables)Worksheet.PivotTables).Add(_name, this);
                 }
             }
         }
@@ -289,27 +287,27 @@ namespace ClosedXML.Excel
             Name = value; return this;
         }
 
-        public String Title { get; set; }
+        public String? Title { get; set; }
 
-        public IXLPivotTable SetTitle(String value)
+        public IXLPivotTable SetTitle(String? value)
         {
             Title = value; return this;
         }
 
-        public String Description { get; set; }
+        public String? Description { get; set; }
 
-        public IXLPivotTable SetDescription(String value)
+        public IXLPivotTable SetDescription(String? value)
         {
             Description = value; return this;
         }
 
-        public IXLPivotTable SetColumnHeaderCaption(String value)
+        public IXLPivotTable SetColumnHeaderCaption(String? value)
         {
             ColumnHeaderCaption = value;
             return this;
         }
 
-        public IXLPivotTable SetRowHeaderCaption(String value)
+        public IXLPivotTable SetRowHeaderCaption(String? value)
         {
             RowHeaderCaption = value;
             return this;
@@ -340,7 +338,7 @@ namespace ClosedXML.Excel
             FilterFieldsPageWrap = value; return this;
         }
 
-        public IXLPivotTable SetErrorValueReplacement(String value)
+        public IXLPivotTable SetErrorValueReplacement(String? value)
         {
             ErrorValueReplacement = value; return this;
         }
@@ -707,8 +705,8 @@ namespace ClosedXML.Excel
             InsertBlankLines = value; return this;
         }
 
-        internal String RelId { get; set; }
-        internal String CacheDefinitionRelId { get; set; }
+        internal String? RelId { get; set; }
+        internal String? CacheDefinitionRelId { get; set; }
 
         private void SetExcelDefaults()
         {
@@ -767,7 +765,6 @@ namespace ClosedXML.Excel
                 //}
             }
         }
-#nullable enable
         internal void AddField(XLPivotTableField field)
         {
             _fields.Add(field);
@@ -894,7 +891,7 @@ namespace ClosedXML.Excel
         /// <summary>
         /// Test to display for missing items, when <see cref="ShowMissing"/> is <c>true</c>.
         /// </summary>
-        internal string MissingCaption { get; set; }
+        internal string MissingCaption { get; set; } = string.Empty;
 
         /// <summary>
         /// Flag indicating if <see cref="MissingCaption"/> should be shown when cell has no value.
@@ -1290,7 +1287,7 @@ namespace ClosedXML.Excel
         /// Add field to a specific axis (page/row/col). Only modified <see cref="PivotFields"/>, doesn't modify
         /// additional info in <see cref="RowAxis"/>, <see cref="ColumnAxis"/> or <see cref="Filters"/>.
         /// </summary>
-        internal FieldIndex AddFieldToAxis(string sourceName, string customName, XLPivotAxis axis)
+        internal FieldIndex AddFieldToAxis(string sourceName, string? customName, XLPivotAxis axis)
         {
             // Only slices axes can be added through this method.
             Debug.Assert(axis is XLPivotAxis.AxisCol or XLPivotAxis.AxisRow or XLPivotAxis.AxisPage);
@@ -1319,7 +1316,8 @@ namespace ClosedXML.Excel
                 throw new InvalidOperationException($"ClosedXML can't add the calculated field or the field with groups '{sourceName}' to an axis.");
 
             // Check actual fields.
-            var customNameUsed = _fields.Any(f => XLHelper.NameComparer.Equals(f.Name, customName));
+            // A field without a custom name has a null name, so only a custom name can be used.
+            var customNameUsed = customName is not null && _fields.Any(f => XLHelper.NameComparer.Equals(f.Name, customName));
             if (customNameUsed)
                 throw new InvalidOperationException($"Custom name '{customName}' is already used.");
 

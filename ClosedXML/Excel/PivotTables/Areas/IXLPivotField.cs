@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 
@@ -56,7 +54,9 @@ namespace ClosedXML.Excel
         /// </summary>
         /// <exception cref="ArgumentException">When setting name to a name that is already used by
         ///     another field.</exception>
-        String CustomName { get; set; }
+        /// <exception cref="ArgumentNullException">When setting null name to the data field.</exception>
+        /// <value>Value is null when the field has no custom name.</value>
+        String? CustomName { get; set; }
 
         String SubtotalCaption { get; set; }
 
@@ -89,7 +89,7 @@ namespace ClosedXML.Excel
         XLPivotSortType SortType { get; set; }
 
         /// <inheritdoc cref="CustomName"/>
-        IXLPivotField SetCustomName(String value);
+        IXLPivotField SetCustomName(String? value);
 
         IXLPivotField SetSubtotalCaption(String value);
 

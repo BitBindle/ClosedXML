@@ -1,6 +1,6 @@
-#nullable disable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace ClosedXML.Excel;
@@ -22,7 +22,7 @@ internal class XLPivotTablePageField : IXLPivotField
 
     public string SourceName => _pivotTable.PivotCache.FieldNames[_filterField.Field];
 
-    public string CustomName
+    public string? CustomName
     {
         get => GetField().Name;
         set => GetField().Name = value;
@@ -96,7 +96,7 @@ internal class XLPivotTablePageField : IXLPivotField
         set => GetField().SortType = value;
     }
 
-    public IXLPivotField SetCustomName(string value)
+    public IXLPivotField SetCustomName(string? value)
     {
         CustomName = value;
         return this;
@@ -211,14 +211,14 @@ internal class XLPivotTablePageField : IXLPivotField
         if (oneItemSelected)
         {
             // Get the single item before the switch, because the single item exists only without multiple selection.
-            var hasSelectedItem = TryGetSingleSelectedItem(out var selectedItem);
+            var selectedItem = TryGetSingleSelectedItem(out var singleItem) ? singleItem : null;
 
             // Switch to multiple
             pivotField.MultipleItemSelectionAllowed = true;
             foreach (var item in pivotField.Items.Where(x => x.ItemType == XLPivotItemType.Data))
                 item.Hidden = true;
 
-            if (hasSelectedItem)
+            if (selectedItem is not null)
                 selectedItem.Hidden = false;
 
             _filterField.ItemIndex = null;
@@ -261,7 +261,7 @@ internal class XLPivotTablePageField : IXLPivotField
     /// ECMA-376 defines <c>pageField@item</c> as an index into the items of the pivot field.
     /// It is not an index into the shared items of the cache field.
     /// </remarks>
-    private bool TryGetSingleSelectedItem(out XLPivotFieldItem item)
+    private bool TryGetSingleSelectedItem([NotNullWhen(true)] out XLPivotFieldItem? item)
     {
         var pivotField = GetField();
         var itemIndex = _filterField.ItemIndex;

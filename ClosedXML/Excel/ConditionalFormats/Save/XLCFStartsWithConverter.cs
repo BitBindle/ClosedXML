@@ -7,7 +7,7 @@ namespace ClosedXML.Excel
     {
         public ConditionalFormattingRule Convert(XLConditionalFormat cf, int priority, XLWorkbook.SaveContext context)
         {
-            String? val = cf.Values[1].Value;
+            String val = cf.GetRequiredValue(1).Value;
             var conditionalFormattingRule = XLCFBaseConverter.ConvertWithDxf(cf, priority, context);
             conditionalFormattingRule.Operator = ConditionalFormattingOperatorValues.BeginsWith;
             conditionalFormattingRule.Text = val;

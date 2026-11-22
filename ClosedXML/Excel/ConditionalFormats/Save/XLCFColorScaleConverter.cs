@@ -1,5 +1,3 @@
-#nullable disable
-
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
 
@@ -15,7 +13,7 @@ namespace ClosedXML.Excel
             for (Int32 i = 1; i <= cf.ContentTypes.Count; i++)
             {
                 var type = cf.ContentTypes[i].ToOpenXml();
-                var val = cf.Values.TryGetValue(i, out XLFormula formula) ? formula?.Value : null;
+                var val = cf.Values.TryGetValue(i, out var formula) ? formula?.Value : null;
 
                 var conditionalFormatValueObject = new ConditionalFormatValueObject { Type = type };
                 if (val != null)

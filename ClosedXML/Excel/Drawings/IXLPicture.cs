@@ -1,5 +1,3 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.IO;
@@ -8,7 +6,11 @@ namespace ClosedXML.Excel.Drawings
 {
     public interface IXLPicture
     {
-        IXLCell BottomRightCell { get; }
+        /// <summary>
+        /// The cell of the bottom right anchor. Value is null when the picture has no bottom right anchor.
+        /// Only a picture with <see cref="XLPicturePlacement.MoveAndSize"/> placement has it.
+        /// </summary>
+        IXLCell? BottomRightCell { get; }
 
         /// <summary>
         /// Type of image. The supported formats are defined by OpenXML's ImagePartType.
@@ -52,7 +54,10 @@ namespace ClosedXML.Excel.Drawings
 
         Int32 Top { get; set; }
 
-        IXLCell TopLeftCell { get; }
+        /// <summary>
+        /// The cell of the top left anchor. Value is null when the picture has no top left anchor yet.
+        /// </summary>
+        IXLCell? TopLeftCell { get; }
 
         IXLWorksheet Worksheet { get; }
 

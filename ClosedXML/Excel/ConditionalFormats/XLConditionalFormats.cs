@@ -252,10 +252,10 @@ namespace ClosedXML.Excel
             foreach (var conditionalFormat in _conditionalFormats)
             {
                 var anchor = conditionalFormat.Areas[0].FirstPoint;
-                var formulaIndexes = conditionalFormat.Values.Where(x => x.Value.IsFormula).Select(x => x.Key).ToArray();
+                var formulaIndexes = conditionalFormat.Values.Where(x => x.Value?.IsFormula == true).Select(x => x.Key).ToArray();
                 foreach (var index in formulaIndexes)
                 {
-                    var originalFormula = conditionalFormat.Values[index];
+                    var originalFormula = conditionalFormat.GetRequiredValue(index);
                     var shiftedFormula = FormulaConverter.ModifyA1(originalFormula.Value, _worksheet.Name, anchor.Row, anchor.Column, refMod);
                     conditionalFormat.Values[index] = new XLFormula(shiftedFormula) { IsFormula = true };
                 }

@@ -1,5 +1,3 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Collections.Generic;
@@ -25,9 +23,21 @@ namespace ClosedXML.Excel.Drawings
         }
 
         internal XLPicture(IXLWorksheet worksheet, Stream stream, XLPictureFormat format)
-            : this(worksheet)
         {
+            this.Worksheet = worksheet ?? throw new ArgumentNullException(nameof(worksheet));
             if (stream == null) throw new ArgumentNullException(nameof(stream));
+
+            this.Placement = XLPicturePlacement.MoveAndSize;
+            this.Markers = new Dictionary<XLMarkerPosition, XLMarker?>()
+            {
+                [XLMarkerPosition.TopLeft] = null,
+                [XLMarkerPosition.BottomRight] = null
+            };
+
+            // Calculate default picture ID
+            var allPictures = worksheet.Workbook.Worksheets.SelectMany(ws => ws.Pictures);
+            var freeId = allPictures.Select(x => x.Id).DefaultIfEmpty(0).Max() + 1;
+            _id = freeId;
 
             var info = worksheet.Workbook.GraphicEngine.GetPictureInfo(stream, format);
             Init(info);
@@ -38,27 +48,12 @@ namespace ClosedXML.Excel.Drawings
             ImageStream.Seek(0, SeekOrigin.Begin);
         }
 
-        private XLPicture(IXLWorksheet worksheet)
+        public IXLCell? BottomRightCell
         {
-            this.Worksheet = worksheet ?? throw new ArgumentNullException(nameof(worksheet));
-            this.Placement = XLPicturePlacement.MoveAndSize;
-            this.Markers = new Dictionary<XLMarkerPosition, XLMarker>()
-            {
-                [XLMarkerPosition.TopLeft] = null,
-                [XLMarkerPosition.BottomRight] = null
-            };
-
-            // Calculate default picture ID
-            var allPictures = worksheet.Workbook.Worksheets.SelectMany(ws => ws.Pictures);
-            var freeId = allPictures.Select(x => x.Id).DefaultIfEmpty(0).Max() + 1;
-            _id = freeId;
-        }
-
-        public IXLCell BottomRightCell
-        {
-            get => Markers[XLMarkerPosition.BottomRight].Cell;
+            get => Markers[XLMarkerPosition.BottomRight]?.Cell;
             private set
             {
+                ArgumentNullException.ThrowIfNull(value);
                 if (!value.Worksheet.Equals(this.Worksheet))
                     throw new InvalidOperationException("A picture and its anchor cells must be on the same worksheet");
 
@@ -147,15 +142,16 @@ namespace ClosedXML.Excel.Drawings
             }
         }
 
-        public IXLCell TopLeftCell
+        public IXLCell? TopLeftCell
         {
             get
             {
-                return Markers[XLMarkerPosition.TopLeft].Cell;
+                return Markers[XLMarkerPosition.TopLeft]?.Cell;
             }
 
             private set
             {
+                ArgumentNullException.ThrowIfNull(value);
                 if (!value.Worksheet.Equals(this.Worksheet))
                     throw new InvalidOperationException("A picture and its anchor cells must be on the same worksheet");
 
@@ -176,9 +172,9 @@ namespace ClosedXML.Excel.Drawings
 
         public IXLWorksheet Worksheet { get; }
 
-        internal IDictionary<XLMarkerPosition, XLMarker> Markers { get; private set; }
+        internal IDictionary<XLMarkerPosition, XLMarker?> Markers { get; private set; }
 
-        internal String RelId { get; set; }
+        internal String? RelId { get; set; }
 
         /// <summary>
         /// Create a copy of the picture on a different worksheet.
@@ -206,7 +202,7 @@ namespace ClosedXML.Excel.Drawings
 
         public System.Drawing.Point GetOffset(XLMarkerPosition position)
         {
-            return Markers[position].Offset;
+            return GetMarker(position).Offset;
         }
 
         public IXLPicture MoveTo(Int32 left, Int32 top)
@@ -232,7 +228,7 @@ namespace ClosedXML.Excel.Drawings
             if (cell == null) throw new ArgumentNullException(nameof(cell));
             this.Placement = XLPicturePlacement.Move;
             this.TopLeftCell = cell;
-            this.Markers[XLMarkerPosition.TopLeft].Offset = offset;
+            GetMarker(XLMarkerPosition.TopLeft).Offset = offset;
             return this;
         }
 
@@ -253,10 +249,10 @@ namespace ClosedXML.Excel.Drawings
             this.Placement = XLPicturePlacement.MoveAndSize;
 
             this.TopLeftCell = fromCell;
-            this.Markers[XLMarkerPosition.TopLeft].Offset = fromOffset;
+            GetMarker(XLMarkerPosition.TopLeft).Offset = fromOffset;
 
             this.BottomRightCell = toCell;
-            this.Markers[XLMarkerPosition.BottomRight].Offset = toOffset;
+            GetMarker(XLMarkerPosition.BottomRight).Offset = toOffset;
 
             return this;
         }
@@ -304,7 +300,7 @@ namespace ClosedXML.Excel.Drawings
         {
             ThrowIfDisposed();
             if (targetSheet == null)
-                targetSheet = Worksheet as XLWorksheet;
+                targetSheet = (XLWorksheet)Worksheet;
 
             IXLPicture newPicture;
             if (targetSheet == Worksheet)
@@ -324,16 +320,21 @@ namespace ClosedXML.Excel.Drawings
                     break;
 
                 case XLPicturePlacement.Move:
-                    newPicture.MoveTo(targetSheet.Cell(TopLeftCell.Address), GetOffset(XLMarkerPosition.TopLeft));
+                    newPicture.MoveTo(targetSheet.Cell(GetMarker(XLMarkerPosition.TopLeft).Cell.Address), GetOffset(XLMarkerPosition.TopLeft));
                     break;
 
                 case XLPicturePlacement.MoveAndSize:
-                    newPicture.MoveTo(targetSheet.Cell(TopLeftCell.Address), GetOffset(XLMarkerPosition.TopLeft), targetSheet.Cell(BottomRightCell.Address),
+                    newPicture.MoveTo(targetSheet.Cell(GetMarker(XLMarkerPosition.TopLeft).Cell.Address), GetOffset(XLMarkerPosition.TopLeft), targetSheet.Cell(GetMarker(XLMarkerPosition.BottomRight).Cell.Address),
                         GetOffset(XLMarkerPosition.BottomRight));
                     break;
             }
 
             return newPicture;
+        }
+
+        private XLMarker GetMarker(XLMarkerPosition position)
+        {
+            return Markers[position] ?? throw new InvalidOperationException($"The picture has no {position} anchor.");
         }
 
         internal void SetName(string value)

@@ -1,5 +1,3 @@
-#nullable disable warnings
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,8 +19,8 @@ namespace ClosedXML.Excel
 
                 var xxValues = xx.Values.Values.Where(v => v == null || !v.IsFormula).Select(v => v?.Value);
                 var yyValues = yy.Values.Values.Where(v => v == null || !v.IsFormula).Select(v => v?.Value);
-                var xxFormulas = xx.Areas.Count > 0 ? xx.Values.Values.Where(v => v != null && v.IsFormula).Select(f => ((XLCell)xx.Range.FirstCell()).GetFormulaR1C1(f.Value)) : null;
-                var yyFormulas = yy.Areas.Count > 0 ? yy.Values.Values.Where(v => v != null && v.IsFormula).Select(f => ((XLCell)yy.Range.FirstCell()).GetFormulaR1C1(f.Value)) : null;
+                var xxFormulas = xx.Areas.Count > 0 ? xx.Values.Values.OfType<XLFormula>().Where(v => v.IsFormula).Select(f => ((XLCell)xx.Range.FirstCell()).GetFormulaR1C1(f.Value)) : null;
+                var yyFormulas = yy.Areas.Count > 0 ? yy.Values.Values.OfType<XLFormula>().Where(v => v.IsFormula).Select(f => ((XLCell)yy.Range.FirstCell()).GetFormulaR1C1(f.Value)) : null;
                 var xStyle = xx.FormatValue;
                 var yStyle = yy.FormatValue;
                 return Equals(xStyle, yStyle)
@@ -73,8 +71,13 @@ namespace ClosedXML.Excel
                 }
             }
 
-            private static bool SetEquals<T>(IEnumerable<T> first, IEnumerable<T> second)
+            private static bool SetEquals<T>(IEnumerable<T>? first, IEnumerable<T>? second)
             {
+                // A format without areas has no formulas to compare. It is equal only to another format
+                // without areas, so formats with areas and formats without areas are not merged.
+                if (first is null || second is null)
+                    return first is null && second is null;
+
                 return new HashSet<T>(second, EqualityComparer<T>.Default)
                     .SetEquals(first);
             }
@@ -105,7 +108,7 @@ namespace ClosedXML.Excel
             _worksheet = worksheet;
             Id = Guid.NewGuid();
             Areas = areaList;
-            Values = new XLDictionary<XLFormula>();
+            Values = new XLDictionary<XLFormula?>();
             Colors = new XLDictionary<XLColor>();
             ContentTypes = new XLDictionary<XLCFContentType>();
             IconSetOperators = new XLDictionary<XLCFIconSetOperator>();
@@ -137,7 +140,7 @@ namespace ClosedXML.Excel
             var sourceAnchor = other.Areas[0].FirstPoint;
             var targetAnchor = Areas[0].FirstPoint;
             foreach (var (key, originalValue) in other.Values)
-                Values.Add(key, originalValue.GetAdjustedCopy(sourceAnchor, targetAnchor));
+                Values.Add(key, originalValue?.GetAdjustedCopy(sourceAnchor, targetAnchor));
 
             Colors = other.Colors.CopyDictionary();
             ContentTypes = other.ContentTypes.CopyDictionary();
@@ -164,7 +167,15 @@ namespace ClosedXML.Excel
             set => Format.SetStyle(value);
         }
 
-        public XLDictionary<XLFormula> Values { get; }
+        public XLDictionary<XLFormula?> Values { get; }
+
+        /// <summary>
+        /// Get a value of the <see cref="Values"/>. The value must not be null.
+        /// </summary>
+        internal XLFormula GetRequiredValue(int index)
+        {
+            return Values[index] ?? throw new InvalidOperationException($"The conditional format has no value at index {index}.");
+        }
 
         public XLDictionary<XLColor> Colors { get; }
 

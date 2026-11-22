@@ -1,5 +1,3 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Linq;
@@ -19,11 +17,11 @@ namespace ClosedXML.Excel
 
         #region IXLAutoFilter Members
 
-        public IEnumerable<IXLRangeRow> HiddenRows => Range.Rows(r => r.WorksheetRow().IsHidden);
+        public IEnumerable<IXLRangeRow> HiddenRows => RequiredRange.Rows(r => r.WorksheetRow().IsHidden);
 
         public Boolean IsEnabled { get; set; }
 
-        public IXLRange Range { get; set; }
+        public IXLRange? Range { get; set; }
 
         public Int32 SortColumn { get; set; }
 
@@ -31,7 +29,12 @@ namespace ClosedXML.Excel
 
         public XLSortOrder SortOrder { get; set; }
 
-        public IEnumerable<IXLRangeRow> VisibleRows => Range.Rows(r => !r.WorksheetRow().IsHidden);
+        public IEnumerable<IXLRangeRow> VisibleRows => RequiredRange.Rows(r => !r.WorksheetRow().IsHidden);
+
+        /// <summary>
+        /// The <see cref="Range"/> of the autofilter. The autofilter must have a range.
+        /// </summary>
+        internal IXLRange RequiredRange => Range ?? throw new InvalidOperationException("The autofilter has no range.");
 
         IXLAutoFilter IXLAutoFilter.Clear() => Clear();
 
@@ -51,7 +54,8 @@ namespace ClosedXML.Excel
                 return this;
 
             // Recalculate shown / hidden rows
-            var rows = Range.Rows(2, Range.RowCount());
+            var range = RequiredRange;
+            var rows = range.Rows(2, range.RowCount());
             rows.ForEach(row =>
                 row.WorksheetRow().Unhide()
             );
@@ -94,7 +98,7 @@ namespace ClosedXML.Excel
             if (columnNumber < 1 || columnNumber > XLHelper.MaxColumnNumber)
                 throw new ArgumentOutOfRangeException(nameof(columnNumber), "Column " + columnNumber + " is outside the allowed column range.");
 
-            if (!_columns.TryGetValue(columnNumber, out XLFilterColumn filterColumn))
+            if (!_columns.TryGetValue(columnNumber, out var filterColumn))
             {
                 filterColumn = new XLFilterColumn(this, columnNumber);
                 _columns.Add(columnNumber, filterColumn);
@@ -111,8 +115,11 @@ namespace ClosedXML.Excel
             foreach (var filterColumn in _columns.Values)
                 filterColumn.Clear(false);
 
-            foreach (IXLRangeRow row in Enumerable.Where(Range.Rows(), r => r.RowNumber() > 1))
-                row.WorksheetRow().Unhide();
+            if (Range is not null)
+            {
+                foreach (IXLRangeRow row in Enumerable.Where(Range.Rows(), r => r.RowNumber() > 1))
+                    row.WorksheetRow().Unhide();
+            }
             return this;
         }
 
@@ -132,7 +139,8 @@ namespace ClosedXML.Excel
             if (!IsEnabled)
                 throw new InvalidOperationException("Filter has not been enabled.");
 
-            Range.Range(Range.FirstCell().CellBelow(), Range.LastCell()).Sort(columnToSortBy, sortOrder, matchCase,
+            var range = RequiredRange;
+            range.Range(range.FirstCell().CellBelow(), range.LastCell()).Sort(columnToSortBy, sortOrder, matchCase,
                                                                               ignoreBlanks);
 
             Sorted = true;

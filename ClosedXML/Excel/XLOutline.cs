@@ -1,6 +1,3 @@
-#nullable disable
-
-
 namespace ClosedXML.Excel
 {
     internal class XLOutline:IXLOutline

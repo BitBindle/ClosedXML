@@ -1,5 +1,3 @@
-#nullable disable
-
 using ClosedXML.Excel.CalcEngine;
 using System;
 using System.Globalization;

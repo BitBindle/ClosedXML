@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 
@@ -9,7 +7,7 @@ namespace ClosedXML.Excel
 
     internal class XLHeaderFooter : IXLHeaderFooter
     {
-        public XLHeaderFooter(XLWorksheet worksheet)
+        public XLHeaderFooter(XLWorksheet? worksheet)
         {
             this.Worksheet = worksheet;
             Left = new XLHFItem(this);
@@ -18,7 +16,7 @@ namespace ClosedXML.Excel
             SetAsInitial();
         }
 
-        public XLHeaderFooter(XLHeaderFooter defaultHF, XLWorksheet worksheet)
+        public XLHeaderFooter(XLHeaderFooter defaultHF, XLWorksheet? worksheet)
         {
             this.Worksheet = worksheet;
             defaultHF.innerTexts.ForEach(kp => innerTexts.Add(kp.Key, kp.Value));
@@ -28,7 +26,15 @@ namespace ClosedXML.Excel
             SetAsInitial();
         }
 
-        internal readonly XLWorksheet Worksheet;
+        /// <summary>
+        /// The worksheet of the header or footer. Value is null for the default page setup of a workbook.
+        /// </summary>
+        internal readonly XLWorksheet? Worksheet;
+
+        /// <summary>
+        /// The <see cref="Worksheet"/>. The header or footer must have a worksheet.
+        /// </summary>
+        internal XLWorksheet RequiredWorksheet => Worksheet ?? throw new InvalidOperationException("The header or footer has no worksheet.");
 
         public IXLHFItem Left { get; private set; }
         public IXLHFItem Center { get; private set; }
@@ -114,7 +120,7 @@ namespace ClosedXML.Excel
             return parsedElements;
         }
 
-        private Dictionary<XLHFOccurrence, String> _initialTexts;
+        private readonly Dictionary<XLHFOccurrence, String> _initialTexts = new();
 
         private Boolean _changed;
         internal Boolean Changed
@@ -128,7 +134,7 @@ namespace ClosedXML.Excel
 
         internal void SetAsInitial()
         {
-            _initialTexts = new Dictionary<XLHFOccurrence, string>();
+            _initialTexts.Clear();
             foreach (var o in Enum.GetValues(typeof(XLHFOccurrence)).Cast<XLHFOccurrence>())
             {
                 _initialTexts.Add(o, GetText(o));

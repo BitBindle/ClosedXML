@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 
@@ -183,7 +181,7 @@ namespace ClosedXML.Excel
         /// <exception cref="ArgumentException">If sequence contains no elements or the range is from different worksheet.</exception>
         IEnumerable<IXLRange> Ranges { get; set; }
 
-        XLDictionary<XLFormula> Values { get; }
+        XLDictionary<XLFormula?> Values { get; }
 
         XLDictionary<XLColor> Colors { get; }
 

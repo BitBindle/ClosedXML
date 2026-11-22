@@ -1,5 +1,3 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 using static ClosedXML.Excel.XLProtectionAlgorithm;
@@ -20,8 +18,8 @@ namespace ClosedXML.Excel
         public Boolean IsPasswordProtected => this.IsProtected && !String.IsNullOrEmpty(PasswordHash);
         public Boolean IsProtected { get; internal set; }
 
-        internal String Base64EncodedSalt { get; set; }
-        internal String PasswordHash { get; set; }
+        internal String Base64EncodedSalt { get; set; } = String.Empty;
+        internal String PasswordHash { get; set; } = String.Empty;
         internal UInt32 SpinCount { get; set; } = 100000;
 
         public IXLSheetProtection AllowElement(XLSheetProtectionElements element, Boolean allowed = true)

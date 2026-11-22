@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 
@@ -20,7 +18,8 @@ namespace ClosedXML.Excel
         }
         public void Add<T>(String name, T value)
         {
-            var cp = new XLCustomProperty(workbook) { Name = name, Value = value };
+            ArgumentNullException.ThrowIfNull(value);
+            var cp = new XLCustomProperty(workbook, name, value);
             Add(cp);
         }
 

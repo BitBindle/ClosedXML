@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -53,9 +51,8 @@ namespace ClosedXML.Excel
             /// value is an mapped stringId to write to a file. The mapped stringId has no gaps
             /// between ids.
             /// </summary>
-            public List<int> SstMap { get; set; }
+            public List<int> SstMap { get; set; } = new();
 
-#nullable enable
             internal int GetSharedStringId(XLCell xlCell, string text)
             {
                 var sharedStringId = SstMap[xlCell.MemorySstId];
@@ -94,7 +91,6 @@ namespace ClosedXML.Excel
             {
                 return format is not null ? FormatMap[format] : 0;
             }
-#nullable disable
         }
 
         #endregion Nested type: SaveContext
@@ -131,8 +127,8 @@ namespace ClosedXML.Excel
             public void AddExistingValues(WorkbookPart workbookPart, XLWorkbook xlWorkbook)
             {
                 AddValues(workbookPart.Parts.Select(p => p.RelationshipId), RelType.Workbook);
-                AddValues(xlWorkbook.WorksheetsInternal.Cast<XLWorksheet>().Where(ws => !String.IsNullOrWhiteSpace(ws.RelId)).Select(ws => ws.RelId), RelType.Workbook);
-                AddValues(xlWorkbook.WorksheetsInternal.Cast<XLWorksheet>().Where(ws => !String.IsNullOrWhiteSpace(ws.LegacyDrawingId)).Select(ws => ws.LegacyDrawingId), RelType.Workbook);
+                AddValues(xlWorkbook.WorksheetsInternal.Cast<XLWorksheet>().Where(ws => !String.IsNullOrWhiteSpace(ws.RelId)).Select(ws => ws.RelId).OfType<string>(), RelType.Workbook);
+                AddValues(xlWorkbook.WorksheetsInternal.Cast<XLWorksheet>().Where(ws => !String.IsNullOrWhiteSpace(ws.LegacyDrawingId)).Select(ws => ws.LegacyDrawingId).OfType<string>(), RelType.Workbook);
                 AddValues(xlWorkbook.WorksheetsInternal
                     .Cast<XLWorksheet>()
                     .SelectMany(ws => ws.Tables.Cast<XLTable>())

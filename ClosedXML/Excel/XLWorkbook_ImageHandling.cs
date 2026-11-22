@@ -1,5 +1,3 @@
-#nullable disable
-
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Drawing.Spreadsheet;
 using DocumentFormat.OpenXml.Packaging;
@@ -12,16 +10,20 @@ namespace ClosedXML.Excel
 {
     public partial class XLWorkbook
     {
-        internal static OpenXmlElement GetAnchorFromImageId(DrawingsPart drawingsPart, string relId)
+        internal static OpenXmlElement? GetAnchorFromImageId(DrawingsPart drawingsPart, string relId)
         {
-            var matchingAnchor = drawingsPart.WorksheetDrawing
+            var worksheetDrawing = drawingsPart.WorksheetDrawing;
+            if (worksheetDrawing is null)
+                return null;
+
+            var matchingAnchor = worksheetDrawing
                 .Where(wsdr => wsdr.Descendants<Xdr.BlipFill>()
-                    .Any(x => x?.Blip?.Embed?.Value.Equals(relId) ?? false)
+                    .Any(x => x.Blip?.Embed?.Value?.Equals(relId) ?? false)
                 );
             return matchingAnchor.FirstOrDefault();
         }
 
-        internal static NonVisualDrawingProperties GetPropertiesFromAnchor(OpenXmlElement anchor)
+        internal static NonVisualDrawingProperties? GetPropertiesFromAnchor(OpenXmlElement anchor)
         {
             if (!IsAllowedAnchor(anchor))
                 return null;
@@ -37,7 +39,7 @@ namespace ClosedXML.Excel
                 .FirstOrDefault();
         }
 
-        internal static String GetImageRelIdFromAnchor(OpenXmlElement anchor)
+        internal static String? GetImageRelIdFromAnchor(OpenXmlElement anchor)
         {
             if (!IsAllowedAnchor(anchor))
                 return null;

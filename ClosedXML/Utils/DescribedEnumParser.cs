@@ -1,5 +1,3 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Collections.Generic;
@@ -10,6 +8,7 @@ using System.Reflection;
 namespace ClosedXML.Utils
 {
     internal static class DescribedEnumParser<T>
+        where T : struct, Enum
     {
         private static Lazy<IDictionary<string, T>> fromDescriptions = new Lazy<IDictionary<string, T>>(() =>
         {

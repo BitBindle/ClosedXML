@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Concurrent;
 using System.IO;
@@ -215,7 +213,7 @@ namespace ClosedXML.Graphics
 
                 // As of SixLabors.Fonts 1.0.0, the TryGetGlyphMetrics method never fails. It returns .notdef glyph 0
                 // as a fallback glyph, but it might change in the future.
-                if (!containsMetrics)
+                if (!containsMetrics || glyphs is null)
                     continue;
 
                 foreach (var glyph in glyphs)
@@ -306,7 +304,7 @@ namespace ClosedXML.Graphics
                     LayoutMode.HorizontalTopBottom,
                     ColorFontSupport.None,
                     out var glyphMetrics);
-                if (!containsMetrics)
+                if (!containsMetrics || glyphMetrics is null)
                     continue;
 
                 var glyphAdvance = 0;
@@ -334,7 +332,7 @@ namespace ClosedXML.Graphics
 
             public bool Equals(MetricId other) => Name == other.Name && _style == other._style;
 
-            public override bool Equals(object obj) => obj is MetricId other && Equals(other);
+            public override bool Equals(object? obj) => obj is MetricId other && Equals(other);
 
             public override int GetHashCode() => (Name.GetHashCode() * 397) ^ (int)_style;
 

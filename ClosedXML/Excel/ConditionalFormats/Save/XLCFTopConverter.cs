@@ -7,7 +7,7 @@ namespace ClosedXML.Excel
     {
         public ConditionalFormattingRule Convert(XLConditionalFormat cf, int priority, XLWorkbook.SaveContext context)
         {
-            UInt32 val = UInt32.Parse(cf.Values[1].Value);
+            UInt32 val = UInt32.Parse(cf.GetRequiredValue(1).Value);
             var conditionalFormattingRule = XLCFBaseConverter.ConvertWithDxf(cf, priority, context);
             conditionalFormattingRule.Percent = cf.Percent;
             conditionalFormattingRule.Rank = val;

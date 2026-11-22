@@ -1,4 +1,6 @@
-﻿using NUnit.Framework;
+﻿using ClosedXML.Excel;
+using System;
+using NUnit.Framework;
 using System.Linq;
 
 namespace ClosedXML.Tests.Excel
@@ -22,6 +24,16 @@ namespace ClosedXML.Tests.Excel
                     var actualPrintAddresses = ws.PageSetup.PrintAreas.Select(pa => pa.RangeAddress.ToStringRelative());
                     CollectionAssert.AreEqual(printAreaRangeAddresses, actualPrintAddresses);
                 });
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Add_throws_for_unknown_range_name()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+
+            Assert.Throws<ArgumentException>(() => ws.PageSetup.PrintAreas.Add("NoSuchName"));
         }
     }
 }

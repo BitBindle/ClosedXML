@@ -1087,5 +1087,43 @@ namespace ClosedXML.Tests.Excel.Sparklines
         }
 
         #endregion Test Examples
+
+        [Test]
+        [Issue("64")]
+        public void Add_throws_for_unknown_location_range_name()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+
+            Assert.Throws<ArgumentException>(() => ws.SparklineGroups.Add("NoSuchName", "C1:E1"));
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Add_throws_for_unknown_source_data_range_name()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+
+            Assert.Throws<ArgumentException>(() => ws.SparklineGroups.Add("A1", "NoSuchName"));
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Copy_of_group_with_deleted_date_range_has_no_date_range()
+        {
+            using var wb = new XLWorkbook();
+            var ws1 = wb.AddWorksheet("Sheet 1");
+            var ws2 = wb.AddWorksheet("Sheet 2");
+            var group = ws1.SparklineGroups.Add("A1:A3", "B1:F3")
+                .SetDateRange(ws1.Range("B4:F4"));
+
+            ws1.Row(4).Delete();
+            Assert.IsFalse(group.DateRange.RangeAddress.IsValid);
+
+            var copy = group.CopyTo(ws2);
+
+            Assert.IsNull(copy.DateRange);
+        }
     }
 }

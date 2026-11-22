@@ -1128,5 +1128,20 @@ namespace ClosedXML.Tests
 
             return ms;
         }
+
+        [Test]
+        [Issue("64")]
+        public void Copy_keeps_fields_without_custom_name()
+        {
+            using var wb = new XLWorkbook();
+            var pt = CreateNameCountPivotTable(wb);
+            pt.RowLabels.Get("Name").SetCustomName(null);
+            pt.ReportFilters.Add("Count", null);
+
+            var copy = pt.CopyTo(pt.Worksheet.Cell("H1"));
+
+            Assert.IsNull(copy.RowLabels.Get("Name").CustomName);
+            Assert.IsNull(copy.ReportFilters.Get("Count").CustomName);
+        }
     }
 }

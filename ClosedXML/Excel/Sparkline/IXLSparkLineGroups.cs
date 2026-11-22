@@ -1,5 +1,3 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System.Collections.Generic;
 
@@ -22,7 +20,7 @@ namespace ClosedXML.Excel
 
         void CopyTo(IXLWorksheet targetSheet);
 
-        IXLSparkline GetSparkline(IXLCell cell);
+        IXLSparkline? GetSparkline(IXLCell cell);
         IEnumerable<IXLSparkline> GetSparklines(IXLRangeBase rangeBase);
 
         void Remove(IXLCell cell);

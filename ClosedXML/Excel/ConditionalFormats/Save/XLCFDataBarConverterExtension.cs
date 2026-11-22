@@ -48,20 +48,20 @@ namespace ClosedXML.Excel
                 ? GetCFType(contentType1.ToOpenXml())
                 : ConditionalFormattingValueObjectTypeValues.AutoMin;
             var cfMin = new ConditionalFormattingValueObject { Type = cfMinType };
-            if (cf.Values.Any() && cf.Values[1]?.Value != null)
+            if (cf.Values.Any() && cf.Values[1]?.Value is { } minValue)
             {
                 cfMin.Type = ConditionalFormattingValueObjectTypeValues.Numeric;
-                cfMin.Append(new Formula() { Text = cf.Values[1].Value });
+                cfMin.Append(new Formula() { Text = minValue });
             }
 
             var cfMaxType = cf.ContentTypes.TryGetValue(2, out var contentType2)
                 ? GetCFType(contentType2.ToOpenXml())
                 : ConditionalFormattingValueObjectTypeValues.AutoMax;
             var cfMax = new ConditionalFormattingValueObject { Type = cfMaxType };
-            if (cf.Values.Count >= 2 && cf.Values[2]?.Value != null)
+            if (cf.Values.Count >= 2 && cf.Values[2]?.Value is { } maxValue)
             {
                 cfMax.Type = ConditionalFormattingValueObjectTypeValues.Numeric;
-                cfMax.Append(new Formula() { Text = cf.Values[2].Value });
+                cfMax.Append(new Formula() { Text = maxValue });
             }
 
             var negativeFillColor = new NegativeFillColor { Rgb = cf.Colors[1].Color.ToHex() };

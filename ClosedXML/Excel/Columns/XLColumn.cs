@@ -186,11 +186,11 @@ namespace ClosedXML.Excel
             if (this.Worksheet.AutoFilter != null && Worksheet.AutoFilter.Range != null)
                 autoFilterRows.Add(this.Worksheet.AutoFilter.Range.FirstRow().RowNumber());
 
-            autoFilterRows.AddRange(Worksheet.Tables.Where<XLTable>(t =>
-                    t.AutoFilter != null
-                    && t.AutoFilter.Range != null
-                    && !autoFilterRows.Contains(t.AutoFilter.Range.FirstRow().RowNumber()))
-                .Select(t => t.AutoFilter.Range.FirstRow().RowNumber()));
+            autoFilterRows.AddRange(Worksheet.Tables
+                .Select<XLTable, IXLRange?>(t => t.AutoFilter?.Range)
+                .OfType<IXLRange>()
+                .Select(range => range.FirstRow().RowNumber())
+                .Where(rowNumber => !autoFilterRows.Contains(rowNumber)));
 
             // Cache MDW for each font to avoid too many allocations
             var scaledMdwMap = new Dictionary<XLFontFormatValue, double>(ReferenceEqualityComparer<XLFontFormatValue>.Instance);

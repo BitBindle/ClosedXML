@@ -9,7 +9,7 @@ namespace ClosedXML.Excel.InsertData
         private readonly XLCellValue[] _row = { Blank.Value };
         private readonly int _count;
 
-        public NullDataReader(IEnumerable<object> nulls)
+        public NullDataReader(IEnumerable<object?> nulls)
         {
             _count = nulls.Count();
         }

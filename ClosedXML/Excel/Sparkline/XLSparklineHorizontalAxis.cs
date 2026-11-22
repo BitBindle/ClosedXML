@@ -1,5 +1,3 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 
@@ -9,7 +7,7 @@ namespace ClosedXML.Excel
     {
         #region Public Properties
 
-        public XLColor Color { get; set; }
+        public XLColor Color { get; set; } = XLColor.Black;
 
         public bool DateAxis => SparklineGroup.DateRange != null;
 

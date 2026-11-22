@@ -237,5 +237,24 @@ namespace ClosedXML.Tests.Excel
                 Assert.AreEqual("DAYS360(B3:B5, C3:C5)", ws.Cell("A3").FormulaA1);
             }
         }
+
+        [Test]
+        [Issue("64")]
+        public void Formula_from_null_has_empty_value()
+        {
+            var formula = new XLFormula((string)null);
+
+            Assert.AreEqual(string.Empty, formula.Value);
+            Assert.IsFalse(formula.IsFormula);
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Formula_without_value_has_empty_value()
+        {
+            var formula = new XLFormula();
+
+            Assert.AreEqual(string.Empty, formula.Value);
+        }
     }
 }

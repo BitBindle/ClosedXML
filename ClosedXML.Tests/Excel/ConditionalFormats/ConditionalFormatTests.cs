@@ -298,5 +298,35 @@ namespace ClosedXML.Tests.Excel.ConditionalFormats
                 "RIGHT(D1,3)=\"a\"\"b\"",
             }, formulas);
         }
+
+        [Test]
+        [Issue("64")]
+        public void ColorScale_highest_value_keeps_minimum_value()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var cf = ws.Range("A1:A5").AddConditionalFormat();
+
+            cf.ColorScale().Minimum(XLCFContentType.Number, 5, XLColor.Red).HighestValue(XLColor.Blue);
+
+            Assert.AreEqual(2, cf.Values.Count);
+            Assert.AreEqual("5", cf.Values[1].Value);
+            Assert.IsNull(cf.Values[2]);
+            Assert.AreEqual(2, cf.Colors.Count);
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Format_without_areas_is_equal_only_to_other_format_without_areas()
+        {
+            using var wb = new XLWorkbook();
+            var ws = (XLWorksheet)wb.AddWorksheet();
+            var withoutAreas1 = new XLConditionalFormat(ws, XLAreaList.Empty);
+            var withoutAreas2 = new XLConditionalFormat(ws, XLAreaList.Empty);
+            var withAreas = new XLConditionalFormat(ws, new XLAreaList(new Area(1, 1, 3, 1)));
+
+            Assert.IsTrue(XLConditionalFormat.NoRangeComparer.Equals(withoutAreas1, withoutAreas2));
+            Assert.IsFalse(XLConditionalFormat.NoRangeComparer.Equals(withAreas, withoutAreas1));
+        }
     }
 }

@@ -468,5 +468,57 @@ namespace ClosedXML.Tests
                 Assert.AreEqual(XLFilterType.Regular, autoFilter.Column(2).FilterType);
             }
         }
+
+        [Test]
+        [Issue("64")]
+        public void Autofilter_without_range_throws_for_rows()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+
+            Assert.IsNull(ws.AutoFilter.Range);
+            Assert.Throws<InvalidOperationException>(() => ws.AutoFilter.VisibleRows.ToList());
+            Assert.Throws<InvalidOperationException>(() => ws.AutoFilter.HiddenRows.ToList());
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Clear_of_enabled_autofilter_without_range_only_disables_it()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.AutoFilter.IsEnabled = true;
+
+            ws.AutoFilter.Clear();
+
+            Assert.IsFalse(ws.AutoFilter.IsEnabled);
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Table_can_be_created_when_enabled_autofilter_has_no_range()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new object[] { ("Name", "Count"), ("A", 1) });
+            ws.AutoFilter.IsEnabled = true;
+
+            var table = ws.Range("A1:B2").CreateTable();
+
+            Assert.AreEqual("A1:B2", table.RangeAddress.ToString());
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Worksheet_copy_with_enabled_autofilter_without_range_has_no_autofilter_range()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.AutoFilter.IsEnabled = true;
+
+            var copy = ws.CopyTo("Copy");
+
+            Assert.IsNull(copy.AutoFilter.Range);
+        }
     }
 }

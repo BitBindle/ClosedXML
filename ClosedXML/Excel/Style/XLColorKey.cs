@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 
 namespace ClosedXML.Excel
@@ -49,7 +47,7 @@ namespace ClosedXML.Excel
             return false;
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (obj is XLColorKey)
                 return Equals((XLColorKey)obj);
@@ -67,7 +65,7 @@ namespace ClosedXML.Excel
                 case XLColorType.Indexed:
                     return $"Indexed: {Indexed}";
                 default:
-                    return base.ToString();
+                    return base.ToString() ?? string.Empty;
             }
         }
 

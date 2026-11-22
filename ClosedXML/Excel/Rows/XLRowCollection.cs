@@ -1,7 +1,6 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace ClosedXML.Excel
@@ -44,7 +43,7 @@ namespace ClosedXML.Excel
             return _dictionary.Remove(key);
         }
 
-        public bool TryGetValue(int key, out XLRow value)
+        public bool TryGetValue(int key, [MaybeNullWhen(false)] out XLRow value)
         {
             return _dictionary.TryGetValue(key, out value);
         }

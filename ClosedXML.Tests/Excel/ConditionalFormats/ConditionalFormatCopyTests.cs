@@ -105,5 +105,38 @@ namespace ClosedXML.Tests.Excel.ConditionalFormats
             Assert.AreEqual(1, ws2.ConditionalFormats.Count());
             Assert.AreEqual("Sheet2!A1:C3", ws2.ConditionalFormats.First().Ranges.ToSpaceList(true));
         }
+
+        [Test]
+        [Issue("64")]
+        public void Color_scale_without_values_can_be_copied()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("A1:A3").AddConditionalFormat().ColorScale().LowestValue(XLColor.Red).HighestValue(XLColor.Blue);
+
+            ws.Range("A1:A3").CopyTo(ws.Cell("C1"));
+
+            Assert.AreEqual(2, ws.ConditionalFormats.Count());
+            var copy = ws.ConditionalFormats.Single(cf => cf.Ranges.Single().RangeAddress.ToString() == "C1:C3");
+            Assert.IsNull(copy.Values[1]);
+            Assert.IsNull(copy.Values[2]);
+            Assert.AreEqual(XLColor.Blue, copy.Colors[2]);
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Color_scale_without_values_can_be_copied_to_other_worksheet()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var cf = ws.Range("A1:A3").AddConditionalFormat();
+            cf.ColorScale().LowestValue(XLColor.Red).HighestValue(XLColor.Blue);
+            var otherWs = wb.AddWorksheet();
+
+            var copy = cf.CopyTo(otherWs);
+
+            Assert.IsNull(copy.Values[1]);
+            Assert.IsNull(copy.Values[2]);
+        }
     }
 }

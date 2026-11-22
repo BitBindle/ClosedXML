@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -22,7 +20,7 @@ namespace ClosedXML.Excel
         public String GetText(XLHFOccurrence occurrence)
         {
             var sb = new StringBuilder();
-            if(texts.TryGetValue(occurrence, out List<XLHFText> hfTexts))
+            if(texts.TryGetValue(occurrence, out var hfTexts))
             {
                 foreach (var hfText in hfTexts)
                     sb.Append(hfText.GetHFText(sb.ToString()));
@@ -43,7 +41,8 @@ namespace ClosedXML.Excel
         public IXLRichString AddText(String text, XLHFOccurrence occurrence)
         {
             // TODO Styles: This doesn't update source when API object changes
-            var richText = new XLRichString(text, HeaderFooter.Worksheet.GetFormat().Font, this, HeaderFooter.Worksheet.Workbook.Styles, null);
+            var worksheet = HeaderFooter.RequiredWorksheet;
+            var richText = new XLRichString(text, worksheet.GetFormat().Font, this, worksheet.Workbook.Styles, null);
 
             var hfText = new XLHFText(richText, this);
             if (occurrence == XLHFOccurrence.AllPages)
@@ -72,7 +71,7 @@ namespace ClosedXML.Excel
 
         private void AddTextToOccurrence(XLHFText hfText, XLHFOccurrence occurrence)
         {
-            if (texts.TryGetValue(occurrence, out List<XLHFText> hfTexts))
+            if (texts.TryGetValue(occurrence, out var hfTexts))
                 hfTexts.Add(hfText);
             else
                 texts.Add(occurrence, new List<XLHFText> { hfText });

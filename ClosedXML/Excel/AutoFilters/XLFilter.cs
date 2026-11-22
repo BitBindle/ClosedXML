@@ -1,5 +1,3 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Globalization;
@@ -29,14 +27,14 @@ namespace ClosedXML.Excel
         /// </summary>
         public XLCellValue CustomValue { get; init; }
 
-        public Func<IXLCell, XLFilterColumn, bool> Condition { get; init; }
+        public required Func<IXLCell, XLFilterColumn, bool> Condition { get; init; }
 
         public XLFilterOperator Operator { get; init; } = XLFilterOperator.Equal;
 
         /// <summary>
         /// Value for <see cref="XLFilterType.Regular"/> filter.
         /// </summary>
-        public Object Value { get; set; }
+        public Object? Value { get; set; }
 
         internal static XLFilter CreateCustomFilter(XLCellValue value, XLFilterOperator op, XLConnector connector)
         {

@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 
 namespace ClosedXML.Excel
@@ -83,7 +81,7 @@ namespace ClosedXML.Excel
         /// <example>
         /// Show values as a percent of a specific value of a different field, e.g. as a % of units sold from Q1 (quarts is a base field and Q1 is a base item).
         /// </example>
-        String BaseFieldName { get; set; }
+        String? BaseFieldName { get; set; }
 
         /// <summary>
         /// The value of a base item to calculate a value to show in the pivot table. The base item is selected from values of a base field.
@@ -112,7 +110,7 @@ namespace ClosedXML.Excel
         String SourceName { get; }
         XLPivotSummary SummaryFormula { get; set; }
 
-        IXLPivotValue SetBaseFieldName(String value);
+        IXLPivotValue SetBaseFieldName(String? value);
 
         IXLPivotValue SetBaseItemValue(XLCellValue value);
 

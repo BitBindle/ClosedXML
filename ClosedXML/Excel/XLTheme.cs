@@ -1,21 +1,21 @@
-#nullable disable
+using System;
 
 namespace ClosedXML.Excel
 {
     internal class XLTheme : IXLTheme
     {
-        public XLColor Background1 { get; set; }
-        public XLColor Text1 { get; set; }
-        public XLColor Background2 { get; set; }
-        public XLColor Text2 { get; set; }
-        public XLColor Accent1 { get; set; }
-        public XLColor Accent2 { get; set; }
-        public XLColor Accent3 { get; set; }
-        public XLColor Accent4 { get; set; }
-        public XLColor Accent5 { get; set; }
-        public XLColor Accent6 { get; set; }
-        public XLColor Hyperlink { get; set; }
-        public XLColor FollowedHyperlink { get; set; }
+        public required XLColor Background1 { get; set; }
+        public required XLColor Text1 { get; set; }
+        public required XLColor Background2 { get; set; }
+        public required XLColor Text2 { get; set; }
+        public required XLColor Accent1 { get; set; }
+        public required XLColor Accent2 { get; set; }
+        public required XLColor Accent3 { get; set; }
+        public required XLColor Accent4 { get; set; }
+        public required XLColor Accent5 { get; set; }
+        public required XLColor Accent6 { get; set; }
+        public required XLColor Hyperlink { get; set; }
+        public required XLColor FollowedHyperlink { get; set; }
 
         public XLColor ResolveThemeColor(XLThemeColor themeColor)
         {
@@ -58,7 +58,7 @@ namespace ClosedXML.Excel
                     return FollowedHyperlink;
 
                 default:
-                    return null;
+                    throw new ArgumentOutOfRangeException(nameof(themeColor), themeColor, "The value is not a theme color.");
             }
         }
     }
