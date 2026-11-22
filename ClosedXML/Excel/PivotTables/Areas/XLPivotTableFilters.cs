@@ -29,7 +29,7 @@ internal class XLPivotTableFilters : IXLPivotFields
 
     IXLPivotField IXLPivotFields.Add(String sourceName) => Add(sourceName, sourceName);
 
-    IXLPivotField IXLPivotFields.Add(String sourceName, String customName) => Add(sourceName, customName);
+    IXLPivotField IXLPivotFields.Add(String sourceName, String? customName) => Add(sourceName, customName);
 
     public void Clear()
     {
@@ -109,7 +109,7 @@ internal class XLPivotTableFilters : IXLPivotFields
 
     internal IReadOnlyList<XLPivotPageField> Fields => _fields;
 
-    internal XLPivotTablePageField Add(String sourceName, String customName)
+    internal XLPivotTablePageField Add(String sourceName, String? customName)
     {
         if (sourceName == XLConstants.PivotTable.ValuesSentinalLabel)
             throw new ArgumentException(nameof(sourceName), $"The column '{sourceName}' does not appear in the source range.");

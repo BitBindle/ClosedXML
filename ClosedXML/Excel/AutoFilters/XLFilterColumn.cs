@@ -170,7 +170,7 @@ namespace ClosedXML.Excel
 
         private double GetTopBottomFilterValue(XLTopBottomType type, int value, bool takeTop)
         {
-            var column = _autoFilter.Range.Column(_column);
+            var column = _autoFilter.RequiredRange.Column(_column);
             var subColumn = column.Column(2, column.CellCount());
             var columnNumbers = subColumn.CellsUsed(c => c.CachedValue.IsUnifiedNumber).Select(c => c.CachedValue.GetUnifiedNumber());
             var comparer = takeTop
@@ -208,7 +208,7 @@ namespace ClosedXML.Excel
 
         private double GetAverageFilterValue()
         {
-            var column = _autoFilter.Range.Column(_column);
+            var column = _autoFilter.RequiredRange.Column(_column);
             var subColumn = column.Column(2, column.CellCount());
             return subColumn.CellsUsed(c => c.CachedValue.IsUnifiedNumber)
                 .Select(c => c.CachedValue.GetUnifiedNumber())

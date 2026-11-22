@@ -1,5 +1,3 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Collections;
@@ -23,8 +21,8 @@ namespace ClosedXML.Excel.InsertData
                 if (!_data.Any())
                     yield break;
 
-                List<object> itemsOfSameType = new List<object>();
-                Type previousType = null;
+                List<object?> itemsOfSameType = new List<object?>();
+                Type? previousType = null;
 
                 foreach (var item in _data)
                 {
@@ -45,7 +43,7 @@ namespace ClosedXML.Excel.InsertData
                 }
             }
 
-            IInsertDataReader CreateReader(List<object> itemsOfSameType, Type itemType)
+            IInsertDataReader CreateReader(List<object?> itemsOfSameType, Type? itemType)
             {
                 if (itemType == null)
                     return new NullDataReader(itemsOfSameType);
@@ -73,12 +71,12 @@ namespace ClosedXML.Excel.InsertData
             return GetFirstNonNullReader()?.GetPropertiesCount() ?? 0;
         }
 
-        public string GetPropertyName(int propertyIndex)
+        public string? GetPropertyName(int propertyIndex)
         {
             return GetFirstNonNullReader()?.GetPropertyName(propertyIndex);
         }
 
-        private IInsertDataReader GetFirstNonNullReader()
+        private IInsertDataReader? GetFirstNonNullReader()
         {
             return _readers.FirstOrDefault(r => !(r is NullDataReader));
         }

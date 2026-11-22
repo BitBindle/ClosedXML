@@ -1,5 +1,3 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Collections.Generic;
@@ -11,7 +9,7 @@ namespace ClosedXML.Excel.InsertData
     internal class DataRecordReader : IInsertDataReader
     {
         private readonly IEnumerable<XLCellValue>[] _inMemoryData;
-        private string[] _columns;
+        private string[]? _columns;
 
         public DataRecordReader(IEnumerable<IDataRecord> data)
         {
@@ -27,10 +25,10 @@ namespace ClosedXML.Excel.InsertData
 
         public int GetPropertiesCount()
         {
-            return _columns.Length;
+            return _columns?.Length ?? 0;
         }
 
-        public string GetPropertyName(int propertyIndex)
+        public string? GetPropertyName(int propertyIndex)
         {
             if (propertyIndex < 0)
                 throw new ArgumentOutOfRangeException(nameof(propertyIndex), "Property index must be non-negative");

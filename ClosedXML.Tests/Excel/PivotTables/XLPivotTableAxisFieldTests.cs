@@ -47,5 +47,62 @@ namespace ClosedXML.Tests.Excel.PivotTables
             var ex2 = Assert.Throws<ArgumentException>(() => colorField.SetCustomName("Custom ID"));
             Assert.AreEqual("Custom name 'Custom ID' is already used by another field.", ex2.Message);
         }
+
+        [Test]
+        [Issue("64")]
+        public void CustomName_of_data_field_cannot_be_null()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var range = ws.Cell("A1").InsertData(new object[]
+            {
+                ("ID", "Color", "Count"),
+                (1, "Blue", 10),
+            });
+            var pt = ws.PivotTables.Add("pt", ws.Cell("E1"), range);
+            pt.Values.Add("Count");
+            var dataField = pt.ColumnLabels.Add(XLConstants.PivotTable.ValuesSentinalLabel);
+
+            Assert.Throws<ArgumentNullException>(() => dataField.SetCustomName(null));
+        }
+
+        [Test]
+        [Issue("64")]
+        public void CustomName_can_be_removed()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var range = ws.Cell("A1").InsertData(new object[]
+            {
+                ("ID", "Color", "Count"),
+                (1, "Blue", 10),
+            });
+            var pt = ws.PivotTables.Add("pt", ws.Cell("E1"), range);
+            var colorField = pt.RowLabels.Add("Color");
+
+            colorField.SetCustomName(null);
+
+            Assert.IsNull(pt.RowLabels.Get(0).CustomName);
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Field_can_be_added_without_custom_name()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var range = ws.Cell("A1").InsertData(new object[]
+            {
+                ("ID", "Color", "Count"),
+                (1, "Blue", 10),
+            });
+            var pt = ws.PivotTables.Add("pt", ws.Cell("E1"), range);
+
+            pt.RowLabels.Add("Color", null);
+            pt.ReportFilters.Add("ID", null);
+
+            Assert.IsNull(pt.RowLabels.Get("Color").CustomName);
+            Assert.IsNull(pt.ReportFilters.Get("ID").CustomName);
+        }
     }
 }

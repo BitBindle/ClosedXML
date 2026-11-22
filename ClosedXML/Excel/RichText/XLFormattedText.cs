@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -11,8 +9,6 @@ namespace ClosedXML.Excel
 {
     internal class XLFormattedText<T> : IXLFormattedText<T>
     {
-        // TODO: Move from ancestor to children, not needed here
-        protected T Container;
         protected readonly XLWorkbookStyles Styles;
 
         /// <summary>
@@ -20,7 +16,7 @@ namespace ClosedXML.Excel
         /// </summary>
         private readonly XLFontFormatValue _defaultFont;
         private readonly List<XLRichString> _richTexts = new();
-        private XLPhonetics _phonetics;
+        private XLPhonetics? _phonetics;
 
         protected XLFormattedText(XLFontFormatValue defaultFont, XLWorkbookStyles styles)
         {
@@ -190,7 +186,7 @@ namespace ClosedXML.Excel
         public IXLFormattedText<T> SetFontName(String value) { FontName = value; return this; }
         public IXLFormattedText<T> SetFontFamilyNumbering(XLFontFamilyNumberingValues value) { FontFamilyNumbering = value; return this; }
 
-        public bool Equals(IXLFormattedText<T> other)
+        public bool Equals(IXLFormattedText<T>? other)
         {
             if (other is null)
                 return false;

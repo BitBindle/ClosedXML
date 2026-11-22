@@ -1,9 +1,8 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using ClosedXML.Excel.CalcEngine.Exceptions;
@@ -171,7 +170,11 @@ namespace ClosedXML.Excel
         /// <returns>Inserted Worksheet</returns>
         IXLWorksheet AddWorksheet(DataTable dataTable, String sheetName, String tableName);
 
-        IXLCell Cell(String namedCell);
+        /// <summary>
+        /// Get a cell from a defined name or from a full address with a sheet (e.g. <c>Sheet!A1</c>).
+        /// </summary>
+        /// <returns>The cell, or null when the name or the address does not refer to a cell.</returns>
+        IXLCell? Cell(String namedCell);
 
         IXLCells Cells(String namedCells);
 
@@ -192,7 +195,6 @@ namespace ClosedXML.Excel
 
         IXLRows FindRows(Func<IXLRow, Boolean> predicate);
 
-#nullable enable
         [Obsolete($"Use {nameof(DefinedName)} instead.")]
         IXLDefinedName? NamedRange(String name);
 
@@ -216,11 +218,20 @@ namespace ClosedXML.Excel
         /// sheet specified (e.g. <c>Sheet!Name</c>).</param>
         /// <returns>Found name or null.</returns>
         IXLDefinedName? DefinedName(String name);
-#nullable disable
 
-        IXLRange Range(String range);
+        /// <summary>
+        /// Get a range from a defined name or from a full address with a sheet (e.g. <c>Sheet!A1:B2</c>).
+        /// </summary>
+        /// <returns>The range, or null when the name or the address does not refer to a range.</returns>
+        IXLRange? Range(String range);
 
-        IXLRange RangeFromFullAddress(String rangeAddress, out IXLWorksheet ws);
+        /// <summary>
+        /// Get a range from a full address with a sheet (e.g. <c>Sheet!A1:B2</c>).
+        /// </summary>
+        /// <param name="rangeAddress">The address of the range with a sheet.</param>
+        /// <param name="ws">The worksheet of the range, or null when the worksheet does not exist.</param>
+        /// <returns>The range, or null when the address has no sheet or the worksheet does not exist.</returns>
+        IXLRange? RangeFromFullAddress(String rangeAddress, out IXLWorksheet? ws);
 
         IXLRanges Ranges(String ranges);
 
@@ -310,7 +321,7 @@ namespace ClosedXML.Excel
         /// <exception cref="ArgumentOutOfRangeException">If no tables with this name could be found in the workbook.</exception>
         IXLTable Table(String tableName, StringComparison comparisonType = StringComparison.OrdinalIgnoreCase);
 
-        Boolean TryGetWorksheet(String name, out IXLWorksheet worksheet);
+        Boolean TryGetWorksheet(String name, [NotNullWhen(true)] out IXLWorksheet? worksheet);
 
         IXLWorksheet Worksheet(String name);
 

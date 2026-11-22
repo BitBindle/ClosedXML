@@ -660,7 +660,7 @@ namespace ClosedXML.Excel
             MergedRanges.ForEach(mr => targetSheet.Range(((XLRangeAddress)mr.RangeAddress).WithoutWorksheet()).Merge());
             SelectedRanges.ForEach(sr => targetSheet.SelectedRanges.Add(targetSheet.Range(((XLRangeAddress)sr.RangeAddress).WithoutWorksheet())));
 
-            if (AutoFilter.IsEnabled)
+            if (AutoFilter.IsEnabled && AutoFilter.Range is not null)
             {
                 var range = targetSheet.Range(((XLRangeAddress)AutoFilter.Range.RangeAddress).WithoutWorksheet());
                 range.SetAutoFilter();
@@ -1174,7 +1174,7 @@ namespace ClosedXML.Excel
             if (columnNumber <= 0 || columnNumber > XLHelper.MaxColumnNumber)
                 throw new ArgumentOutOfRangeException(nameof(columnNumber), $"Column number must be between 1 and {XLHelper.MaxColumnNumber}");
 
-            if (Internals.ColumnsCollection.TryGetValue(columnNumber, out XLColumn column))
+            if (Internals.ColumnsCollection.TryGetValue(columnNumber, out var column))
                 return column;
             else
             {
@@ -1387,7 +1387,7 @@ namespace ClosedXML.Excel
             if (rowNumber <= 0 || rowNumber > XLHelper.MaxRowNumber)
                 throw new ArgumentOutOfRangeException(nameof(rowNumber), $"Row number must be between 1 and {XLHelper.MaxRowNumber}");
 
-            if (Internals.RowsCollection.TryGetValue(rowNumber, out XLRow row))
+            if (Internals.RowsCollection.TryGetValue(rowNumber, out var row))
                 return row;
             else
             {
@@ -1452,7 +1452,7 @@ namespace ClosedXML.Excel
                 throw new InvalidOperationException($"The range {range.RangeAddress.ToStringRelative(includeSheet: true)} is already part of table '{firstOverlappingTable.Name}'");
 
             // Check that the range doesn't overlap with any filters
-            if (AutoFilter.IsEnabled && this.AutoFilter.Range.Intersects(range))
+            if (AutoFilter.IsEnabled && this.AutoFilter.Range?.Intersects(range) == true)
                 throw new InvalidOperationException($"The range {range.RangeAddress.ToStringRelative(includeSheet: true)} overlaps with the worksheet's autofilter.");
         }
 

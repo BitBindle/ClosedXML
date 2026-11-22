@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +12,6 @@ namespace ClosedXML.Excel
         internal IXLWorksheet worksheet;
         public XLChart(XLWorksheet worksheet)
         {
-            Container = this;
             this.worksheet = worksheet;
             Int32 zOrder;
             if (worksheet.Charts.Any())
@@ -25,6 +22,8 @@ namespace ClosedXML.Excel
             ShapeId = worksheet.Workbook.ShapeIdManager.GetNext();
             RightAngleAxes = true;
         }
+
+        internal override IXLChart Container => this;
 
         public Boolean RightAngleAxes { get; set; }
         public IXLChart SetRightAngleAxes()

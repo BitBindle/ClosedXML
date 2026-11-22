@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using ClosedXML.Excel;
 
@@ -21,5 +22,15 @@ internal class XLRangesTests
             var fontSize = expectedChangedCells.Contains(address) ? 20 : 11;
             Assert.AreEqual(fontSize, cell.Style.Font.FontSize, 0, address);
         }
+    }
+
+    [Test]
+    [Issue("64")]
+    public void GetIntersectedRanges_throws_for_address_without_worksheet()
+    {
+        using var wb = new XLWorkbook();
+        var ranges = new XLRanges(wb);
+
+        Assert.Throws<ArgumentException>(() => ranges.GetIntersectedRanges(new XLAddress(1, 1, false, false)));
     }
 }

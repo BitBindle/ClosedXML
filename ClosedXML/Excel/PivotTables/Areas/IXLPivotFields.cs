@@ -23,11 +23,11 @@ public interface IXLPivotFields : IEnumerable<IXLPivotField>
     ///     also be <see cref="XLConstants.PivotTable.ValuesSentinalLabel"/> for
     ///     <c>&#931;Values</c> field.</param>
     /// <param name="customName">Display name of added field. Custom name of a filed must be unique
-    ///     in pivot table. Ignored for 'data' field.</param>
+    ///     in pivot table. Ignored for 'data' field. A null value adds the field without a custom name.</param>
     /// <returns>The added field.</returns>
     /// <exception cref="ArgumentException">Field can't be added (e.g. it is already used or can't
     ///     be added to specific collection).</exception>
-    IXLPivotField Add(String sourceName, String customName);
+    IXLPivotField Add(String sourceName, String? customName);
 
     /// <summary>
     /// Remove all fields from the axis. It also removes data of removed fields, like custom names and items.

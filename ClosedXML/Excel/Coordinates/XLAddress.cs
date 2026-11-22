@@ -1,7 +1,6 @@
-#nullable disable
-
 using System;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace ClosedXML.Excel
 {
@@ -17,7 +16,7 @@ namespace ClosedXML.Excel
             return Create(null, cellAddressString);
         }
 
-        public static XLAddress Create(XLWorksheet worksheet, string cellAddressString)
+        public static XLAddress Create(XLWorksheet? worksheet, string cellAddressString)
         {
             var fixedColumn = cellAddressString[0] == '$';
             Int32 startPos;
@@ -84,7 +83,7 @@ namespace ClosedXML.Excel
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         private readonly int _columnNumber;
 
-        private string _trimmedAddress;
+        private string? _trimmedAddress;
 
         #endregion Private fields
 
@@ -110,7 +109,7 @@ namespace ClosedXML.Excel
         /// <param name = "columnLetter">The column letter of the cell address.</param>
         /// <param name = "fixedRow"></param>
         /// <param name = "fixedColumn"></param>
-        public XLAddress(XLWorksheet worksheet, int rowNumber, string columnLetter, bool fixedRow, bool fixedColumn)
+        public XLAddress(XLWorksheet? worksheet, int rowNumber, string columnLetter, bool fixedRow, bool fixedColumn)
                 : this(worksheet, rowNumber, XLHelper.GetColumnNumberFromLetter(columnLetter), fixedRow, fixedColumn)
         {
         }
@@ -135,7 +134,7 @@ namespace ClosedXML.Excel
         /// <param name = "columnNumber">The column number of the cell address.</param>
         /// <param name = "fixedRow"></param>
         /// <param name = "fixedColumn"></param>
-        public XLAddress(XLWorksheet worksheet, int rowNumber, int columnNumber, bool fixedRow, bool fixedColumn) : this()
+        public XLAddress(XLWorksheet? worksheet, int rowNumber, int columnNumber, bool fixedRow, bool fixedColumn) : this()
 
         {
             Worksheet = worksheet;
@@ -150,14 +149,15 @@ namespace ClosedXML.Excel
 
         #region Properties
 
-        public XLWorksheet Worksheet { get; internal set; }
+        public XLWorksheet? Worksheet { get; internal set; }
 
-        IXLWorksheet IXLAddress.Worksheet
+        IXLWorksheet? IXLAddress.Worksheet
         {
             [DebuggerStepThrough]
             get { return Worksheet; }
         }
 
+        [MemberNotNullWhen(true, nameof(Worksheet))]
         public bool HasWorksheet
         {
             [DebuggerStepThrough]
@@ -240,7 +240,7 @@ namespace ClosedXML.Excel
 
             if (includeSheet)
                 return String.Concat(
-                    WorksheetIsDeleted ? "#REF" : Worksheet.Name.EscapeSheetName(),
+                    GetSheetPrefix(),
                     '!',
                     address);
 
@@ -312,7 +312,7 @@ namespace ClosedXML.Excel
 
         #region IEqualityComparer<XLCellAddress> Members
 
-        public Boolean Equals(IXLAddress x, IXLAddress y)
+        public Boolean Equals(IXLAddress? x, IXLAddress? y)
         {
             return x == y;
         }
@@ -326,7 +326,7 @@ namespace ClosedXML.Excel
 
         #region IEquatable<XLCellAddress> Members
 
-        public bool Equals(IXLAddress other)
+        public bool Equals(IXLAddress? other)
         {
             if (other == null)
                 return false;
@@ -345,7 +345,7 @@ namespace ClosedXML.Excel
                    _fixedColumn == other._fixedColumn;
         }
 
-        public override Boolean Equals(Object other)
+        public override Boolean Equals(Object? other)
         {
             return Equals(other as IXLAddress);
         }
@@ -385,7 +385,7 @@ namespace ClosedXML.Excel
 
             if (includeSheet)
                 return String.Concat(
-                    WorksheetIsDeleted ? "#REF" : Worksheet.Name.EscapeSheetName(),
+                    GetSheetPrefix(),
                     '!',
                     address
                 );
@@ -443,7 +443,7 @@ namespace ClosedXML.Excel
 
             if (includeSheet)
                 return String.Concat(
-                    WorksheetIsDeleted ? "#REF" : Worksheet.Name.EscapeSheetName(),
+                    GetSheetPrefix(),
                     '!',
                     address);
 
@@ -461,6 +461,15 @@ namespace ClosedXML.Excel
             }
         }
 
-        private bool WorksheetIsDeleted => Worksheet?.IsDeleted == true;
+        /// <summary>
+        /// Get the sheet part of an address with a sheet. The address must have a worksheet.
+        /// </summary>
+        private string GetSheetPrefix()
+        {
+            if (Worksheet is null)
+                throw new InvalidOperationException("The address has no worksheet.");
+
+            return Worksheet.IsDeleted ? "#REF" : Worksheet.Name.EscapeSheetName();
+        }
     }
 }

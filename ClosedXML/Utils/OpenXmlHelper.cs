@@ -76,19 +76,18 @@ namespace ClosedXML.Utils
             return ConvertToClosedXMLColor(new X14ColorTypeAdapter(openXMLColor));
         }
 
-#nullable disable
 
-        internal static void LoadNumberFormat(NumberingFormat nfSource, IXLNumberFormat nf)
+        internal static void LoadNumberFormat(NumberingFormat? nfSource, IXLNumberFormat nf)
         {
             if (nfSource == null) return;
 
             if (nfSource.NumberFormatId != null && nfSource.NumberFormatId.Value < XLConstants.NumberOfBuiltInStyles)
                 nf.NumberFormatId = (Int32)nfSource.NumberFormatId.Value;
-            else if (nfSource.FormatCode != null)
-                nf.Format = nfSource.FormatCode.Value;
+            else if (nfSource.FormatCode?.Value is { } formatCode)
+                nf.Format = formatCode;
         }
 
-        internal static void LoadBorder(Border borderSource, IXLBorder border)
+        internal static void LoadBorder(Border? borderSource, IXLBorder border)
         {
             if (borderSource == null) return;
 
@@ -105,7 +104,7 @@ namespace ClosedXML.Utils
             LoadBorderValues(borderSource.BottomBorder, border.SetBottomBorder, border.SetBottomBorderColor);
         }
 
-        private static void LoadBorderValues(BorderPropertiesType source, Func<XLBorderStyleValues, IXLStyle> setBorder, Func<XLColor, IXLStyle> setColor)
+        private static void LoadBorderValues(BorderPropertiesType? source, Func<XLBorderStyleValues, IXLStyle> setBorder, Func<XLColor, IXLStyle> setColor)
         {
             if (source != null)
             {
@@ -119,7 +118,7 @@ namespace ClosedXML.Utils
         // Differential fills store the patterns differently than other fills
         // Actually differential fills make more sense. bg is bg and fg is fg
         // 'Other' fills store the bg color in the fg field when pattern type is solid
-        internal static void LoadFill(Fill openXMLFill, IXLFill closedXMLFill, Boolean differentialFillFormat)
+        internal static void LoadFill(Fill? openXMLFill, IXLFill closedXMLFill, Boolean differentialFillFormat)
         {
             if (openXMLFill == null || openXMLFill.PatternFill == null) return;
 
@@ -163,7 +162,7 @@ namespace ClosedXML.Utils
             }
         }
 
-        internal static void LoadFont(OpenXmlElement fontSource, IXLFontBase fontBase)
+        internal static void LoadFont(OpenXmlElement? fontSource, IXLFontBase fontBase)
         {
             if (fontSource == null) return;
 
@@ -176,12 +175,12 @@ namespace ClosedXML.Utils
                 fontSource.Elements<DocumentFormat.OpenXml.Spreadsheet.FontFamily>().FirstOrDefault();
             if (fontFamilyNumbering != null && fontFamilyNumbering.Val != null)
                 fontBase.FontFamilyNumbering =
-                    (XLFontFamilyNumberingValues)Int32.Parse(fontFamilyNumbering.Val.ToString());
+                    (XLFontFamilyNumberingValues)fontFamilyNumbering.Val.Value;
             var runFont = fontSource.Elements<RunFont>().FirstOrDefault();
             if (runFont != null)
             {
-                if (runFont.Val != null)
-                    fontBase.FontName = runFont.Val;
+                if (runFont.Val?.Value is { } fontName)
+                    fontBase.FontName = fontName;
             }
             var fontSize = fontSource.Elements<FontSize>().FirstOrDefault();
             if (fontSize != null)
@@ -213,7 +212,7 @@ namespace ClosedXML.Utils
             }
         }
 
-        internal static Boolean GetBoolean(BooleanPropertyType property)
+        internal static Boolean GetBoolean(BooleanPropertyType? property)
         {
             if (property != null)
             {
@@ -225,7 +224,6 @@ namespace ClosedXML.Utils
             return false;
         }
 
-#nullable enable
 
         #endregion Public Methods
 

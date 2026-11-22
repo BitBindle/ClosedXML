@@ -166,7 +166,8 @@ namespace ClosedXML.Excel
 
         internal IEnumerable<IXLRange> GetIntersectedRanges(in XLAddress address)
         {
-            return GetRangeIndex(address.Worksheet)
+            var worksheet = address.Worksheet ?? throw new ArgumentException("The address has no worksheet.", nameof(address));
+            return GetRangeIndex(worksheet)
                 .GetIntersectedRanges(address);
         }
 

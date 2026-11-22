@@ -1,6 +1,3 @@
-#nullable disable
-#nullable enable annotations
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Collections;
@@ -165,8 +162,11 @@ namespace ClosedXML.Excel
         public IEnumerable<IXLSparkline> Add(string locationRangeAddress, string sourceDataAddress)
         {
             var sourceDataRange = _worksheet.Workbook.Range(sourceDataAddress) ??
-                                  _worksheet.Range(sourceDataAddress);
-            return Add(_worksheet.Range(locationRangeAddress), sourceDataRange);
+                                  _worksheet.Range(sourceDataAddress) ??
+                                  throw new ArgumentException($"The source data address '{sourceDataAddress}' is not valid.", nameof(sourceDataAddress));
+            var locationRange = _worksheet.Range(locationRangeAddress) ??
+                                throw new ArgumentException($"The location range address '{locationRangeAddress}' is not valid.", nameof(locationRangeAddress));
+            return Add(locationRange, sourceDataRange);
         }
 
         /// <summary>
@@ -177,9 +177,13 @@ namespace ClosedXML.Excel
         {
             if (sparklineGroup.DateRange != null)
             {
-                DateRange = sparklineGroup.DateRange.Worksheet == sparklineGroup.Worksheet
-                    ? _worksheet.Range(sparklineGroup.DateRange.RangeAddress.ToString())
-                    : sparklineGroup.DateRange;
+                var dateAddress = sparklineGroup.DateRange.RangeAddress;
+                // A date range that is not valid (for example, its rows are deleted) is not copied.
+                DateRange = sparklineGroup.DateRange.Worksheet != sparklineGroup.Worksheet
+                    ? sparklineGroup.DateRange
+                    : !dateAddress.IsValid
+                    ? null
+                    : _worksheet.Range(dateAddress.FirstAddress.RowNumber, dateAddress.FirstAddress.ColumnNumber, dateAddress.LastAddress.RowNumber, dateAddress.LastAddress.ColumnNumber);
             }
 
             DisplayEmptyCellsAs = sparklineGroup.DisplayEmptyCellsAs;
@@ -284,7 +288,7 @@ namespace ClosedXML.Excel
             _sparklines.Clear();
         }
 
-        public IXLSparklineGroup SetDateRange(IXLRange value)
+        public IXLSparklineGroup SetDateRange(IXLRange? value)
         {
             if (value != null)
             {
@@ -419,7 +423,7 @@ namespace ClosedXML.Excel
             HorizontalAxis = new XLSparklineHorizontalAxis(this);
             VerticalAxis = new XLSparklineVerticalAxis(this);
             HorizontalAxis.Color = XLColor.Black;
-            Style = XLSparklineTheme.Default;
+            _style = XLSparklineTheme.Default;
             LineWeight = 0.75d;
         }
 

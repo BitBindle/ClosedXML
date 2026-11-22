@@ -50,7 +50,6 @@ namespace ClosedXML.Excel
             }
 
             // TODO Styles: Convert to a factory method. The cell is set at the end to avoid false change trigger. Refactor so it's not needed anymore
-            Container = this;
             _cell = cell;
         }
 
@@ -63,7 +62,6 @@ namespace ClosedXML.Excel
         internal XLRichText(XLCell cell, XLFontFormatValue defaultFont)
             : base(defaultFont, cell.Worksheet.Workbook.Styles)
         {
-            Container = this;
             _cell = cell;
         }
 

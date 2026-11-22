@@ -1,5 +1,3 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Collections.Generic;
@@ -11,6 +9,7 @@ namespace ClosedXML.Excel
     {
         public static void RemoveAll<TKey, TValue>(this Dictionary<TKey, TValue> dic,
             Func<TValue, bool> predicate)
+            where TKey : notnull
         {
             var keys = dic.Keys.Where(k => predicate(dic[k])).ToList();
             foreach (var key in keys)

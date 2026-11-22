@@ -452,5 +452,43 @@ namespace ClosedXML.Tests.Excel
 
             Assert.Throws<ObjectDisposedException>(() => Console.WriteLine(wb.Worksheets.First().FirstCell().Value));
         }
+
+        [Test]
+        [Issue("64")]
+        public void ResolveThemeColor_throws_for_unknown_theme_color()
+        {
+            using var wb = new XLWorkbook();
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => wb.Theme.ResolveThemeColor((XLThemeColor)100));
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Custom_property_cannot_have_null_value()
+        {
+            using var wb = new XLWorkbook();
+            wb.CustomProperties.Add("Name", "Value");
+
+            Assert.Throws<ArgumentNullException>(() => wb.CustomProperties.Add<string>("Other", null));
+            Assert.Throws<ArgumentNullException>(() => wb.CustomProperty("Name").Value = null);
+            Assert.AreEqual("Value", wb.CustomProperty("Name").Value);
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Workbook_returns_null_for_unknown_range_and_cell()
+        {
+            using var wb = new XLWorkbook();
+            wb.AddWorksheet("Sheet");
+
+            Assert.IsNull(wb.Range("NoSuchName"));
+            Assert.IsNull(wb.Cell("NoSuchName"));
+            Assert.IsNull(wb.RangeFromFullAddress("A1:B2", out var noSheet));
+            Assert.IsNull(noSheet);
+            Assert.IsNull(wb.RangeFromFullAddress("Other!A1:B2", out var unknownSheet));
+            Assert.IsNull(unknownSheet);
+            Assert.IsFalse(wb.TryGetWorksheet("Other", out IXLWorksheet worksheet));
+            Assert.IsNull(worksheet);
+        }
     }
 }

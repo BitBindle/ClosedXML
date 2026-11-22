@@ -792,5 +792,35 @@ namespace ClosedXML.Tests
                     Assert.AreEqual(testedName, wb.Worksheet("Setter").Pictures.Single().Name);
                 });
         }
+
+        [Test]
+        [Issue("64")]
+        public void Picture_without_anchors_has_no_anchor_cells()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            using var resourceStream = Assembly.GetAssembly(typeof(ClosedXML.Examples.BasicTable)).GetManifestResourceStream("ClosedXML.Examples.Resources.SampleImage.jpg");
+
+            var picture = ws.AddPicture(resourceStream);
+
+            Assert.IsNull(picture.TopLeftCell);
+            Assert.IsNull(picture.BottomRightCell);
+            Assert.Throws<InvalidOperationException>(() => picture.GetOffset(XLMarkerPosition.TopLeft));
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Free_floating_picture_has_no_bottom_right_anchor()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            using var resourceStream = Assembly.GetAssembly(typeof(ClosedXML.Examples.BasicTable)).GetManifestResourceStream("ClosedXML.Examples.Resources.SampleImage.jpg");
+
+            var picture = ws.AddPicture(resourceStream).MoveTo(50, 50);
+
+            Assert.AreEqual("A1", picture.TopLeftCell.Address.ToString());
+            Assert.IsNull(picture.BottomRightCell);
+            Assert.Throws<InvalidOperationException>(() => picture.GetOffset(XLMarkerPosition.BottomRight));
+        }
     }
 }

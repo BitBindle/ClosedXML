@@ -1,5 +1,3 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Collections.Generic;
@@ -42,7 +40,7 @@ namespace ClosedXML.Excel
 
     public interface IXLSparklineGroup : IEnumerable<IXLSparkline>
     {
-        IXLRange DateRange { get; set; }
+        IXLRange? DateRange { get; set; }
 
         XLDisplayBlanksAsValues DisplayEmptyCellsAs { get; set; }
 
@@ -76,7 +74,7 @@ namespace ClosedXML.Excel
         /// <param name="targetSheet">The worksheet to copy this sparkline group to</param>
         IXLSparklineGroup CopyTo(IXLWorksheet targetSheet);
 
-        IXLSparkline GetSparkline(IXLCell cell);
+        IXLSparkline? GetSparkline(IXLCell cell);
 
         IEnumerable<IXLSparkline> GetSparklines(IXLRangeBase searchRange);
 
@@ -86,7 +84,7 @@ namespace ClosedXML.Excel
 
         void RemoveAll();
 
-        IXLSparklineGroup SetDateRange(IXLRange value);
+        IXLSparklineGroup SetDateRange(IXLRange? value);
 
         IXLSparklineGroup SetDisplayEmptyCellsAs(XLDisplayBlanksAsValues value);
 

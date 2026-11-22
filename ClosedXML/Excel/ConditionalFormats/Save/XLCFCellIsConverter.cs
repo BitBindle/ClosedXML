@@ -7,7 +7,7 @@ namespace ClosedXML.Excel
     {
         public ConditionalFormattingRule Convert(XLConditionalFormat cf, int priority, XLWorkbook.SaveContext context)
         {
-            String val = GetQuoted(cf.Values[1]);
+            String val = GetQuoted(cf.GetRequiredValue(1));
 
             var conditionalFormattingRule = XLCFBaseConverter.ConvertWithDxf(cf, priority, context);
             conditionalFormattingRule.Operator = cf.Operator.ToOpenXml();
@@ -17,7 +17,7 @@ namespace ClosedXML.Excel
 
             if (cf.Operator == XLCFOperator.Between || cf.Operator == XLCFOperator.NotBetween)
             {
-                var formula2 = new Formula { Text = GetQuoted(cf.Values[2]) };
+                var formula2 = new Formula { Text = GetQuoted(cf.GetRequiredValue(2)) };
                 conditionalFormattingRule.Append(formula2);
             }
 

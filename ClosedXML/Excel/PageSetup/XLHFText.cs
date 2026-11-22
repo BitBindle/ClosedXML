@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Text;
 
@@ -19,7 +17,7 @@ namespace ClosedXML.Excel
 
         public String GetHFText(String prevText)
         {
-            var wsFont = _hfItem.HeaderFooter.Worksheet.Style.Font;
+            var wsFont = _hfItem.HeaderFooter.RequiredWorksheet.Style.Font;
 
             var isRichText = RichText.FontName != null && RichText.FontName != wsFont.FontName
                              || RichText.Bold != wsFont.Bold

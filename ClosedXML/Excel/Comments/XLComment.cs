@@ -1,7 +1,6 @@
-#nullable disable warnings
-
 using System;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using ClosedXML.Excel.Formatting;
 
 namespace ClosedXML.Excel
@@ -27,7 +26,7 @@ namespace ClosedXML.Excel
             }
         }
 
-        private XLComment(XLFontFormatValue defaultFont, XLWorkbookStyles styles, XLFontFormatValue? phoneticsFont)
+        private XLComment(XLCell cell, XLFontFormatValue defaultFont, XLWorkbookStyles styles, XLFontFormatValue? phoneticsFont, IXLDrawingStyle? style, int? shapeId)
             : base(defaultFont, styles)
         {
             if (phoneticsFont is not null)
@@ -35,6 +34,8 @@ namespace ClosedXML.Excel
                 Debug.Assert(styles.Fonts.ContainsValue(phoneticsFont));
                 Phonetics = new XLPhonetics(phoneticsFont, defaultFont, styles, OnContentChanged);
             }
+
+            Initialize(cell, style, shapeId);
         }
 
         #region IXLComment Members
@@ -68,13 +69,13 @@ namespace ClosedXML.Excel
         public IXLComment SetVisible()
         {
             Visible = true;
-            return Container;
+            return this;
         }
 
         public IXLComment SetVisible(Boolean hidden)
         {
             Visible = hidden;
-            return Container;
+            return this;
         }
 
         public IXLDrawingPosition Position { get; private set; }
@@ -84,7 +85,7 @@ namespace ClosedXML.Excel
         public IXLComment SetZOrder(Int32 zOrder)
         {
             ZOrder = zOrder;
-            return Container;
+            return this;
         }
 
         public IXLDrawingStyle Style { get; private set; }
@@ -95,9 +96,7 @@ namespace ClosedXML.Excel
         {
             var styles = cell.Worksheet.Workbook.Styles;
             var defaultFont = styles.RegisterFontFormat(DefaultCommentFont);
-            var comment = new XLComment(defaultFont, styles, null);
-            comment.Initialize(cell, shapeId: shapeId);
-            return comment;
+            return new XLComment(cell, defaultFont, styles, null, null, shapeId);
         }
 
         internal static XLComment CreateAsCopy(XLCell targetCell, XLCell sourceCell, XLComment originalComment)
@@ -108,7 +107,7 @@ namespace ClosedXML.Excel
             var phoneticsFont = originalComment.HasPhonetics
                 ? styles.RegisterFontFormat(XLFontFormatValue.FromFontBase(originalComment.Phonetics, styles))
                 : null;
-            var comment = new XLComment(defaultFont, styles, phoneticsFont);
+            var comment = new XLComment(targetCell, defaultFont, styles, phoneticsFont, originalComment.Style, null);
 
             foreach (XLRichString rt in originalComment)
                 comment.AddText(rt.Text, rt);
@@ -123,17 +122,15 @@ namespace ClosedXML.Excel
                     phonetics.Add(phonetic.Text, phonetic.Start, phonetic.End);
             }
 
-            comment.Initialize(targetCell, originalComment.Style);
             return comment;
         }
 
-        private void Initialize(XLCell cell, IXLDrawingStyle style = null, int? shapeId = null)
+        [MemberNotNull(nameof(_cell), nameof(Author), nameof(Position), nameof(Style))]
+        private void Initialize(XLCell cell, IXLDrawingStyle? style, int? shapeId)
         {
-            style = style ?? XLDrawingStyle.DefaultCommentStyle;
-            shapeId = shapeId ?? cell.Worksheet.Workbook.ShapeIdManager.GetNext();
+            style ??= XLDrawingStyle.DefaultCommentStyle;
 
             Author = cell.Worksheet.Author;
-            Container = this;
             Style = new XLDrawingStyle();
             Int32 previousRowNumber = cell.Address.RowNumber;
             Double previousRowOffset = 0;
@@ -142,7 +139,7 @@ namespace ClosedXML.Excel
             {
                 previousRowNumber--;
 
-                if (cell.Worksheet.Internals.RowsCollection.TryGetValue(previousRowNumber, out XLRow previousRow))
+                if (cell.Worksheet.Internals.RowsCollection.TryGetValue(previousRowNumber, out var previousRow))
                     previousRowOffset = Math.Max(0, previousRow.Height - 7);
                 else
                     previousRowOffset = Math.Max(0, cell.Worksheet.RowHeight - 7);
@@ -182,7 +179,7 @@ namespace ClosedXML.Excel
                 .Protection.SetLockText(style.Protection.LockText);
 
             _cell = cell;
-            ShapeId = shapeId.Value;
+            ShapeId = shapeId ?? cell.Worksheet.Workbook.ShapeIdManager.GetNext();
         }
     }
 }

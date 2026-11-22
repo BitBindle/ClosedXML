@@ -235,7 +235,7 @@ internal class XLPivotDataField : IXLPivotValue
         set => _subtotal = value;
     }
 
-    public IXLPivotValue SetBaseFieldName(string value)
+    public IXLPivotValue SetBaseFieldName(string? value)
     {
         BaseFieldName = value;
         return this;

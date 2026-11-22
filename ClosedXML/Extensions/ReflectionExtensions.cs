@@ -1,5 +1,3 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System.Reflection;
 
@@ -11,10 +9,10 @@ namespace ClosedXML.Extensions
             memberInfo switch
             {
                 ConstructorInfo constructorInfo => constructorInfo.IsStatic,
-                EventInfo eventInfo => eventInfo.GetAddMethod().IsStatic,
+                EventInfo eventInfo => eventInfo.GetAddMethod()?.IsStatic == true,
                 FieldInfo fieldInfo => fieldInfo.IsStatic,
                 MethodInfo methodInfo => methodInfo.IsStatic,
-                PropertyInfo propertyInfo => propertyInfo.GetGetMethod().IsStatic,
+                PropertyInfo propertyInfo => propertyInfo.GetGetMethod()?.IsStatic == true,
                 _ => false
             };
     }

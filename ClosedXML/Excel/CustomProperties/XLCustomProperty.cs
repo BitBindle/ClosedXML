@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Linq;
 
@@ -11,9 +9,14 @@ namespace ClosedXML.Excel
 
         private String name;
 
-        public XLCustomProperty(XLWorkbook workbook)
+        private Object _value;
+
+        public XLCustomProperty(XLWorkbook workbook, String name, Object value)
         {
             _workbook = workbook;
+            this.name = string.Empty;
+            Name = name;
+            _value = value ?? throw new ArgumentNullException(nameof(value));
         }
 
         #region IXLCustomProperty Members
@@ -50,7 +53,11 @@ namespace ClosedXML.Excel
             }
         }
 
-        public Object Value { get; set; }
+        public Object Value
+        {
+            get => _value;
+            set => _value = value ?? throw new ArgumentNullException(nameof(value));
+        }
 
         public T GetValue<T>()
         {

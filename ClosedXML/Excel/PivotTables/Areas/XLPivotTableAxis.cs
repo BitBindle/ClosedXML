@@ -50,7 +50,7 @@ internal class XLPivotTableAxis : IXLPivotFields
 
     IXLPivotField IXLPivotFields.Add(String sourceName) => Add(sourceName, sourceName);
 
-    IXLPivotField IXLPivotFields.Add(String sourceName, String customName) => Add(sourceName, customName);
+    IXLPivotField IXLPivotFields.Add(String sourceName, String? customName) => Add(sourceName, customName);
 
     void IXLPivotFields.Clear() => Clear();
 
@@ -129,7 +129,7 @@ internal class XLPivotTableAxis : IXLPivotFields
         _fields.Add(fieldIndex);
     }
 
-    private XLPivotTableAxisField Add(String sourceName, String customName)
+    private XLPivotTableAxisField Add(String sourceName, String? customName)
     {
         var field = AddField(sourceName, customName);
 
@@ -141,7 +141,7 @@ internal class XLPivotTableAxis : IXLPivotFields
         return field;
     }
 
-    internal XLPivotTableAxisField AddField(String sourceName, String customName)
+    internal XLPivotTableAxisField AddField(String sourceName, String? customName)
     {
         var index = _pivotTable.AddFieldToAxis(sourceName, customName, _axis);
         _fields.Add(index);

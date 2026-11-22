@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 
@@ -120,12 +121,12 @@ namespace ClosedXML.Excel.Drawings
         public IXLPicture Picture(string pictureName)
         {
             if (TryGetPicture(pictureName, out IXLPicture? p))
-                return p!;
+                return p;
 
             throw new ArgumentOutOfRangeException(nameof(pictureName), $"Picture {pictureName} was not found.");
         }
 
-        public bool TryGetPicture(string pictureName, out IXLPicture? picture)
+        public bool TryGetPicture(string pictureName, [NotNullWhen(true)] out IXLPicture? picture)
         {
             var match = _pictures.FirstOrDefault(p => p.Name.Equals(pictureName, StringComparison.OrdinalIgnoreCase));
             if (match is not null)

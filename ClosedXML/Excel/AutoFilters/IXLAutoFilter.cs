@@ -1,5 +1,3 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Collections.Generic;
@@ -53,9 +51,9 @@ namespace ClosedXML.Excel
 
         /// <summary>
         /// Range of the autofilter. It consists of a header in first row, followed by data rows.
-        /// It doesn't include totals row for tables.
+        /// It doesn't include totals row for tables. Value is null when the worksheet has no autofilter.
         /// </summary>
-        IXLRange Range { get; }
+        IXLRange? Range { get; }
 
         /// <summary>
         /// What column was used during last <see cref="Sort"/>. Contains undefined value for not

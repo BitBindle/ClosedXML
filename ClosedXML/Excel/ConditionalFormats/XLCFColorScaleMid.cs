@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 
 namespace ClosedXML.Excel
@@ -32,7 +30,7 @@ namespace ClosedXML.Excel
         }
         public void HighestValue(XLColor color)
         {
-            _conditionalFormat.Values.Initialize(null);
+            _conditionalFormat.Values.Add(null);
             _conditionalFormat.Colors.Add(color);
             _conditionalFormat.ContentTypes.Add(XLCFContentType.Maximum);
         }

@@ -1,13 +1,15 @@
-#nullable disable
-
 using System;
 
 namespace ClosedXML.Excel
 {
-    internal class XLDrawing<T>: IXLDrawing<T>
+    internal abstract class XLDrawing<T>: IXLDrawing<T>
     {
-        internal T Container;
-        public XLDrawing()
+        /// <summary>
+        /// The object that the fluent methods return.
+        /// </summary>
+        internal abstract T Container { get; }
+
+        protected XLDrawing()
         {
             Style = new XLDrawingStyle();
             Position = new XLDrawingPosition();
@@ -27,14 +29,14 @@ namespace ClosedXML.Excel
             return Container;
         }
 
-        public String Name { get; set; }
+        public String Name { get; set; } = String.Empty;
         public T SetName(String name)
         {
             Name = name;
             return Container;
         }
 
-        public String Description { get; set; }
+        public String Description { get; set; } = String.Empty;
         public T SetDescription(String description)
         {
             Description = description;

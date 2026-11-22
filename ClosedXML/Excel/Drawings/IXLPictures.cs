@@ -1,7 +1,6 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 
 namespace ClosedXML.Excel.Drawings
@@ -30,6 +29,6 @@ namespace ClosedXML.Excel.Drawings
 
         IXLPicture Picture(String pictureName);
 
-        bool TryGetPicture(String pictureName, out IXLPicture picture);
+        bool TryGetPicture(String pictureName, [NotNullWhen(true)] out IXLPicture? picture);
     }
 }

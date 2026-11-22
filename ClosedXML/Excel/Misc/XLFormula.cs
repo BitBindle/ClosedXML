@@ -1,7 +1,6 @@
-#nullable disable
-
 using ClosedXML.Parser;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace ClosedXML.Excel
 {
@@ -16,7 +15,7 @@ namespace ClosedXML.Excel
             IsFormula = defaultFormula.IsFormula;
         }
 
-        public XLFormula(String value)
+        public XLFormula(String? value)
         {
             Value = value;
         }
@@ -31,7 +30,12 @@ namespace ClosedXML.Excel
             Value = value.ToInvariantString();
         }
 
-        internal String _value;
+        internal String _value = String.Empty;
+
+        /// <summary>
+        /// The value or the formula without the leading <c>=</c>. A null value sets an empty value.
+        /// </summary>
+        [AllowNull]
         public String Value
         {
             get { return _value; }
@@ -58,7 +62,7 @@ namespace ClosedXML.Excel
         /// <summary>
         /// Create a literal text value. The method keeps the text as it is, also when the text starts with <c>=</c>.
         /// </summary>
-        internal static XLFormula Text(String value)
+        internal static XLFormula Text(String? value)
         {
             return new XLFormula { _value = value ?? String.Empty, IsFormula = false };
         }

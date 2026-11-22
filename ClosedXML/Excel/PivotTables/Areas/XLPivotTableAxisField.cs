@@ -1,4 +1,3 @@
-#nullable disable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -33,18 +32,18 @@ internal class XLPivotTableAxisField : IXLPivotField
         }
     }
 
-    public string CustomName
+    public string? CustomName
     {
         get => GetFieldValue(f => f.Name, _pivotTable.DataCaption);
         set
         {
             if (_index.IsDataField)
             {
-                _pivotTable.DataCaption = value;
+                _pivotTable.DataCaption = value ?? throw new ArgumentNullException(nameof(value), "The data field must have a custom name.");
                 return;
             }
 
-            if (_pivotTable.TryGetCustomNameFieldIndex(value, out var idx) && idx != _index)
+            if (value is not null && _pivotTable.TryGetCustomNameFieldIndex(value, out var idx) && idx != _index)
                 throw new ArgumentException($"Custom name '{value}' is already used by another field.");
 
             _pivotTable.PivotFields[_index].Name = value;
@@ -152,7 +151,7 @@ internal class XLPivotTableAxisField : IXLPivotField
 
     public int Offset => _index;
 
-    public IXLPivotField SetCustomName(string value)
+    public IXLPivotField SetCustomName(string? value)
     {
         CustomName = value;
         return this;
