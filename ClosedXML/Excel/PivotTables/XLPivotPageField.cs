@@ -23,7 +23,8 @@ internal class XLPivotPageField
     internal int Field { get; }
 
     /// <summary>
-    /// If a single item is selected, item index. Null, if nothing selected or multiple selected.
+    /// If a single item is selected, the index of the item in <see cref="XLPivotTableField.Items"/>.
+    /// It is not an index into the shared items of the cache field. Null, if nothing selected or multiple selected.
     /// Multiple selected values are indicated directly in <see cref="XLPivotTableField.Items"/>
     /// through <see cref="XLPivotFieldItem.Hidden"/> flags. Items that are not selected are hidden,
     /// rest isn't.

@@ -242,6 +242,15 @@ internal class XLPivotTableField
         }
     }
 
+    /// <summary>
+    /// Gets the position of the <paramref name="item"/> in <see cref="Items"/>.
+    /// </summary>
+    /// <returns>The position, or -1 if the field doesn't contain the item.</returns>
+    internal int IndexOfItem(XLPivotFieldItem item)
+    {
+        return _items.IndexOf(item);
+    }
+
     internal XLPivotFieldItem GetOrAddItem(XLCellValue value)
     {
         var index = _pivotTable.GetFieldIndex(this);
