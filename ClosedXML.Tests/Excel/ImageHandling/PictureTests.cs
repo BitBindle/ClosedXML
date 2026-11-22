@@ -552,6 +552,35 @@ namespace ClosedXML.Tests
             Assert.AreEqual(new[] { "Picture 1", "Picture 2" }, names);
         }
 
+        [Test]
+        public void Load_gives_unique_name_to_unnamed_picture_when_later_picture_has_generated_name()
+        {
+            // The generated name of the unnamed picture is "Picture 1". The next picture has this name in the file.
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                using var imageStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ClosedXML.Tests.Resource.Images.ImageHandling.png");
+                ws.AddPicture(imageStream, "First");
+                imageStream.Position = 0;
+                ws.AddPicture(imageStream, "Picture 1");
+                wb.SaveAs(ms);
+            }
+
+            using (var package = SpreadsheetDocument.Open(ms, true))
+            {
+                var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
+                var first = drawing.Descendants<Xdr.NonVisualDrawingProperties>().Single(p => p.Name == "First");
+                first.Name = string.Empty;
+                drawing.Save();
+            }
+
+            ms.Position = 0;
+            using var loaded = new XLWorkbook(ms);
+            var names = loaded.Worksheets.Single().Pictures.Select(p => p.Name).ToArray();
+            Assert.AreEqual(new[] { "Picture 2", "Picture 1" }, names);
+        }
+
         private static void AssertPictureNameAllowed(string testedName)
         {
             TestHelper.CreateSaveLoadAssert(

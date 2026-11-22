@@ -56,7 +56,7 @@ namespace ClosedXML.Excel
         public Boolean IsFormula { get; internal set; }
 
         /// <summary>
-        /// Create a literal text value. The text is kept as it is, also when it starts with <c>=</c>.
+        /// Create a literal text value. The method keeps the text as it is, also when the text starts with <c>=</c>.
         /// </summary>
         internal static XLFormula Text(String value)
         {

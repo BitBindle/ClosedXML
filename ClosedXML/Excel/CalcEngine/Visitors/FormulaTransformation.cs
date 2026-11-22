@@ -30,8 +30,8 @@ internal static class FormulaTransformation
         }
         catch (ParsingException)
         {
-            // Formulas without a future function are not parsed here, so an unparsable formula
-            // with a future function is also kept as it is.
+            // The method does not parse a formula without a future function. Thus it also keeps
+            // an unparsable formula with a future function.
             return formula;
         }
     }
