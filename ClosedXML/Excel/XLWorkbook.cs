@@ -819,7 +819,7 @@ namespace ClosedXML.Excel
             var rows = new XLRows(this, worksheet: null, defaultStyleSheet: null);
             foreach (XLWorksheet ws in WorksheetsInternal)
             {
-                foreach (IXLRow row in ws.Rows().Where(predicate))
+                foreach (IXLRow row in Enumerable.Where(ws.Rows(), predicate))
                     rows.Add(row as XLRow);
             }
             return rows;
@@ -831,7 +831,7 @@ namespace ClosedXML.Excel
             var columns = new XLColumns(this, worksheet: null, defaultStyleSheet: null);
             foreach (XLWorksheet ws in WorksheetsInternal)
             {
-                foreach (IXLColumn column in ws.Columns().Where(predicate))
+                foreach (IXLColumn column in Enumerable.Where(ws.Columns(), predicate))
                     columns.Add(column as XLColumn);
             }
             return columns;

@@ -157,3 +157,25 @@ an ``InvalidOperationException``, as before.
 
 The load and a copy of a table keep a table name from a file as it is. The save still removes the
 whitespace from such a name.
+
+*******************************************
+Where, Skip and Take on rows and columns
+*******************************************
+
+The ``IXLColumns``, ``IXLRows``, ``IXLRangeColumns`` and ``IXLRangeRows`` interfaces have new
+``Where``, ``Skip`` and ``Take`` methods. Each method gives a collection of the same type, for
+example ``ws.ColumnsUsed().Skip(1).AdjustToContents()``.
+
+* A call such as ``columns.Where(c => ...)`` now uses the new method and not LINQ. The result is
+  a new collection. The methods do not defer the work.
+* The result has the order of the enumeration: the column or row number.
+* The result of ``ws.Columns()`` or ``ws.Rows()`` with a filter does not represent all columns or
+  rows of the sheet. The ``Width``, ``Height`` and ``Delete`` members change only the columns or
+  rows in the result.
+* A ``Where`` with an index in the predicate still uses LINQ.
+* A class that implements one of these interfaces must implement the new methods.
+
+The ``IXLRangeColumn``, ``IXLRangeColumns``, ``IXLRangeRow`` and ``IXLRangeRows`` interfaces have
+new ``AdjustToContents`` methods. They change the width of the worksheet column or the height of the
+worksheet row. They use only the cells of the range. The start and end parameters are row or
+column numbers of the worksheet.

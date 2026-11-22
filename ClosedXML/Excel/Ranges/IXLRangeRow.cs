@@ -118,6 +118,28 @@ namespace ClosedXML.Excel
         IXLRow WorksheetRow();
 
         /// <summary>
+        /// Adjust the height of the worksheet row to the contents of the cells in this range row.
+        /// The <c>startColumn</c> and <c>endColumn</c> parameters are column numbers of the worksheet.
+        /// A missing start or end column is the first or last column of the range.
+        /// </summary>
+        IXLRangeRow AdjustToContents();
+
+        /// <inheritdoc cref="AdjustToContents()"/>
+        IXLRangeRow AdjustToContents(Int32 startColumn);
+
+        /// <inheritdoc cref="AdjustToContents()"/>
+        IXLRangeRow AdjustToContents(Int32 startColumn, Int32 endColumn);
+
+        /// <inheritdoc cref="AdjustToContents()"/>
+        IXLRangeRow AdjustToContents(Double minHeight, Double maxHeight);
+
+        /// <inheritdoc cref="AdjustToContents()"/>
+        IXLRangeRow AdjustToContents(Int32 startColumn, Double minHeight, Double maxHeight);
+
+        /// <inheritdoc cref="AdjustToContents()"/>
+        IXLRangeRow AdjustToContents(Int32 startColumn, Int32 endColumn, Double minHeight, Double maxHeight);
+
+        /// <summary>
         /// Clears the contents of this row.
         /// </summary>
         /// <param name="clearOptions">Specify what you want to clear.</param>

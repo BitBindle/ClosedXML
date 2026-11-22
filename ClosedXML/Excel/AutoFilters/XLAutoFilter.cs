@@ -111,7 +111,7 @@ namespace ClosedXML.Excel
             foreach (var filterColumn in _columns.Values)
                 filterColumn.Clear(false);
 
-            foreach (IXLRangeRow row in Range.Rows().Where(r => r.RowNumber() > 1))
+            foreach (IXLRangeRow row in Enumerable.Where(Range.Rows(), r => r.RowNumber() > 1))
                 row.WorksheetRow().Unhide();
             return this;
         }
