@@ -996,6 +996,43 @@ namespace ClosedXML.Tests
         /// Create a workbook with a pivot table, a custom pivot style <c>MyPivotStyle</c> and the
         /// <paramref name="styleInfo"/> as the style info of the pivot table.
         /// </summary>
+        [Test]
+        [Issue("60")]
+        public void Save_keeps_offset_of_pivot_area()
+        {
+            // The offset attribute of a pivot area is a cell range relative to the area (ECMA-376 18.3.1.68).
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                var data = ws.Cell("A1").InsertData(new object[] { ("Name", "Count"), ("Croissant", 5), ("Donut", 7) });
+                var pt = ws.PivotTables.Add("pvt", ws.Cell("D1"), data);
+                pt.RowLabels.Add("Name");
+                pt.Values.Add("Count");
+                wb.SaveAs(ms);
+            }
+
+            using (var document = SpreadsheetDocument.Open(ms, true))
+            {
+                var definition = document.WorkbookPart!.WorksheetParts.SelectMany(wsp => wsp.PivotTableParts).Single().PivotTableDefinition!;
+                var pivotArea = new PivotArea { DataOnly = false, Offset = "A1:B2" };
+                definition.Formats = new Formats(new Format(pivotArea)) { Count = 1 };
+            }
+
+            using var savedMs = new MemoryStream();
+            using (var wb = new XLWorkbook(ms))
+            {
+                wb.SaveAs(savedMs);
+            }
+
+            using (var document = SpreadsheetDocument.Open(savedMs, false))
+            {
+                var definition = document.WorkbookPart!.WorksheetParts.SelectMany(wsp => wsp.PivotTableParts).Single().PivotTableDefinition!;
+                var pivotArea = definition.Formats!.Elements<Format>().Single().PivotArea!;
+                Assert.AreEqual("A1:B2", pivotArea.Offset!.Value);
+            }
+        }
+
         private static MemoryStream CreatePivotTableWithStyleInfo(PivotTableStyle styleInfo)
         {
             var ms = new MemoryStream();
