@@ -59,6 +59,21 @@ internal class ReferenceTests
     }
 
     [Test]
+    [Issue("48")]
+    public void Intersection_intersects_left_area_with_each_right_area()
+    {
+        // Excel intersects each left area with each right area. The result is the union of these intersections.
+        using var wb = new XLWorkbook();
+        var ws = (XLWorksheet)wb.AddWorksheet();
+        var ctx = CreateContext(wb, ws);
+
+        var result = Reference.Intersect(Create(ws, "A1:B2"), Create(ws, "A1", "B2"), ctx);
+
+        Assert.True(result.TryPickT0(out var intersection, out _));
+        Assert.AreEqual(new[] { "A1:A1", "B2:B2" }, intersection!.Areas.Select(a => a.ToString()).ToArray());
+    }
+
+    [Test]
     public void Intersection_without_shared_cells_is_null_error()
     {
         using var wb = new XLWorkbook();

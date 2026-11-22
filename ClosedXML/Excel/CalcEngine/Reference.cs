@@ -131,31 +131,43 @@ namespace ClosedXML.Excel.CalcEngine
             return new Reference(lhs.Areas.Concat(rhs.Areas).ToList());
         }
 
+        /// <summary>
+        /// The range intersection operator. Excel intersects each area of the left operand with each
+        /// area of the right operand. The result has each intersection that contains cells.
+        /// </summary>
+        /// <returns>The intersections, <see cref="XLError.NullValue"/> if no cells are in both
+        /// operands, or <see cref="XLError.IncompatibleValue"/> if the areas are on more than one sheet.</returns>
         public static OneOf<Reference, XLError> Intersect(Reference lhs, Reference rhs, CalcContext ctx)
         {
-            var sheets = lhs.Areas.Select(a => a.Worksheet ?? ctx.Worksheet)
-                .Concat(rhs.Areas.Select(a => a.Worksheet ?? ctx.Worksheet))
-                .Distinct().ToList();
-            if (sheets.Count != 1)
+            var sheet = lhs.Areas[0].Worksheet ?? ctx.Worksheet;
+            if (!AreAllAreasOnSheet(lhs, sheet, ctx) || !AreAllAreasOnSheet(rhs, sheet, ctx))
                 return XLError.IncompatibleValue;
 
-            var sheet = sheets.Single();
-            var intersections = new List<XLRangeAddress>();
-            foreach (var leftArea in lhs.Areas)
+            List<XLRangeAddress>? intersections = null;
+            for (var i = 0; i < lhs.Areas.Count; ++i)
             {
-                var intersectedArea = leftArea.WithWorksheet(sheet);
-                foreach (var rightArea in rhs.Areas)
+                var leftArea = lhs.Areas[i].WithWorksheet(sheet);
+                for (var j = 0; j < rhs.Areas.Count; ++j)
                 {
-                    intersectedArea = intersectedArea.Intersection(rightArea.WithWorksheet(sheet));
-                    if (!intersectedArea.IsValid)
-                        break;
+                    var intersection = leftArea.Intersection(rhs.Areas[j].WithWorksheet(sheet));
+                    if (intersection.IsValid)
+                        (intersections ??= new List<XLRangeAddress>()).Add(intersection);
                 }
-
-                if (intersectedArea.IsValid)
-                    intersections.Add(intersectedArea);
             }
 
-            return intersections.Any() ? new Reference(intersections) : XLError.NullValue;
+            return intersections is not null ? new Reference(intersections) : XLError.NullValue;
+        }
+
+        private static bool AreAllAreasOnSheet(Reference reference, XLWorksheet sheet, CalcContext ctx)
+        {
+            // An area without a sheet is on the sheet of the formula.
+            for (var i = 0; i < reference.Areas.Count; ++i)
+            {
+                if ((reference.Areas[i].Worksheet ?? ctx.Worksheet) != sheet)
+                    return false;
+            }
+
+            return true;
         }
 
         /// <summary>
