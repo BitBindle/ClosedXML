@@ -206,18 +206,19 @@ namespace ClosedXML.Excel
                 if (!XLHelper.ValidateName("table", value, oldname, tableNames, out String message))
                     throw new ArgumentException(message, nameof(value));
 
+                // A table from IXLRange.AsTable is not in the list. A rename must not add it.
+                var isInTables = oldname.Length > 0 &&
+                                 Worksheet.Tables.TryGetTable(oldname, out var listedTable) &&
+                                 ReferenceEquals(listedTable, this);
+
                 _name = value;
 
                 // Some totals row formula depend on the table name. Update them.
                 if (_fieldNames?.Any() ?? false)
                     this.Fields.ForEach(f => (f as XLTableField).UpdateTableFieldTotalsRowFormula());
 
-                if (!String.IsNullOrWhiteSpace(oldname) && !String.Equals(oldname, _name, StringComparison.OrdinalIgnoreCase))
-                {
-                    Worksheet.Tables.Add(this);
-                    if (Worksheet.Tables.Contains(oldname))
-                        Worksheet.Tables.Remove(oldname);
-                }
+                if (isInTables)
+                    Worksheet.Tables.Rename(oldname, this);
             }
         }
 
