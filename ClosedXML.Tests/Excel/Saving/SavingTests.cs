@@ -412,6 +412,10 @@ namespace ClosedXML.Tests.Excel.Saving
         [TestCase("xlsm", SpreadsheetDocumentType.MacroEnabledWorkbook)]
         [TestCase("xltx", SpreadsheetDocumentType.Template)]
         [TestCase("xltm", SpreadsheetDocumentType.MacroEnabledTemplate)]
+        [TestCase("XLSX", SpreadsheetDocumentType.Workbook)]
+        [TestCase("XlSm", SpreadsheetDocumentType.MacroEnabledWorkbook)]
+        [TestCase("XLTX", SpreadsheetDocumentType.Template)]
+        [TestCase("xltM", SpreadsheetDocumentType.MacroEnabledTemplate)]
         public void SavesAsProperSpreadsheetDocumentType(string extension, SpreadsheetDocumentType expectedType)
         {
             using (var tf = new TemporaryFile(Path.ChangeExtension(Path.GetTempFileName(), extension)))
@@ -468,13 +472,14 @@ namespace ClosedXML.Tests.Excel.Saving
         [Test]
         public void SaveAsWithUnsupportedExtensionFails()
         {
-            using (var tf = new TemporaryFile("FileWithBadExtension.bad"))
+            using (var tf = new TemporaryFile("FileWithBadExtension.BAD"))
             using (var wb = new XLWorkbook())
             {
                 wb.Worksheets.Add("Sheet1");
                 TestDelegate action = () => wb.SaveAs(tf.Path);
 
-                Assert.Throws<ArgumentException>(action);
+                var ex = Assert.Throws<ArgumentException>(action)!;
+                StringAssert.StartsWith("Extension 'bad' is not supported.", ex.Message);
             }
         }
 

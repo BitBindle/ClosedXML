@@ -68,11 +68,10 @@ namespace ClosedXML.Excel
         /// </summary>
         internal static readonly StringComparer FunctionComparer = StringComparer.OrdinalIgnoreCase;
 
-        internal static readonly Regex RCSimpleRegex = new Regex(
-            @"^(r(((-\d)?\d*)|\[(-\d)?\d*\]))?(c(((-\d)?\d*)|\[(-\d)?\d*\]))?$"
-            , RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        [GeneratedRegex(@"^(r(((-\d)?\d*)|\[(-\d)?\d*\]))?(c(((-\d)?\d*)|\[(-\d)?\d*\]))?$", RegexOptions.IgnoreCase)]
+        internal static partial Regex RCSimpleRegex { get; }
 
-        internal static readonly Regex A1SimpleRegex = new Regex(
+        [GeneratedRegex(
             @"\A"
             + @"(?<Reference>" // Start Group to pick
             + @"(?<Sheet>" // Start Sheet Name, optional
@@ -92,13 +91,12 @@ namespace ClosedXML.Excel
             + @"(?<ColumnLetters>\$?[a-zA-Z]{1,3}:\$?[a-zA-Z]{1,3})" // A:A
             + @")" // End Range
             + @")" // End Group to pick
-            + @"\Z"
-            , RegexOptions.Compiled);
+            + @"\Z")]
+        internal static partial Regex A1SimpleRegex { get; }
 
-        internal static readonly Regex NamedRangeReferenceRegex =
-            new Regex(@"^('?(?<Sheet>[^'!]+)'?!(?<Range>.+))|((?<Table>[^\[]+)\[(?<Column>[^\]]+)\])$",
-                      RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture
-                );
+        [GeneratedRegex(@"^('?(?<Sheet>[^'!]+)'?!(?<Range>.+))|((?<Table>[^\[]+)\[(?<Column>[^\]]+)\])$",
+                        RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture)]
+        internal static partial Regex NamedRangeReferenceRegex { get; }
 
         private static readonly string[] letters = new[] { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z" };
 
@@ -278,10 +276,11 @@ namespace ClosedXML.Excel
             return rows;
         }
 
-        private static readonly Regex A1RegexRelative = new Regex(
+        [GeneratedRegex(
       @"(?<=\W)(?<one>\$?[a-zA-Z]{1,3}\$?\d{1,7})(?=\W)" // A1
     + @"|(?<=\W)(?<two>\$?\d{1,7}:\$?\d{1,7})(?=\W)" // 1:1
-    + @"|(?<=\W)(?<three>\$?[a-zA-Z]{1,3}:\$?[a-zA-Z]{1,3})(?=\W)", RegexOptions.Compiled); // A:A
+    + @"|(?<=\W)(?<three>\$?[a-zA-Z]{1,3}:\$?[a-zA-Z]{1,3})(?=\W)")] // A:A
+        private static partial Regex A1RegexRelative { get; }
 
         private static string Evaluator(Match match, Int32 row, String column)
         {

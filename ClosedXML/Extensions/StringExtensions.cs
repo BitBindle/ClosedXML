@@ -2,15 +2,12 @@
 using System;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using ClosedXML.Parser;
 
 namespace ClosedXML.Excel
 {
     internal static class StringExtensions
     {
-        private static readonly Regex RegexNewLine = new Regex(@"((?<!\r)\n|\r\n)", RegexOptions.Compiled);
-
         internal static string EscapeSheetName(this String sheetName)
         {
             if (String.IsNullOrEmpty(sheetName)) return sheetName;
@@ -40,9 +37,30 @@ namespace ClosedXML.Excel
             return escapedSheetName + '!' + name;
         }
 
+        /// <summary>
+        /// Replaces each line feed with <see cref="Environment.NewLine"/>. The method also removes a
+        /// carriage return that comes immediately before a line feed. A carriage return without a
+        /// line feed stays the same.
+        /// </summary>
         internal static String FixNewLines(this String value)
         {
-            return value.Contains("\n") ? RegexNewLine.Replace(value, Environment.NewLine) : value;
+            if (!value.Contains('\n'))
+                return value;
+
+            var newLine = Environment.NewLine;
+            if (newLine == "\n" && !value.Contains("\r\n", StringComparison.Ordinal))
+                return value;
+
+            var sb = new StringBuilder(value.Length + 16);
+            var remaining = value.AsSpan();
+            while (remaining.IndexOf('\n') is var lineFeedIndex and >= 0)
+            {
+                var lineEnd = lineFeedIndex > 0 && remaining[lineFeedIndex - 1] == '\r' ? lineFeedIndex - 1 : lineFeedIndex;
+                sb.Append(remaining[..lineEnd]).Append(newLine);
+                remaining = remaining[(lineFeedIndex + 1)..];
+            }
+
+            return sb.Append(remaining).ToString();
         }
 
         internal static Boolean PreserveSpaces(this String value)

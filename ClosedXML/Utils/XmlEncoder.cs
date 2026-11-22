@@ -7,9 +7,10 @@ using System.Xml;
 
 namespace ClosedXML.Utils
 {
-    internal static class XmlEncoder
+    internal static partial class XmlEncoder
     {
-        private static readonly Regex xHHHHRegex = new Regex("_(x[\\dA-Fa-f]{4})_", RegexOptions.Compiled);
+        [GeneratedRegex("_(x[\\dA-Fa-f]{4})_")]
+        private static partial Regex XHHHHRegex { get; }
 
         /// <summary>
         /// The characters that the encoder changes: the start of an escape sequence, the characters
@@ -23,7 +24,7 @@ namespace ClosedXML.Utils
             if (encodeStr.AsSpan().IndexOfAny(SpecialChars) < 0)
                 return encodeStr;
 
-            encodeStr = xHHHHRegex.Replace(encodeStr, "_x005F_$1_");
+            encodeStr = XHHHHRegex.Replace(encodeStr, "_x005F_$1_");
 
             var sb = new StringBuilder(encodeStr.Length);
             var len = encodeStr.Length;
