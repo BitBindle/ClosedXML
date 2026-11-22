@@ -2,9 +2,8 @@ using System;
 using System.Globalization;
 using System.Numerics;
 using System.Text;
-using ClosedXML.Excel;
 
-namespace ClosedXML.Utils;
+namespace ClosedXML.IO;
 
 /// <summary>
 /// Parses a decimal text to the nearest <see cref="double"/>. The result is the IEEE 754 result on each runtime.
@@ -13,7 +12,7 @@ namespace ClosedXML.Utils;
 /// <para>
 /// The <see cref="double"/> parser of .NET Framework is not exact for texts with more than 15
 /// significant digits. .NET Core 3.0 and later are exact. The <c>netstandard2.0</c> build reads
-/// number cells with this class, so that it reads the same values on each runtime.
+/// number texts of a file with this class, so that it reads the same values on each runtime.
 /// </para>
 /// <para>
 /// The usual texts use 64-bit and 128-bit integer arithmetic without allocations. Only very
@@ -42,6 +41,13 @@ internal static class ExactNumberParser
     /// <see cref="double"/>. The exact value of a <see cref="double"/> has at most 767 significant digits.
     /// </summary>
     private const int MaxSignificantDigits = 800;
+
+    /// <summary>
+    /// The number format of <see cref="TryParse"/>: a sign, a decimal point, an exponent and white space.
+    /// </summary>
+    private const NumberStyles NumberStyle = NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
+                                             NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
+                                             NumberStyles.AllowExponent;
 
     /// <summary>
     /// The powers of ten that a <see cref="double"/> keeps exactly.
@@ -80,10 +86,17 @@ internal static class ExactNumberParser
         if (TryParseExact(text, out value))
             return true;
 
-        return double.TryParse(text, XLHelper.NumberStyle, XLHelper.ParseCulture, out value);
+        return double.TryParse(text, NumberStyle, CultureInfo.InvariantCulture, out value);
     }
 
-    private static bool TryParseExact(string text, out double value)
+    /// <summary>
+    /// Parses a decimal text in the format of <see cref="TryParse"/>, but does not use the parser of the runtime.
+    /// </summary>
+    /// <returns>
+    /// True, if the method found the nearest double. False, if the text has a different format or the
+    /// value is too large for a <see cref="double"/>. The caller then decides the result.
+    /// </returns>
+    internal static bool TryParseExact(string text, out double value)
     {
         value = 0;
         var position = 0;

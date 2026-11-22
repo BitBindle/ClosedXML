@@ -102,7 +102,9 @@ internal class XLPivotFieldItem
             return null;
 
         var fieldIndex = _pivotTable.GetFieldIndex(_pivotField);
-        var sharedItems = _pivotTable.PivotCache.GetFieldSharedItems(fieldIndex);
+        var fieldValues = _pivotTable.PivotCache.GetFieldValues(fieldIndex);
+        fieldValues.ThrowIfItemsNotSupported();
+        var sharedItems = fieldValues.SharedItems;
         var itemIndex = ItemIndex.Value;
         return sharedItems[checked((uint)itemIndex)];
     }

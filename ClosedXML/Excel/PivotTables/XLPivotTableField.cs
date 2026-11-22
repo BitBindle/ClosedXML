@@ -256,6 +256,7 @@ internal class XLPivotTableField
         var index = _pivotTable.GetFieldIndex(this);
         var cache = _pivotTable.PivotCache;
         var cacheValues = cache.GetFieldValues(index);
+        cacheValues.ThrowIfItemsNotSupported();
         var sharedItemIndex = cacheValues.GetOrAddSharedItem(value);
 
         // Excel tries to repair workbook, when there are duplicates in pivotFields.Items
@@ -285,7 +286,9 @@ internal class XLPivotTableField
     internal List<XLPivotFieldItem> GetAllItems(Predicate<XLCellValue> predicate)
     {
         var fieldIndex = _pivotTable.GetFieldIndex(this);
-        var sharedItems = _pivotTable.PivotCache.GetFieldSharedItems(fieldIndex);
+        var cacheValues = _pivotTable.PivotCache.GetFieldValues(fieldIndex);
+        cacheValues.ThrowIfItemsNotSupported();
+        var sharedItems = cacheValues.SharedItems;
 
         // GetOrAddItem uses the first item for a shared item, thus keep the first item also.
         var pivotFieldItems = new Dictionary<uint, XLPivotFieldItem>();

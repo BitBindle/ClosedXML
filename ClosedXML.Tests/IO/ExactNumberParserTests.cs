@@ -2,10 +2,10 @@ using System;
 using System.Globalization;
 using System.Linq;
 using ClosedXML.Excel;
-using ClosedXML.Utils;
+using ClosedXML.IO;
 using NUnit.Framework;
 
-namespace ClosedXML.Tests.Utils;
+namespace ClosedXML.Tests.IO;
 
 /// <summary>
 /// The expected values are the IEEE 754 results. Python and .NET Core 3.0 and later give the same results.
@@ -84,6 +84,16 @@ internal class ExactNumberParserTests
     public void TryParse_rejects_text_that_is_not_number(string text)
     {
         Assert.False(ExactNumberParser.TryParse(text, out _));
+    }
+
+    [TestCase("1e400")]
+    [TestCase("INF")]
+    [TestCase("1,5")]
+    [Issue("46")]
+    public void TryParseExact_rejects_text_without_exact_result(string text)
+    {
+        // The caller decides the result for these texts. For example, XmlConvert reads "INF" as infinity.
+        Assert.False(ExactNumberParser.TryParseExact(text, out _));
     }
 
     [TestCase("1.8e308")]
