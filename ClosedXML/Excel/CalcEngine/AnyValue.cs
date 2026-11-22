@@ -336,6 +336,21 @@ namespace ClosedXML.Excel.CalcEngine
         /// Create a new reference by combining areas of both arguments. Areas of the new reference can overlap = some overlapping
         /// cells might be counted multiple times (<c>SUM((A1;A1)) = 2</c> if <c>A1</c> is <c>1</c>).
         /// </summary>
+        public static AnyValue ReferenceIntersection(in AnyValue left, in AnyValue right, CalcContext ctx)
+        {
+            var leftConversionResult = ConvertToReference(left);
+            if (!leftConversionResult.TryPickT0(out var leftReference, out var leftError))
+                return leftError;
+
+            var rightConversionResult = ConvertToReference(right);
+            if (!rightConversionResult.TryPickT0(out var rightReference, out var rightError))
+                return rightError;
+
+            return Reference.Intersect(leftReference, rightReference, ctx).Match<AnyValue>(
+                reference => reference,
+                error => error);
+        }
+
         public static AnyValue ReferenceUnion(in AnyValue left, in AnyValue right)
         {
             var leftConversionResult = ConvertToReference(left);
