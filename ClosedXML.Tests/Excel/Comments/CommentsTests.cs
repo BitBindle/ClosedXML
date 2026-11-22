@@ -5,6 +5,7 @@ using System;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using XDocument = System.Xml.Linq.XDocument;
 using Point = System.Drawing.Point;
 
 namespace ClosedXML.Tests.Excel.Comments
@@ -198,6 +199,39 @@ namespace ClosedXML.Tests.Excel.Comments
                     Assert.AreEqual(0, margins.Bottom);
                 }
             }, @"Other\Comments\InsetsUnitConversion.xlsx", new LoadOptions { Dpi = new Point(120, 120) });
+        }
+
+        [Test]
+        public void Comment_shape_without_textbox_loads()
+        {
+            // The textbox element of a VML shape is optional. Other producers can omit it.
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                wb.AddWorksheet().Cell("A1").CreateComment().AddText("Note");
+                wb.SaveAs(ms);
+            }
+
+            using (var package = SpreadsheetDocument.Open(ms, true))
+            {
+                var vmlPart = package.WorkbookPart!.WorksheetParts.Single().VmlDrawingParts.Single();
+                XDocument vml;
+                using (var vmlStream = vmlPart.GetStream())
+                    vml = XDocument.Load(vmlStream);
+
+                var textBoxes = vml.Descendants().Where(e => e.Name.LocalName == "textbox").ToList();
+                Assert.IsNotEmpty(textBoxes);
+                textBoxes.ForEach(e => e.Remove());
+
+                using var outStream = vmlPart.GetStream(FileMode.Create);
+                vml.Save(outStream);
+            }
+
+            ms.Position = 0;
+            using var loaded = new XLWorkbook(ms);
+            var cell = loaded.Worksheets.Single().Cell("A1");
+            Assert.True(cell.HasComment);
+            Assert.AreEqual("Note", cell.GetComment().Text);
         }
     }
 }

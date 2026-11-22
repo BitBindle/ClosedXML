@@ -1,5 +1,6 @@
 using ClosedXML.Excel;
 using ClosedXML.Excel.Drawings;
+using DocumentFormat.OpenXml.Packaging;
 using NUnit.Framework;
 using System;
 using System.Drawing;
@@ -8,6 +9,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Point = System.Drawing.Point;
+using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
 namespace ClosedXML.Tests
 {
@@ -518,6 +520,36 @@ namespace ClosedXML.Tests
             using var imageStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ClosedXML.Tests.Resource.Images.ImageHandling.png");
             var picture = ws.AddPicture(imageStream);
             Assert.Throws<ArgumentException>(() => picture.Name = invalidName);
+        }
+
+        [Test]
+        public void Load_gives_a_name_to_a_picture_with_an_empty_name()
+        {
+            // Excel can save a picture with an empty name. Excel gives such a picture a name when it loads the file.
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                using var imageStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ClosedXML.Tests.Resource.Images.ImageHandling.png");
+                ws.AddPicture(imageStream, "First");
+                imageStream.Position = 0;
+                ws.AddPicture(imageStream, "Second");
+                wb.SaveAs(ms);
+            }
+
+            using (var package = SpreadsheetDocument.Open(ms, true))
+            {
+                var drawing = package.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
+                var properties = drawing.Descendants<Xdr.NonVisualDrawingProperties>().ToList();
+                Assert.AreEqual(2, properties.Count);
+                properties.ForEach(p => p.Name = string.Empty);
+                drawing.Save();
+            }
+
+            ms.Position = 0;
+            using var loaded = new XLWorkbook(ms);
+            var names = loaded.Worksheets.Single().Pictures.Select(p => p.Name).ToArray();
+            Assert.AreEqual(new[] { "Picture 1", "Picture 2" }, names);
         }
 
         private static void AssertPictureNameAllowed(string testedName)

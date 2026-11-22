@@ -140,7 +140,11 @@ namespace ClosedXML.Excel.Drawings
         internal IXLPicture Add(Stream stream, string name, int Id)
         {
             var picture = (XLPicture)Add(stream);
-            picture.SetName(name);
+
+            // Excel can save a picture with an empty name. Keep the generated name for it, as Excel does.
+            if (!String.IsNullOrEmpty(name))
+                picture.SetName(name);
+
             picture.Id = Id;
             return picture;
         }
