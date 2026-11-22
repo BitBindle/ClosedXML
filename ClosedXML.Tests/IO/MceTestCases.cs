@@ -569,10 +569,10 @@ internal record MceTestCase(string Description, string Xml, HashSet<string> AppC
 
             if (Attributes is not null)
             {
-                foreach (var (name, expectedAttributeValue) in Attributes)
+                foreach (var expectedAttribute in Attributes)
                 {
-                    var attributeValue = reader.GetAttribute(name, null);
-                    Assert.That(attributeValue, Is.EqualTo(expectedAttributeValue));
+                    var attributeValue = reader.GetAttribute(expectedAttribute.Key, null);
+                    Assert.That(attributeValue, Is.EqualTo(expectedAttribute.Value));
                 }
             }
         }

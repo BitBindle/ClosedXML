@@ -1198,10 +1198,10 @@ namespace ClosedXML.Tests
             using var wb = new XLWorkbook();
             var ws = wb.AddWorksheet();
             var cell = ws.Cell("A1");
-            foreach (var (simpleName, prefixedName) in XLConstants.FutureFunctionMap.Value)
+            foreach (var functionNames in XLConstants.FutureFunctionMap.Value)
             {
-                cell.FormulaA1 = simpleName + "()";
-                Assert.AreEqual(prefixedName + "()", cell.FormulaA1);
+                cell.FormulaA1 = functionNames.Key + "()";
+                Assert.AreEqual(functionNames.Value + "()", cell.FormulaA1);
             }
         }
     }

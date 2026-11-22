@@ -17,7 +17,7 @@ namespace ClosedXML.Graphics
         protected override bool CheckHeader(Stream stream)
         {
             Span<byte> s = stackalloc byte[6];
-            if (stream.Read(s) != s.Length)
+            if (stream.ReadAtLeast(s, s.Length, throwOnEndOfStream: false) != s.Length)
                 return false;
 
             var hasSignature =
