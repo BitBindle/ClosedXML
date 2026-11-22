@@ -1489,8 +1489,7 @@ namespace ClosedXML.Excel.IO
 
             foreach (var (columnNumber, xlFilterColumn) in xlAutoFilter.Columns)
             {
-                // A column without a filter condition has nothing to save. The filterColumn
-                // element requires one filter element.
+                // ClosedXML has no data to save for a column without a filter condition.
                 if (xlFilterColumn.FilterType == XLFilterType.None)
                     continue;
 
