@@ -45,8 +45,6 @@ public class LoadingTests
             {
                     "TryToLoad.LO.xlsx.column-style-autofilter.xlsx",
                     "TryToLoad.LO.xlsx.formats.xlsx",
-                    "TryToLoad.LO.xlsx.pivot_table.shared-group-field.xlsx",
-                    "TryToLoad.LO.xlsx.pivot_table.shared-nested-dategroup.xlsx",
                     "TryToLoad.LO.xlsx.pivottable_bool_field_filter.xlsx",
                     "TryToLoad.LO.xlsx.pivottable_date_field_filter.xlsx",
                     "TryToLoad.LO.xlsx.pivottable_double_field_filter.xlsx",

@@ -29,11 +29,12 @@ namespace ClosedXML.Excel.IO
             xml.WriteAttributeString("xmlns", "xr", null, RevisionNs);
 
             var recordCount = pivotCache.RecordCount;
-            var fieldCount = pivotCache.FieldCount;
+            // A record has values only for database fields.
+            var databaseFieldIndexes = pivotCache.GetDatabaseFieldIndexes();
             for (var recordIdx = 0; recordIdx < recordCount; ++recordIdx)
             {
                 xml.WriteStartElement("r");
-                for (var fieldIdx = 0; fieldIdx < fieldCount; ++fieldIdx)
+                foreach (var fieldIdx in databaseFieldIndexes)
                 {
                     var fieldValues = pivotCache.GetFieldValues(fieldIdx);
                     var value = fieldValues.GetValue(recordIdx);
@@ -53,7 +54,7 @@ namespace ClosedXML.Excel.IO
                             xml.WriteEndElement();
                             break;
                         case XLPivotCacheValueType.Error:
-                            xml.WriteStartElement("b");
+                            xml.WriteStartElement("e");
                             xml.WriteAttribute("v", value.GetError().ToDisplayString());
                             xml.WriteEndElement();
                             break;
