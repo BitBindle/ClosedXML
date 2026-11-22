@@ -173,6 +173,15 @@ namespace ClosedXML.Excel
         /// </summary>
         public IXLWorksheets Worksheets => WorksheetsInternal;
 
+        /// <summary>
+        /// Check if the workbook or one of its worksheets has a defined name with the <paramref name="name"/>.
+        /// </summary>
+        internal Boolean HasDefinedName(String name)
+        {
+            return DefinedNamesInternal.TryGetScopedValue(name, out _) ||
+                   WorksheetsInternal.Any<XLWorksheet>(ws => ws.DefinedNames.TryGetScopedValue(name, out _));
+        }
+
         internal XLDefinedNames DefinedNamesInternal
         {
             get
@@ -810,7 +819,7 @@ namespace ClosedXML.Excel
             var rows = new XLRows(this, worksheet: null, defaultStyleSheet: null);
             foreach (XLWorksheet ws in WorksheetsInternal)
             {
-                foreach (IXLRow row in ws.Rows().Where(predicate))
+                foreach (IXLRow row in Enumerable.Where(ws.Rows(), predicate))
                     rows.Add(row as XLRow);
             }
             return rows;
@@ -822,7 +831,7 @@ namespace ClosedXML.Excel
             var columns = new XLColumns(this, worksheet: null, defaultStyleSheet: null);
             foreach (XLWorksheet ws in WorksheetsInternal)
             {
-                foreach (IXLColumn column in ws.Columns().Where(predicate))
+                foreach (IXLColumn column in Enumerable.Where(ws.Columns(), predicate))
                     columns.Add(column as XLColumn);
             }
             return columns;

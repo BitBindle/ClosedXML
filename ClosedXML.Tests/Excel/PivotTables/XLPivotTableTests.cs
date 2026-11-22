@@ -1,4 +1,6 @@
 using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
@@ -273,6 +275,35 @@ namespace ClosedXML.Tests
                     AssertPivotTablesAreEqual(pt1, pt1.CopyTo(wb2.AddWorksheet("pvt").FirstCell()) as XLPivotTable, compareName: true);
                 }
             }
+        }
+
+        [Test]
+        public void Copy_keeps_custom_style_if_target_workbook_has_it()
+        {
+            // Another workbook can have no pivot style with the custom style name.
+            using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\PivotTables\PivotTables.xlsx"));
+            using var wb = new XLWorkbook(stream);
+            var pt = (XLPivotTable)wb.Worksheet("pvt1").PivotTables.First();
+            pt.CustomStyleName = "MyPivotStyle";
+            pt.ShowLastColumn = true;
+            Assert.AreEqual(XLPivotTableTheme.None, pt.Theme);
+
+            var sameWorkbookCopy = (XLPivotTable)pt.CopyTo(wb.AddWorksheet("Copy").FirstCell());
+            Assert.AreEqual("MyPivotStyle", sameWorkbookCopy.CustomStyleName);
+            Assert.IsTrue(sameWorkbookCopy.ShowLastColumn);
+
+            using var otherWorkbook = new XLWorkbook();
+            wb.Worksheet("PastrySalesData").CopyTo(otherWorkbook);
+            var otherWorkbookCopy = (XLPivotTable)pt.CopyTo(otherWorkbook.AddWorksheet("pvt").FirstCell());
+            Assert.IsNull(otherWorkbookCopy.CustomStyleName);
+            Assert.AreEqual(XLPivotTableTheme.None, otherWorkbookCopy.Theme);
+            Assert.IsTrue(otherWorkbookCopy.ShowLastColumn);
+
+            using var workbookWithStyle = new XLWorkbook();
+            workbookWithStyle.Styles.AddPivotStyle(new XLPivotTableStyle("MyPivotStyle"));
+            wb.Worksheet("PastrySalesData").CopyTo(workbookWithStyle);
+            var styledCopy = (XLPivotTable)pt.CopyTo(workbookWithStyle.AddWorksheet("pvt").FirstCell());
+            Assert.AreEqual("MyPivotStyle", styledCopy.CustomStyleName);
         }
 
         private void AssertPivotTablesAreEqual(XLPivotTable original, XLPivotTable copy, Boolean compareName)
@@ -740,7 +771,7 @@ namespace ClosedXML.Tests
             {
                 ("Name", "Count"),
                 ("Pie", 14),
-            }, "Test table");
+            }, "Test_table");
 
             // A range that matches the size of an area
             var matchingRange = ws.Range("A1:B3");
@@ -749,7 +780,7 @@ namespace ClosedXML.Tests
 
             var cacheSource = (XLPivotSourceReference)((XLPivotCache)tablePivot1.PivotCache).Source;
             Assert.True(cacheSource.UsesName);
-            Assert.AreEqual("Test table", cacheSource.Name);
+            Assert.AreEqual("Test_table", cacheSource.Name);
         }
 
         [Test]
@@ -903,6 +934,95 @@ namespace ClosedXML.Tests
             Assert.AreEqual(withDefaults, field.RepeatItemLabels, "RepeatItemLabels save failure");
             Assert.AreEqual(withDefaults, field.InsertPageBreaks, "InsertPageBreaks save failure");
             Assert.AreEqual(withDefaults, field.IncludeNewItemsInFilter, "IncludeNewItemsInFilter save failure");
+        }
+
+        [Test]
+        public void Custom_pivot_style_name_is_kept()
+        {
+            // The style info of a pivot table can name a custom pivot style of the workbook. The
+            // name of a custom style is not a built-in theme.
+            using var ms = CreatePivotTableWithStyleInfo(new PivotTableStyle
+            {
+                Name = "MyPivotStyle",
+                ShowRowHeaders = true,
+                ShowLastColumn = true,
+            });
+
+            using (var wb = new XLWorkbook(ms))
+            {
+                var pt = (XLPivotTable)wb.Worksheet("pvt").PivotTable("pvt");
+                Assert.AreEqual(XLPivotTableTheme.None, pt.Theme);
+                Assert.AreEqual("MyPivotStyle", pt.CustomStyleName);
+                Assert.IsTrue(pt.ShowLastColumn);
+                Assert.IsFalse(pt.ShowColumnStripes);
+                wb.Save();
+            }
+
+            using (var document = SpreadsheetDocument.Open(ms, false))
+            {
+                var pivotTablePart = document.WorkbookPart!.WorksheetParts.SelectMany(wsp => wsp.PivotTableParts).Single();
+                var styleInfo = pivotTablePart.PivotTableDefinition.GetFirstChild<PivotTableStyle>()!;
+                Assert.AreEqual("MyPivotStyle", styleInfo.Name!.Value);
+                Assert.IsTrue(styleInfo.ShowRowHeaders!.Value);
+                Assert.IsTrue(styleInfo.ShowLastColumn!.Value);
+                Assert.IsNull(styleInfo.ShowColumnStripes);
+
+                var tableStyles = document.WorkbookPart.WorkbookStylesPart!.Stylesheet.TableStyles!;
+                Assert.That(tableStyles.Elements<TableStyle>().Select(style => style.Name!.Value), Has.Member("MyPivotStyle"));
+            }
+        }
+
+        [Test]
+        public void Theme_replaces_custom_pivot_style()
+        {
+            using var ms = CreatePivotTableWithStyleInfo(new PivotTableStyle { Name = "MyPivotStyle" });
+            using (var wb = new XLWorkbook(ms))
+            {
+                var pt = (XLPivotTable)wb.Worksheet("pvt").PivotTable("pvt");
+                pt.Theme = XLPivotTableTheme.PivotStyleDark2;
+                Assert.IsNull(pt.CustomStyleName);
+                wb.Save();
+            }
+
+            using (var document = SpreadsheetDocument.Open(ms, false))
+            {
+                var pivotTablePart = document.WorkbookPart!.WorksheetParts.SelectMany(wsp => wsp.PivotTableParts).Single();
+                var styleInfo = pivotTablePart.PivotTableDefinition.GetFirstChild<PivotTableStyle>()!;
+                Assert.AreEqual("PivotStyleDark2", styleInfo.Name!.Value);
+            }
+        }
+
+        /// <summary>
+        /// Create a workbook with a pivot table, a custom pivot style <c>MyPivotStyle</c> and the
+        /// <paramref name="styleInfo"/> as the style info of the pivot table.
+        /// </summary>
+        private static MemoryStream CreatePivotTableWithStyleInfo(PivotTableStyle styleInfo)
+        {
+            var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var data = wb.AddWorksheet("data");
+                data.Cell("A1").InsertData(new object[] { ("Name", "Count"), ("Croissant", 5), ("Donut", 7) });
+                var pivotSheet = wb.AddWorksheet("pvt");
+                var pt = pivotSheet.PivotTables.Add("pvt", pivotSheet.Cell("A1"), data.Range("A1:B3"));
+                pt.RowLabels.Add("Name");
+                pt.Values.Add("Count");
+                wb.SaveAs(ms);
+            }
+
+            using (var document = SpreadsheetDocument.Open(ms, true))
+            {
+                var stylesheet = document.WorkbookPart!.WorkbookStylesPart!.Stylesheet;
+                var tableStyles = stylesheet.TableStyles!;
+                tableStyles.AppendChild(new TableStyle { Name = "MyPivotStyle", Pivot = true, Table = false, Count = 0U });
+                tableStyles.Count = (uint)tableStyles.ChildElements.Count;
+
+                var definition = document.WorkbookPart.WorksheetParts.SelectMany(wsp => wsp.PivotTableParts).Single().PivotTableDefinition;
+                definition.GetFirstChild<PivotTableStyle>()!.InsertAfterSelf(styleInfo);
+                definition.GetFirstChild<PivotTableStyle>()!.Remove();
+            }
+
+            return ms;
         }
     }
 }

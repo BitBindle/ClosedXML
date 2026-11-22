@@ -1412,6 +1412,11 @@ namespace ClosedXML.Excel
 
         public IXLTable Table(XLRange range, String name, Boolean addToTables, Boolean setAutofilter = true)
         {
+            return Table(range, name, addToTables, setAutofilter, checkExcelNameRules: true);
+        }
+
+        internal IXLTable Table(XLRange range, String name, Boolean addToTables, Boolean setAutofilter, Boolean checkExcelNameRules)
+        {
             CheckRangeNotOverlappingOtherEntities(range);
             XLRangeAddress rangeAddress;
             if (range.Rows().Count() == 1)
@@ -1426,7 +1431,7 @@ namespace ClosedXML.Excel
             var table = (XLTable)_rangeRepository.GetOrCreate(ref rangeKey);
 
             if (table.Name != name)
-                table.Name = name;
+                table.SetName(name, checkExcelNameRules);
 
             if (addToTables && !Tables.Contains(table))
             {

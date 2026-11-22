@@ -107,6 +107,28 @@ namespace ClosedXML.Excel
 
         IXLColumn WorksheetColumn();
 
+        /// <summary>
+        /// Adjust the width of the worksheet column to the contents of the cells in this range column.
+        /// The <c>startRow</c> and <c>endRow</c> parameters are row numbers of the worksheet.
+        /// A missing start or end row is the first or last row of the range.
+        /// </summary>
+        IXLRangeColumn AdjustToContents();
+
+        /// <inheritdoc cref="AdjustToContents()"/>
+        IXLRangeColumn AdjustToContents(Int32 startRow);
+
+        /// <inheritdoc cref="AdjustToContents()"/>
+        IXLRangeColumn AdjustToContents(Int32 startRow, Int32 endRow);
+
+        /// <inheritdoc cref="AdjustToContents()"/>
+        IXLRangeColumn AdjustToContents(Double minWidth, Double maxWidth);
+
+        /// <inheritdoc cref="AdjustToContents()"/>
+        IXLRangeColumn AdjustToContents(Int32 startRow, Double minWidth, Double maxWidth);
+
+        /// <inheritdoc cref="AdjustToContents()"/>
+        IXLRangeColumn AdjustToContents(Int32 startRow, Int32 endRow, Double minWidth, Double maxWidth);
+
         IXLTable AsTable();
 
         IXLTable AsTable(String name);

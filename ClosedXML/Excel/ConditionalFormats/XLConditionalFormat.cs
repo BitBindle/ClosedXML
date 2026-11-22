@@ -36,6 +36,7 @@ namespace ClosedXML.Excel
                     && xx.StopIfTrue == yy.StopIfTrue
                     && xx.ShowIconOnly == yy.ShowIconOnly
                     && xx.ShowBarOnly == yy.ShowBarOnly
+                    && xx.Gradient == yy.Gradient
                     && SetEquals(xxValues, yyValues)
                     && SetEquals(xxFormulas, yyFormulas)
                     && Equals(xx.Colors, yy.Colors)
@@ -46,19 +47,16 @@ namespace ClosedXML.Excel
             public int GetHashCode(XLConditionalFormat obj)
             {
                 var xx = obj;
-                var xStyle = obj.FormatValue;
-                var xValues = xx.Values.Values.Where(v => !v.IsFormula).Select(v => v.Value);
-                if (obj.Areas.Count > 0)
-                    xValues = xValues
-                    .Union(xx.Values.Values.Where(v => v.IsFormula).Select(f => ((XLCell)obj.Range.FirstCell()).GetFormulaR1C1(f.Value)));
 
+                // Equal formats must have the same hash code. The hash uses only the values that Equals
+                // compares directly. A dictionary contributes its count, because Equals compares its items.
+                // A data bar or a color scale has no style.
                 unchecked
                 {
-                    var hashCode = xStyle.GetHashCode();
-                    hashCode = (hashCode * 397) ^ xValues.GetHashCode();
-                    hashCode = (hashCode * 397) ^ (xx.Colors != null ? xx.Colors.GetHashCode() : 0);
-                    hashCode = (hashCode * 397) ^ (xx.ContentTypes != null ? xx.ContentTypes.GetHashCode() : 0);
-                    hashCode = (hashCode * 397) ^ (xx.IconSetOperators != null ? xx.IconSetOperators.GetHashCode() : 0);
+                    var hashCode = xx.FormatValue?.GetHashCode() ?? 0;
+                    hashCode = (hashCode * 397) ^ xx.Colors.Count;
+                    hashCode = (hashCode * 397) ^ xx.ContentTypes.Count;
+                    hashCode = (hashCode * 397) ^ xx.IconSetOperators.Count;
                     hashCode = (hashCode * 397) ^ (int)xx.ConditionalFormatType;
                     hashCode = (hashCode * 397) ^ (int)xx.TimePeriod;
                     hashCode = (hashCode * 397) ^ (int)xx.IconSetStyle;
@@ -68,6 +66,7 @@ namespace ClosedXML.Excel
                     hashCode = (hashCode * 397) ^ xx.ReverseIconOrder.GetHashCode();
                     hashCode = (hashCode * 397) ^ xx.ShowIconOnly.GetHashCode();
                     hashCode = (hashCode * 397) ^ xx.ShowBarOnly.GetHashCode();
+                    hashCode = (hashCode * 397) ^ xx.Gradient.GetHashCode();
                     hashCode = (hashCode * 397) ^ xx.StopIfTrue.GetHashCode();
                     return hashCode;
                 }
@@ -130,6 +129,7 @@ namespace ClosedXML.Excel
             ReverseIconOrder = other.ReverseIconOrder;
             ShowIconOnly = other.ShowIconOnly;
             ShowBarOnly = other.ShowBarOnly;
+            Gradient = other.Gradient;
             StopIfTrue = other.StopIfTrue;
 
             var sourceAnchor = other.Areas[0].FirstPoint;
@@ -206,6 +206,8 @@ namespace ClosedXML.Excel
         public Boolean ShowIconOnly { get; set; }
 
         public Boolean ShowBarOnly { get; set; }
+
+        public Boolean Gradient { get; set; } = true;
 
         public Boolean StopIfTrue { get; set; }
 
@@ -474,6 +476,7 @@ namespace ClosedXML.Excel
         {
             Colors.Initialize(color);
             ShowBarOnly = showBarOnly;
+            Gradient = true;
             ConditionalFormatType = XLConditionalFormatType.DataBar;
             return new XLCFDataBarMin(this);
         }
@@ -483,6 +486,7 @@ namespace ClosedXML.Excel
             Colors.Initialize(positiveColor);
             Colors.Add(negativeColor);
             ShowBarOnly = showBarOnly;
+            Gradient = true;
             ConditionalFormatType = XLConditionalFormatType.DataBar;
             return new XLCFDataBarMin(this);
         }

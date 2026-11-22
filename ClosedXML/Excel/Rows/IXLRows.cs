@@ -45,6 +45,26 @@ namespace ClosedXML.Excel
         IXLRows AdjustToContents(Int32 startColumn, Int32 endColumn, Double minHeight, Double maxHeight);
 
         /// <summary>
+        /// Get a new collection with the rows that match the <paramref name="predicate"/>.
+        /// The rows keep the order of the enumeration.
+        /// </summary>
+        /// <param name="predicate">The condition for a row.</param>
+        /// <exception cref="ArgumentNullException">The <paramref name="predicate"/> is null.</exception>
+        IXLRows Where(Func<IXLRow, Boolean> predicate);
+
+        /// <summary>
+        /// Get a new collection without the first <paramref name="count"/> rows of the enumeration.
+        /// </summary>
+        /// <param name="count">The number of rows to remove. A value of 0 or less removes no row.</param>
+        IXLRows Skip(Int32 count);
+
+        /// <summary>
+        /// Get a new collection with the first <paramref name="count"/> rows of the enumeration.
+        /// </summary>
+        /// <param name="count">The number of rows to keep. A value of 0 or less keeps no row.</param>
+        IXLRows Take(Int32 count);
+
+        /// <summary>
         /// Hides all rows.
         /// </summary>
         void Hide();

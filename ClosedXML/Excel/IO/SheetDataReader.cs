@@ -19,7 +19,7 @@ internal partial class SheetDataReader
 {
     private static readonly string[] DateCellFormats =
     {
-        "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff", // Format accepted by OpenXML SDK
+        "yyyy'-'MM'-'dd'T'HH':'mm':'ss.FFFFFFF", // Format of OpenXML SDK and Excel in strict mode. The fraction is optional.
         "yyyy-MM-ddTHH:mm", "yyyy-MM-dd" // Formats accepted by Excel.
     };
 
@@ -335,13 +335,7 @@ internal partial class SheetDataReader
         if (dataType == CellValues.Number)
         {
             // XLCell is by default blank, so no need to set it.
-#if NETSTANDARD2_1_OR_GREATER
-            var isNumber = double.TryParse(cellValue, XLHelper.NumberStyle, XLHelper.ParseCulture, out var number);
-#else
-            // The parser of .NET Framework can give a different double than .NET for the same text.
-            var isNumber = ExactNumberParser.TryParse(cellValue, out var number);
-#endif
-            if (isNumber)
+            if (TryParseNumber(cellValue, out var number))
             {
                 var numberDataType = format.NumberFormat.GetNumberDataType();
                 var cellNumber = numberDataType switch
@@ -383,11 +377,33 @@ internal partial class SheetDataReader
         {
             // Technically, cell can contain date as ISO8601 string, but not rarely used due
             // to inconsistencies between ISO and serial date time representation.
-            var date = DateTime.ParseExact(cellValue, DateCellFormats,
-                XLHelper.ParseCulture,
-                DateTimeStyles.AllowLeadingWhite | DateTimeStyles.AllowTrailingWhite);
-            xlCell.SetOnlyValue(date);
+            if (DateTime.TryParseExact(cellValue, DateCellFormats,
+                    XLHelper.ParseCulture,
+                    DateTimeStyles.AllowLeadingWhite | DateTimeStyles.AllowTrailingWhite,
+                    out var date))
+            {
+                xlCell.SetOnlyValue(date);
+            }
+            else if (TryParseNumber(cellValue, out var serialDate))
+            {
+                // Some producers write a serial date number into a date cell.
+                xlCell.SetOnlyValue(XLCellValue.FromSerialDateTime(serialDate));
+            }
+            else
+            {
+                throw new FormatException($"The value '{cellValue}' of a date cell is not an ISO 8601 date or a serial date.");
+            }
         }
+    }
+
+    private static bool TryParseNumber(string text, out double number)
+    {
+#if NETSTANDARD2_1_OR_GREATER
+        return double.TryParse(text, XLHelper.NumberStyle, XLHelper.ParseCulture, out number);
+#else
+        // The parser of .NET Framework can give a different double than .NET for the same text.
+        return ExactNumberParser.TryParse(text, out number);
+#endif
     }
 
     private void SetCellText(XLCell xlCell, StringItem sharedString)

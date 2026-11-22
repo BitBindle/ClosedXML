@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using ClosedXML.Excel.Drawings;
 using ClosedXML.Graphics;
 using NUnit.Framework;
@@ -28,6 +30,33 @@ namespace ClosedXML.Tests.Graphics
         public void CanReadExif()
         {
             AssertRasterImage("SampleImageExif.jpg", XLPictureFormat.Jpeg, new Size(252, 152), 0, 0);
+        }
+
+        [TestCase(0xE1, "http://ns.adobe.com/xap/1.0/\0")]
+        [TestCase(0xE2, "ICC_PROFILE\0")]
+        [TestCase(-1, "")]
+        public void Jpeg_without_jfif_or_exif_segment_is_read(int appMarker, string identifier)
+        {
+            // JFIF and EXIF segments are optional. Encoders can put XMP or ICC segments first, or no
+            // application segment at all, so that a quantization table follows the start of image.
+            var jfif = ReadResource("Jpg.SampleImageJfif.jpg");
+            var segments = new List<byte>();
+            if (appMarker >= 0)
+            {
+                var payload = Encoding.ASCII.GetBytes(identifier + "data");
+                var length = payload.Length + 2;
+                segments.AddRange(new byte[] { 0xFF, (byte)appMarker, (byte)(length >> 8), (byte)length });
+                segments.AddRange(payload);
+            }
+
+            var jpeg = ReplaceApplicationSegments(jfif, segments.ToArray());
+            using var stream = new MemoryStream(jpeg);
+            var info = DefaultGraphicEngine.Instance.Value.GetPictureInfo(stream, XLPictureFormat.Unknown);
+
+            Assert.AreEqual(XLPictureFormat.Jpeg, info.Format);
+            Assert.AreEqual(new Size(176, 270), info.SizePx);
+            Assert.AreEqual(0, info.DpiX);
+            Assert.AreEqual(0, info.DpiY);
         }
 
         [Test]
@@ -138,6 +167,38 @@ namespace ClosedXML.Tests.Graphics
             Assert.AreEqual(expectedInfo.SizePhys, info.SizePhys);
             Assert.AreEqual(expectedInfo.DpiX, info.DpiX);
             Assert.AreEqual(expectedInfo.DpiY, info.DpiY);
+        }
+
+        private static byte[] ReadResource(string imageName)
+        {
+            using var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"ClosedXML.Tests.Resource.Images.{imageName}");
+            using var memoryStream = new MemoryStream();
+            resourceStream.CopyTo(memoryStream);
+            return memoryStream.ToArray();
+        }
+
+        /// <summary>
+        /// Remove the APPn segments of a JPEG and put <paramref name="newSegments"/> after the start of image.
+        /// </summary>
+        private static byte[] ReplaceApplicationSegments(byte[] jpeg, byte[] newSegments)
+        {
+            var result = new List<byte> { jpeg[0], jpeg[1] };
+            result.AddRange(newSegments);
+            var position = 2;
+            while (true)
+            {
+                var marker = jpeg[position + 1];
+                var segmentLength = 2 + ((jpeg[position + 2] << 8) | jpeg[position + 3]);
+                var isApplicationSegment = marker >= 0xE0 && marker <= 0xEF;
+                if (!isApplicationSegment)
+                {
+                    // The other segments, the scan data and the end of image stay as they are.
+                    result.AddRange(new ArraySegment<byte>(jpeg, position, jpeg.Length - position));
+                    return result.ToArray();
+                }
+
+                position += segmentLength;
+            }
         }
 
         private static void AssertRasterImage(string imageName, XLPictureFormat expectedFormat, Size expectedPxSize, double expectedDpiX, double expectedDpiY)

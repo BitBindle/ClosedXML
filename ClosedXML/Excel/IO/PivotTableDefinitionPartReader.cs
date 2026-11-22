@@ -684,14 +684,25 @@ internal class PivotTableDefinitionPartReader
     {
         if (pivotTableStyle is not null)
         {
-            xlPivotTable.Theme = pivotTableStyle.Name is not null && Enum.TryParse<XLPivotTableTheme>(pivotTableStyle.Name, out var xlPivotTableTheme)
-                ? xlPivotTableTheme
-                : XLPivotTableTheme.None;
+            var styleName = pivotTableStyle.Name?.Value;
+            if (styleName is not null && Enum.TryParse<XLPivotTableTheme>(styleName, out var xlPivotTableTheme))
+            {
+                xlPivotTable.Theme = xlPivotTableTheme;
+            }
+            else
+            {
+                // A custom style of the workbook has a name that is not a built-in theme.
+                // The CustomStyleName setter does not change the theme for a null name.
+                // Thus a style without a name must set the theme to None here.
+                xlPivotTable.Theme = XLPivotTableTheme.None;
+                xlPivotTable.CustomStyleName = styleName;
+            }
+
             xlPivotTable.ShowRowHeaders = pivotTableStyle.ShowRowHeaders?.Value ?? false;
             xlPivotTable.ShowColumnHeaders = pivotTableStyle.ShowColumnHeaders?.Value ?? false;
             xlPivotTable.ShowRowStripes = pivotTableStyle.ShowRowStripes?.Value ?? false;
             xlPivotTable.ShowColumnStripes = pivotTableStyle.ShowColumnStripes?.Value ?? false;
-            xlPivotTable.ShowLastColumn = pivotTableStyle.ShowColumnStripes?.Value ?? false;
+            xlPivotTable.ShowLastColumn = pivotTableStyle.ShowLastColumn?.Value ?? false;
         }
     }
 

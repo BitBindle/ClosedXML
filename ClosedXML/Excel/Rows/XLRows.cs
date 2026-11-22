@@ -130,6 +130,24 @@ namespace ClosedXML.Excel
             return this;
         }
 
+        public IXLRows Where(Func<IXLRow, Boolean> predicate)
+        {
+            if (predicate is null)
+                throw new ArgumentNullException(nameof(predicate));
+
+            return FromOrdered(OrderedRows.Where(predicate));
+        }
+
+        public IXLRows Skip(Int32 count)
+        {
+            return FromOrdered(OrderedRows.Skip(count));
+        }
+
+        public IXLRows Take(Int32 count)
+        {
+            return FromOrdered(OrderedRows.Take(count));
+        }
+
         public void Hide()
         {
             Rows.ForEach(r => r.Hide());
@@ -249,6 +267,21 @@ namespace ClosedXML.Excel
         {
             foreach (var range in this)
                 range.Select();
+        }
+
+        /// <summary>
+        /// The rows in the order of the enumeration. The type makes a call to Where, Skip or Take use LINQ, not the method of this class.
+        /// </summary>
+        private IEnumerable<IXLRow> OrderedRows => this;
+
+        private XLRows FromOrdered(IEnumerable<IXLRow> rows)
+        {
+            // The result is a list of rows, not all rows of the sheet. Its height setter
+            // and its delete change only these rows.
+            var result = new XLRows(_workbook, worksheet: null, defaultStyleSheet: _defaultStyleSheet);
+            foreach (var row in rows)
+                result.Add((XLRow)row);
+            return result;
         }
 
         private void Materialize()

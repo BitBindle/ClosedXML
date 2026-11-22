@@ -1,5 +1,6 @@
 #nullable disable
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -43,6 +44,60 @@ namespace ClosedXML.Excel
         {
             _ranges.OrderByDescending(r => r.RowNumber()).ForEach(r => r.Delete());
             _ranges.Clear();
+        }
+
+        public IXLRangeRows AdjustToContents()
+        {
+            _ranges.ForEach(r => r.AdjustToContents());
+            return this;
+        }
+
+        public IXLRangeRows AdjustToContents(Int32 startColumn)
+        {
+            _ranges.ForEach(r => r.AdjustToContents(startColumn));
+            return this;
+        }
+
+        public IXLRangeRows AdjustToContents(Int32 startColumn, Int32 endColumn)
+        {
+            _ranges.ForEach(r => r.AdjustToContents(startColumn, endColumn));
+            return this;
+        }
+
+        public IXLRangeRows AdjustToContents(Double minHeight, Double maxHeight)
+        {
+            _ranges.ForEach(r => r.AdjustToContents(minHeight, maxHeight));
+            return this;
+        }
+
+        public IXLRangeRows AdjustToContents(Int32 startColumn, Double minHeight, Double maxHeight)
+        {
+            _ranges.ForEach(r => r.AdjustToContents(startColumn, minHeight, maxHeight));
+            return this;
+        }
+
+        public IXLRangeRows AdjustToContents(Int32 startColumn, Int32 endColumn, Double minHeight, Double maxHeight)
+        {
+            _ranges.ForEach(r => r.AdjustToContents(startColumn, endColumn, minHeight, maxHeight));
+            return this;
+        }
+
+        public IXLRangeRows Where(Func<IXLRangeRow, Boolean> predicate)
+        {
+            if (predicate is null)
+                throw new ArgumentNullException(nameof(predicate));
+
+            return FromOrdered(OrderedRows.Where(predicate));
+        }
+
+        public IXLRangeRows Skip(Int32 count)
+        {
+            return FromOrdered(OrderedRows.Skip(count));
+        }
+
+        public IXLRangeRows Take(Int32 count)
+        {
+            return FromOrdered(OrderedRows.Take(count));
         }
 
         public void Add(IXLRangeRow range)
@@ -95,5 +150,18 @@ namespace ClosedXML.Excel
         }
 
         #endregion IXLRangeRows Members
+
+        /// <summary>
+        /// The range rows in the order of the enumeration. The type makes a call to Where, Skip or Take use LINQ, not the method of this class.
+        /// </summary>
+        private IEnumerable<IXLRangeRow> OrderedRows => this;
+
+        private IXLRangeRows FromOrdered(IEnumerable<IXLRangeRow> ranges)
+        {
+            var result = new XLRangeRows(_worksheet);
+            foreach (var range in ranges)
+                result.Add(range);
+            return result;
+        }
     }
 }

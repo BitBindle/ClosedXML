@@ -134,3 +134,73 @@ The methods ``IXLConditionalFormat.WhenContains``, ``WhenNotContains``, ``WhenSt
   found the text ``A1``. Now it finds the text ``=A1``.
 
 The value that ClosedXML loads from a file is also a literal text.
+
+***********
+Table names
+***********
+
+The setter ``IXLTable.Name`` now throws an ``ArgumentException`` for a name that Excel does not
+accept:
+
+* The name contains whitespace, for example ``My table``.
+* The name is a cell reference, for example ``A1``, ``May2019`` or ``R1C2``.
+* The name is the name of a defined name in the workbook or in one of its worksheets. The compare
+  ignores case.
+
+Before, ClosedXML kept such a name in memory, but the save removed the whitespace. Structured
+references and pivot sources that used the name then pointed to a table that did not exist. A file
+with a cell reference or a defined name as a table name needed a repair in Excel.
+
+The ``CreateTable(name)``, ``AsTable(name)`` and ``InsertTable(data, name)`` methods use the same
+rules. For a name that is a cell reference, the ``InsertTable`` overload for a ``DataTable`` throws
+an ``InvalidOperationException``, as before.
+
+The load and a copy of a table keep a table name from a file as it is. The save still removes the
+whitespace from such a name.
+
+*******************************************
+Where, Skip and Take on rows and columns
+*******************************************
+
+The ``IXLColumns``, ``IXLRows``, ``IXLRangeColumns`` and ``IXLRangeRows`` interfaces have new
+``Where``, ``Skip`` and ``Take`` methods. Each method gives a collection of the same type, for
+example ``ws.ColumnsUsed().Skip(1).AdjustToContents()``.
+
+* A call such as ``columns.Where(c => ...)`` now uses the new method and not LINQ. The result is
+  a new collection. The methods do not defer the work.
+* The result has the order of the enumeration: the column or row number.
+* The result of ``ws.Columns()`` or ``ws.Rows()`` with a filter does not represent all columns or
+  rows of the sheet. The ``Width``, ``Height`` and ``Delete`` members change only the columns or
+  rows in the result.
+* A ``Where`` with an index in the predicate still uses LINQ.
+* A class that implements one of these interfaces must implement the new methods. This also
+  applies to the new ``AdjustToContents`` methods below.
+
+The ``IXLRangeColumn``, ``IXLRangeColumns``, ``IXLRangeRow`` and ``IXLRangeRows`` interfaces have
+new ``AdjustToContents`` methods. They change the width of the worksheet column or the height of the
+worksheet row. They use only the cells of the range. The start and end parameters are row or
+column numbers of the worksheet.
+
+**************
+Data bar fill
+**************
+
+A data bar has a solid fill or a gradient fill. The new ``IXLConditionalFormat.Gradient`` property
+gets or sets the fill. The default value is ``true``, the gradient fill of Excel. Before, the save always
+wrote a gradient fill, also for a solid data bar from a file.
+
+The ``IXLCFDataBarMax`` methods ``Maximum`` and ``HighestValue`` now return the new
+``IXLCFDataBar`` interface, not ``void``. Use it to set the fill:
+
+.. code-block:: csharp
+
+   ws.Range("A1:A5").AddConditionalFormat()
+       .DataBar(XLColor.Red)
+       .LowestValue()
+       .HighestValue()
+       .SetGradient(false);
+
+A direct call of these methods compiles as before. Code that uses one of them as a method group for
+an ``Action`` delegate does not compile. A compiled assembly that calls them must be
+compiled again. A class that implements ``IXLCFDataBarMax`` or ``IXLConditionalFormat`` must
+implement the changed and new members.

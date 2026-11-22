@@ -292,7 +292,8 @@ namespace ClosedXML.Excel
                     if (String.IsNullOrWhiteSpace(tableName))
                         throw new InvalidDataException("The table name is missing.");
 
-                    var xlTable = ws.Range(reference).CreateTable(tableName, false) as XLTable;
+                    // Other producers can write a name that breaks a rule of Excel. Keep it as it is.
+                    var xlTable = (XLTable)ws.Table((XLRange)ws.Range(reference), tableName, addToTables: true, setAutofilter: false, checkExcelNameRules: false);
                     xlTable.RelId = relId;
 
                     // Add columns to the table

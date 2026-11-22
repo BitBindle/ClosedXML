@@ -13,6 +13,8 @@ namespace ClosedXML.Excel
     {
         private readonly XLWorksheet _worksheet;
         private String _name;
+        private XLPivotTableTheme _theme;
+        private String _customStyleName;
 
         /// <summary>
         /// List of all fields in the pivot table, roughly represents <c>pivotTableDefinition.
@@ -99,7 +101,30 @@ namespace ClosedXML.Excel
         /// <summary>
         /// Table theme this pivot table will use.
         /// </summary>
-        public XLPivotTableTheme Theme { get; set; }
+        public XLPivotTableTheme Theme
+        {
+            get => _theme;
+            set
+            {
+                _theme = value;
+                _customStyleName = null;
+            }
+        }
+
+        /// <summary>
+        /// The name of a custom pivot table style of the workbook. If the name is set, the
+        /// <see cref="Theme"/> is <see cref="XLPivotTableTheme.None"/>.
+        /// </summary>
+        internal String CustomStyleName
+        {
+            get => _customStyleName;
+            set
+            {
+                _customStyleName = value;
+                if (value is not null)
+                    _theme = XLPivotTableTheme.None;
+            }
+        }
 
         /// <summary>
         /// All fields reflected in the pivot cache.
@@ -218,7 +243,17 @@ namespace ClosedXML.Excel
             newPivotTable.ShowColumnHeaders = ShowColumnHeaders;
             newPivotTable.ShowRowStripes = ShowRowStripes;
             newPivotTable.ShowColumnStripes = ShowColumnStripes;
+            newPivotTable.ShowLastColumn = ShowLastColumn;
             newPivotTable.Theme = Theme;
+
+            // Another workbook can have no pivot style with the custom style name.
+            var targetWorkbook = (XLWorkbook)targetSheet.Workbook;
+            if (CustomStyleName is not null &&
+                (targetWorkbook == Worksheet.Workbook || targetWorkbook.Styles.PivotStyles.ContainsKey(CustomStyleName)))
+            {
+                newPivotTable.CustomStyleName = CustomStyleName;
+            }
+
             // TODO: Copy Styleformats
 
             return newPivotTable;

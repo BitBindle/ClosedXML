@@ -132,6 +132,24 @@ namespace ClosedXML.Excel
             return this;
         }
 
+        public IXLColumns Where(Func<IXLColumn, Boolean> predicate)
+        {
+            if (predicate is null)
+                throw new ArgumentNullException(nameof(predicate));
+
+            return FromOrdered(OrderedColumns.Where(predicate));
+        }
+
+        public IXLColumns Skip(Int32 count)
+        {
+            return FromOrdered(OrderedColumns.Skip(count));
+        }
+
+        public IXLColumns Take(Int32 count)
+        {
+            return FromOrdered(OrderedColumns.Take(count));
+        }
+
         public void Hide()
         {
             Columns.ForEach(c => c.Hide());
@@ -265,6 +283,21 @@ namespace ClosedXML.Excel
         {
             foreach (var range in this)
                 range.Select();
+        }
+
+        /// <summary>
+        /// The columns in the order of the enumeration. The type makes a call to Where, Skip or Take use LINQ, not the method of this class.
+        /// </summary>
+        private IEnumerable<IXLColumn> OrderedColumns => this;
+
+        private XLColumns FromOrdered(IEnumerable<IXLColumn> columns)
+        {
+            // The result is a list of columns, not all columns of the sheet. Its width setter
+            // and its delete change only these columns.
+            var result = new XLColumns(_workbook, worksheet: null, defaultStyleSheet: _defaultStyleSheet);
+            foreach (var column in columns)
+                result.Add((XLColumn)column);
+            return result;
         }
 
         private void Materialize()

@@ -393,8 +393,9 @@ internal class PivotTableDefinitionPartWriter2
             xml.WriteEndElement(); // conditionalFormats
         }
 
+        var styleName = pt.CustomStyleName ?? (pt.Theme != XLPivotTableTheme.None ? pt.Theme.ToString() : null);
         var hasDefaultTheme =
-            pt.Theme == XLPivotTableTheme.None &&
+            styleName is null &&
             pt.ShowRowHeaders == false &&
             pt.ShowColumnHeaders == false &&
             pt.ShowRowStripes == false &&
@@ -403,8 +404,8 @@ internal class PivotTableDefinitionPartWriter2
         if (!hasDefaultTheme)
         {
             xml.WriteStartElement("pivotTableStyleInfo", Main2006SsNs);
-            if (pt.Theme != XLPivotTableTheme.None)
-                xml.WriteAttribute("name", pt.Theme.ToString());
+            if (styleName is not null)
+                xml.WriteAttribute("name", styleName);
 
             xml.WriteAttributeDefault("showRowHeaders", pt.ShowRowHeaders, false);
             xml.WriteAttributeDefault("showColHeaders", pt.ShowColumnHeaders, false);

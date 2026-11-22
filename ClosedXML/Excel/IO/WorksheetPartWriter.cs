@@ -707,7 +707,7 @@ namespace ClosedXML.Excel.IO
                     foreach (var xlConditionalFormat in cfGroup.CfList.Cast<XLConditionalFormat>())
                     {
                         var conditionalFormattingRule = conditionalFormattings.Descendants<DocumentFormat.OpenXml.Office2010.Excel.ConditionalFormattingRule>()
-                                .SingleOrDefault(r => r.Id == xlConditionalFormat.Id.WrapInBraces());
+                                .SingleOrDefault(r => String.Equals(r.Id?.Value, xlConditionalFormat.Id.WrapInBraces(), StringComparison.OrdinalIgnoreCase));
                         if (conditionalFormattingRule != null)
                         {
                             var conditionalFormat = conditionalFormattingRule.Ancestors<DocumentFormat.OpenXml.Office2010.Excel.ConditionalFormatting>().SingleOrDefault();
@@ -1318,6 +1318,19 @@ namespace ClosedXML.Excel.IO
                 var xlPictures = xlWorksheet.Pictures as Drawings.XLPictures;
                 foreach (var removedPicture in xlPictures.Deleted)
                 {
+                    // An anchor that refers to a deleted image part makes a corrupt file for Excel.
+                    // Two anchors can refer to one image part. A picture that stays with that
+                    // image gets a new image part and a new anchor below.
+                    var worksheetDrawing = worksheetPart.DrawingsPart.WorksheetDrawing;
+                    if (worksheetDrawing is not null)
+                    {
+                        var anchors = worksheetDrawing.Elements()
+                            .Where(anchor => anchor.Descendants<Xdr.BlipFill>().Any(blipFill => blipFill.Blip?.Embed?.Value == removedPicture))
+                            .ToList();
+                        foreach (var anchor in anchors)
+                            anchor.Remove();
+                    }
+
                     worksheetPart.DrawingsPart.DeletePart(removedPicture);
                 }
                 xlPictures.Deleted.Clear();
@@ -1341,11 +1354,11 @@ namespace ClosedXML.Excel.IO
             }
 
             // Instead of saving a file with an empty Drawings.xml file, rather remove the .xml file
-            var hasCharts = worksheetPart.DrawingsPart is not null && worksheetPart.DrawingsPart.Parts.Any();
             if (worksheetPart.DrawingsPart is not null && // There is a drawing part for the sheet that could be deleted
                 xlWorksheet.LegacyDrawingId is null && // and sheet doesn't contain any form controls or comments or other shapes
                 xlWorksheet.Pictures.Count == 0 && // and also no pictures.
-                !hasCharts) // and no charts
+                !worksheetPart.DrawingsPart.Parts.Any() && // and no charts
+                !HasAnchors(worksheetPart.DrawingsPart)) // and no shapes or other anchors.
             {
                 var id = worksheetPart.GetIdOfPart(worksheetPart.DrawingsPart);
                 worksheet.RemoveChild(worksheet.OfType<Drawing>().FirstOrDefault(p => p.Id == id));
@@ -1720,6 +1733,19 @@ namespace ClosedXML.Excel.IO
         private static Int64 ConvertToEnglishMetricUnits(Int32 pixels, Double resolution)
         {
             return Convert.ToInt64(914400L * pixels / resolution);
+        }
+
+        /// <summary>
+        /// Check if the drawing part has an anchor. ClosedXML does not load shapes, and a shape has no child part.
+        /// </summary>
+        private static bool HasAnchors(DrawingsPart drawingsPart)
+        {
+            if (drawingsPart.IsRootElementLoaded)
+                return drawingsPart.WorksheetDrawing.HasChildren;
+
+            // Use a reader, because a loaded DOM makes the save write the part again.
+            using var reader = OpenXmlReader.Create(drawingsPart);
+            return reader.Read() && reader.ReadFirstChild();
         }
 
         private static void AddPictureAnchor(WorksheetPart worksheetPart, Drawings.IXLPicture picture, SaveContext context)

@@ -45,6 +45,26 @@ namespace ClosedXML.Excel
         IXLColumns AdjustToContents(Int32 startRow, Int32 endRow, Double minWidth, Double maxWidth);
 
         /// <summary>
+        /// Get a new collection with the columns that match the <paramref name="predicate"/>.
+        /// The columns keep the order of the enumeration.
+        /// </summary>
+        /// <param name="predicate">The condition for a column.</param>
+        /// <exception cref="ArgumentNullException">The <paramref name="predicate"/> is null.</exception>
+        IXLColumns Where(Func<IXLColumn, Boolean> predicate);
+
+        /// <summary>
+        /// Get a new collection without the first <paramref name="count"/> columns of the enumeration.
+        /// </summary>
+        /// <param name="count">The number of columns to remove. A value of 0 or less removes no column.</param>
+        IXLColumns Skip(Int32 count);
+
+        /// <summary>
+        /// Get a new collection with the first <paramref name="count"/> columns of the enumeration.
+        /// </summary>
+        /// <param name="count">The number of columns to keep. A value of 0 or less keeps no column.</param>
+        IXLColumns Take(Int32 count);
+
+        /// <summary>
         /// Hides all columns.
         /// </summary>
         void Hide();
