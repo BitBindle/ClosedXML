@@ -1,4 +1,5 @@
 ﻿using ClosedXML.Parser;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -26,17 +27,18 @@ internal class RenameRefModVisitor : RefModVisitor
         init => _tables = value.ToDictionary(x => x.Key, x => x.Value, XLHelper.NameComparer);
     }
 
-    protected override string? ModifySheet(ModContext ctx, string sheetName)
+    protected override ReadOnlySpan<char> ModifySheet(ModContext ctx, ReadOnlySpan<char> sheetName)
     {
-        if (_sheets is not null && _sheets.TryGetValue(sheetName, out var newName))
-            return newName;
+        // The span of a null name is empty. An empty result means that the sheet has been deleted.
+        if (_sheets is not null && _sheets.GetAlternateLookup<ReadOnlySpan<char>>().TryGetValue(sheetName, out var newName))
+            return newName.AsSpan();
 
         return sheetName;
     }
 
-    protected override string? ModifyTable(ModContext ctx, string tableName)
+    protected override ReadOnlySpan<char> ModifyTable(ModContext ctx, ReadOnlySpan<char> tableName)
     {
-        if (_tables is not null && _tables.TryGetValue(tableName, out var newName))
+        if (_tables is not null && _tables.GetAlternateLookup<ReadOnlySpan<char>>().TryGetValue(tableName, out var newName))
             return newName;
 
         return tableName;

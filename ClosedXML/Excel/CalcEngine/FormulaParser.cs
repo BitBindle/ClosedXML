@@ -67,7 +67,7 @@ namespace ClosedXML.Excel.CalcEngine
 
             public ScalarValue NumberValue(string context, SymbolRange range, double number) => number;
 
-            public ScalarValue TextValue(string context, SymbolRange range, string text) => text;
+            public ScalarValue TextValue(string context, SymbolRange range, ReadOnlySpan<char> text) => text.ToString();
 
             public ScalarValue ErrorValue(string context, SymbolRange range, ReadOnlySpan<char> errorText)
             {
@@ -102,9 +102,9 @@ namespace ClosedXML.Excel.CalcEngine
                 return new ScalarNode(number);
             }
 
-            public ValueNode TextNode(string context, SymbolRange range, string text)
+            public ValueNode TextNode(string context, SymbolRange range, ReadOnlySpan<char> text)
             {
-                return new ScalarNode(text);
+                return new ScalarNode(text.ToString());
             }
 
             public ValueNode Reference(string context, SymbolRange range, ReferenceArea area)
@@ -112,9 +112,9 @@ namespace ClosedXML.Excel.CalcEngine
                 return new ReferenceNode(null, area, _isA1);
             }
 
-            public ValueNode SheetReference(string context, SymbolRange range, string sheet, ReferenceArea area)
+            public ValueNode SheetReference(string context, SymbolRange range, ReadOnlySpan<char> sheet, ReferenceArea area)
             {
-                var prefixNode = new PrefixNode(null, sheet, null, null);
+                var prefixNode = new PrefixNode(null, sheet.ToString(), null, null);
                 return new ReferenceNode(prefixNode, area, _isA1);
             }
 
@@ -123,26 +123,26 @@ namespace ClosedXML.Excel.CalcEngine
                 return new NotSupportedNode("Bang reference");
             }
 
-            public ValueNode Reference3D(string context, SymbolRange range, string firstSheet, string lastSheet,
+            public ValueNode Reference3D(string context, SymbolRange range, ReadOnlySpan<char> firstSheet, ReadOnlySpan<char> lastSheet,
                 ReferenceArea area)
             {
-                var prefixNode = new PrefixNode(null, null, firstSheet, lastSheet);
+                var prefixNode = new PrefixNode(null, null, firstSheet.ToString(), lastSheet.ToString());
                 return new ReferenceNode(prefixNode, area, _isA1);
             }
 
-            public ValueNode ExternalSheetReference(string context, SymbolRange range, int workbookIndex, string sheet,
+            public ValueNode ExternalSheetReference(string context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> sheet,
                 ReferenceArea area)
             {
                 var fileNode = new FileNode(workbookIndex);
-                var prefixNode = new PrefixNode(fileNode, sheet, null, null);
+                var prefixNode = new PrefixNode(fileNode, sheet.ToString(), null, null);
                 return new ReferenceNode(prefixNode, area, _isA1);
             }
 
-            public ValueNode ExternalReference3D(string context, SymbolRange range, int workbookIndex, string firstSheet,
-                string lastSheet, ReferenceArea area)
+            public ValueNode ExternalReference3D(string context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> firstSheet,
+                ReadOnlySpan<char> lastSheet, ReferenceArea area)
             {
                 var fileNode = new FileNode(workbookIndex);
-                var prefixNode = new PrefixNode(fileNode, null, firstSheet, lastSheet);
+                var prefixNode = new PrefixNode(fileNode, null, firstSheet.ToString(), lastSheet.ToString());
                 return new ReferenceNode(prefixNode, area, _isA1);
             }
 
@@ -153,17 +153,17 @@ namespace ClosedXML.Excel.CalcEngine
                 return GetFunctionNode(null, functionName, args);
             }
 
-            public ValueNode Function(string context, SymbolRange range, string sheetName, ReadOnlySpan<char> name,
+            public ValueNode Function(string context, SymbolRange range, ReadOnlySpan<char> sheetName, ReadOnlySpan<char> name,
                 IReadOnlyList<ValueNode> args)
             {
-                var prefixNode = new PrefixNode(null, sheetName, null, null);
+                var prefixNode = new PrefixNode(null, sheetName.ToString(), null, null);
                 return GetFunctionNode(prefixNode, name.ToString(), args);
             }
 
-            public ValueNode ExternalFunction(string context, SymbolRange range, int workbookIndex, string sheet,
+            public ValueNode ExternalFunction(string context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> sheet,
                 ReadOnlySpan<char> name, IReadOnlyList<ValueNode> args)
             {
-                var prefixNode = new PrefixNode(new FileNode(workbookIndex), sheet, null, null);
+                var prefixNode = new PrefixNode(new FileNode(workbookIndex), sheet.ToString(), null, null);
                 return GetFunctionNode(prefixNode, name.ToString(), args);
             }
 
@@ -190,50 +190,50 @@ namespace ClosedXML.Excel.CalcEngine
             }
 
             public ValueNode StructureReference(string context, SymbolRange range, StructuredReferenceArea area,
-                string? firstColumn, string? lastColumn)
+                ReadOnlySpan<char> firstColumn, ReadOnlySpan<char> lastColumn)
             {
-                return new StructuredReferenceNode(null, null, area, firstColumn, lastColumn);
+                return new StructuredReferenceNode(null, null, area, ColumnOrNull(firstColumn), ColumnOrNull(lastColumn));
             }
 
-            public ValueNode StructureReference(string context, SymbolRange range, string table, StructuredReferenceArea area,
-                string? firstColumn, string? lastColumn)
+            public ValueNode StructureReference(string context, SymbolRange range, ReadOnlySpan<char> table, StructuredReferenceArea area,
+                ReadOnlySpan<char> firstColumn, ReadOnlySpan<char> lastColumn)
             {
-                return new StructuredReferenceNode(null, table, area, firstColumn, lastColumn);
+                return new StructuredReferenceNode(null, table.ToString(), area, ColumnOrNull(firstColumn), ColumnOrNull(lastColumn));
             }
 
-            public ValueNode ExternalStructureReference(string context, SymbolRange range, int workbookIndex, string table,
-                StructuredReferenceArea area, string? firstColumn, string? lastColumn)
+            public ValueNode ExternalStructureReference(string context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> table,
+                StructuredReferenceArea area, ReadOnlySpan<char> firstColumn, ReadOnlySpan<char> lastColumn)
             {
-                return new StructuredReferenceNode(new PrefixNode(new FileNode(workbookIndex), null, null, null), table,
-                    area, firstColumn, lastColumn);
+                return new StructuredReferenceNode(new PrefixNode(new FileNode(workbookIndex), null, null, null), table.ToString(),
+                    area, ColumnOrNull(firstColumn), ColumnOrNull(lastColumn));
             }
 
-            public ValueNode Name(string context, SymbolRange range, string name)
+            public ValueNode Name(string context, SymbolRange range, ReadOnlySpan<char> name)
             {
-                return new NameNode(null, name);
+                return new NameNode(null, name.ToString());
             }
 
-            public ValueNode SheetName(string context, SymbolRange range, string sheet, string name)
+            public ValueNode SheetName(string context, SymbolRange range, ReadOnlySpan<char> sheet, ReadOnlySpan<char> name)
             {
-                var prefixNode = new PrefixNode(null, sheet, null, null);
-                return new NameNode(prefixNode, name);
+                var prefixNode = new PrefixNode(null, sheet.ToString(), null, null);
+                return new NameNode(prefixNode, name.ToString());
             }
 
-            public ValueNode BangName(string context, SymbolRange range, string name)
+            public ValueNode BangName(string context, SymbolRange range, ReadOnlySpan<char> name)
             {
                 return new NotSupportedNode("Bang name");
             }
 
-            public ValueNode ExternalName(string context, SymbolRange range, int workbookIndex, string name)
+            public ValueNode ExternalName(string context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> name)
             {
                 var prefixNode = new PrefixNode(new FileNode(workbookIndex), null, null, null);
-                return new NameNode(prefixNode, name);
+                return new NameNode(prefixNode, name.ToString());
             }
 
-            public ValueNode ExternalSheetName(string context, SymbolRange range, int workbookIndex, string sheet, string name)
+            public ValueNode ExternalSheetName(string context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> sheet, ReadOnlySpan<char> name)
             {
-                var prefixNode = new PrefixNode(new FileNode(workbookIndex), sheet, null, null);
-                return new NameNode(prefixNode, name);
+                var prefixNode = new PrefixNode(new FileNode(workbookIndex), sheet.ToString(), null, null);
+                return new NameNode(prefixNode, name.ToString());
             }
 
             public ValueNode BinaryNode(string context, SymbolRange range, BinaryOperation operation, ValueNode leftNode,
@@ -307,6 +307,14 @@ namespace ClosedXML.Excel.CalcEngine
                         $"Too many parameters for function '{functionName}'.Expected a minimum of {minParams} and a maximum of {maxParams}.");
 
                 return new FunctionNode(prefixNode, functionName, argumentNodes);
+            }
+
+            /// <summary>
+            /// The parser gives an empty column name for a reference to the whole table. The node uses <c>null</c> for it.
+            /// </summary>
+            private static string? ColumnOrNull(ReadOnlySpan<char> column)
+            {
+                return column.IsEmpty ? null : column.ToString();
             }
 
             private static XLError GetErrorValue(ReadOnlySpan<char> error)

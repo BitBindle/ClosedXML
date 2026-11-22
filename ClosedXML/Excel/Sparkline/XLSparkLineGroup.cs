@@ -570,18 +570,18 @@ namespace ClosedXML.Excel
             internal SparklineFormula CopyFromTo(XLWorksheet sourceSheet, XLWorksheet targetSheet)
             {
                 // If formula is single-sheet-area, i.e. `single-sheet-prefix A1-area`
-                if (ReferenceParser.TryParseSheetA1(Text, out var formulaSheetName, out var reference) &&
-                    XLHelper.SheetComparer.Equals(formulaSheetName, sourceSheet.Name))
+                if (ReferenceParser.TryParseSheetA1(Text.AsSpan(), out var formulaSheetName, out var reference) &&
+                    XLHelper.SheetNameEquals(formulaSheetName, sourceSheet.Name))
                 {
                     var copiedReference = reference.GetDisplayStringA1(targetSheet.Name);
                     return new SparklineFormula(copiedReference);
                 }
 
                 // If formula is a `single-sheet-prefix name`
-                if (ReferenceParser.TryParseSheetName(Text, out formulaSheetName, out var definedName) &&
-                    XLHelper.SheetComparer.Equals(formulaSheetName, sourceSheet.Name))
+                if (ReferenceParser.TryParseSheetName(Text.AsSpan(), out formulaSheetName, out var definedName) &&
+                    XLHelper.SheetNameEquals(formulaSheetName, sourceSheet.Name))
                 {
-                    var copiedName = definedName.GetSheetDefinedName(targetSheet.Name);
+                    var copiedName = definedName.ToString().GetSheetDefinedName(targetSheet.Name);
                     return new SparklineFormula(copiedName);
                 }
 

@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  packages: read    # Restore ClosedXML.Parser from GitHub Packages
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -28,6 +29,11 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore dependencies
+        # nuget.config reads these variables. The fork of ClosedXML.Parser is on the GitHub Packages feed of BitBindle,
+        # and the feed needs authentication, also for a public package. Only the steps that use the feed get the token.
+        env:
+          GITHUB_PACKAGES_USER: ${{ github.actor }}
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: dotnet restore ClosedXML.slnx
 
       - name: Build

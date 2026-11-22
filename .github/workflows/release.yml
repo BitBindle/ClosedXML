@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write   # Create the tag and the release
-      packages: write   # Push the packages to GitHub Packages
+      packages: write   # Restore ClosedXML.Parser from and push the packages to GitHub Packages
 
     steps:
       - name: Checkout code
@@ -51,6 +51,11 @@ jobs:
           echo "Releasing $version"
 
       - name: Restore dependencies
+        # nuget.config reads these variables. The fork of ClosedXML.Parser is on the GitHub Packages feed of BitBindle,
+        # and the feed needs authentication, also for a public package. Only the steps that use the feed get the token.
+        env:
+          GITHUB_PACKAGES_USER: ${{ github.actor }}
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: dotnet restore ClosedXML.slnx
 
       - name: Build
@@ -94,6 +99,10 @@ jobs:
         # GitHub Packages has no support for symbol packages (.snupkg), the pdb is in the package.
         # An already published version is an error, a version is never published twice.
         if: ${{ !inputs.dry_run }}
+        # The source URL matches the feed in nuget.config, which reads these variables.
+        env:
+          GITHUB_PACKAGES_USER: ${{ github.actor }}
+          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >
           dotnet nuget push "artifacts/*.nupkg"
           --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
