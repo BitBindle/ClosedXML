@@ -13,6 +13,7 @@ namespace ClosedXML.Excel
     {
         private readonly XLWorksheet _worksheet;
         private String _name;
+        private XLPivotTableTheme _theme;
 
         /// <summary>
         /// List of all fields in the pivot table, roughly represents <c>pivotTableDefinition.
@@ -99,7 +100,21 @@ namespace ClosedXML.Excel
         /// <summary>
         /// Table theme this pivot table will use.
         /// </summary>
-        public XLPivotTableTheme Theme { get; set; }
+        public XLPivotTableTheme Theme
+        {
+            get => _theme;
+            set
+            {
+                _theme = value;
+                CustomStyleName = null;
+            }
+        }
+
+        /// <summary>
+        /// The name of a custom pivot table style of the workbook. If the name is set, the
+        /// <see cref="Theme"/> is <see cref="XLPivotTableTheme.None"/>.
+        /// </summary>
+        internal String CustomStyleName { get; set; }
 
         /// <summary>
         /// All fields reflected in the pivot cache.
