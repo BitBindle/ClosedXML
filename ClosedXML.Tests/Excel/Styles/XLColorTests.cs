@@ -41,8 +41,8 @@ public class XLColorTests
         // IEquatable and object.Equals require false for null and for an object of a different type.
         var red = XLColor.Red;
 
-        Assert.That(red.Equals((XLColor?)null), Is.False);
-        Assert.That(red.Equals((object?)null), Is.False);
+        Assert.That(red.Equals((XLColor)null), Is.False);
+        Assert.That(red.Equals((object)null), Is.False);
         Assert.That(red.Equals("Red"), Is.False);
         Assert.That(red.Equals((object)XLColor.FromColor(Color.Red)), Is.True);
     }

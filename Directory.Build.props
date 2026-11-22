@@ -10,7 +10,7 @@
        Remove VersionSuffix to release a stable version. A stable package can't have a prerelease
        dependency (NU5104). Before you remove VersionSuffix, make sure that each dependency is a stable version. -->
   <PropertyGroup>
-    <VersionMajorMinor>0.106</VersionMajorMinor>
+    <VersionMajorMinor>0.107</VersionMajorMinor>
     <VersionPrefix Condition="'$(VersionPrefix)' == ''">$(VersionMajorMinor).0</VersionPrefix>
     <VersionSuffix>preview</VersionSuffix>
     <Version Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</Version>
