@@ -265,7 +265,7 @@ internal class XLPivotTableField
             return existingItem;
 
         var newItem = new XLPivotFieldItem(this, sharedItemIndex);
-        _items.Add(newItem);
+        InsertDataItem(newItem);
         return newItem;
     }
 
@@ -287,10 +287,13 @@ internal class XLPivotTableField
         var fieldIndex = _pivotTable.GetFieldIndex(this);
         var sharedItems = _pivotTable.PivotCache.GetFieldSharedItems(fieldIndex);
 
-        var pivotFieldItems = Items
-            .WhereNotNull(fieldItem => fieldItem.ItemIndex)
-            .Select((itemItem, index) => (Index: index, ItemIndex: (uint)itemItem))
-            .ToDictionary(x => x.ItemIndex, x => x.Index);
+        var pivotFieldItems = new Dictionary<uint, XLPivotFieldItem>();
+        foreach (var fieldItem in _items)
+        {
+            if (fieldItem.ItemIndex is { } itemIndex)
+                pivotFieldItems[(uint)itemIndex] = fieldItem;
+        }
+
         var filteredItems = new List<XLPivotFieldItem>();
         for (uint sharedItemIndex = 0; sharedItemIndex < sharedItems.Count; ++sharedItemIndex)
         {
@@ -300,19 +303,28 @@ internal class XLPivotTableField
 
             // Generally speaking, Excel created workbooks seem to always have all items
             // for axis fields, but that is not true for workbooks created by other producers.
-            if (pivotFieldItems.TryGetValue(sharedItemIndex, out var index))
+            if (pivotFieldItems.TryGetValue(sharedItemIndex, out var existingItem))
             {
-                filteredItems.Add(Items[index]);
+                filteredItems.Add(existingItem);
             }
             else
             {
                 var addedItem = new XLPivotFieldItem(this, (int)sharedItemIndex);
-                AddItem(addedItem);
+                InsertDataItem(addedItem);
                 filteredItems.Add(addedItem);
             }
         }
 
         return filteredItems;
+    }
+
+    /// <summary>
+    /// Insert a data item before the subtotal items. Excel requires the subtotal items at the end of the items.
+    /// </summary>
+    private void InsertDataItem(XLPivotFieldItem item)
+    {
+        var index = _items.FindIndex(static x => x.ItemType != XLPivotItemType.Data);
+        _items.Insert(index >= 0 ? index : _items.Count, item);
     }
 
     private static XLPivotItemType GetItemTypeForSubtotal(XLSubtotalFunction value)

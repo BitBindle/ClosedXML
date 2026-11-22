@@ -190,6 +190,69 @@ internal class XLPivotTablePageFieldTests
     }
 
     [Test]
+    [Issue("41")]
+    public void AddSelectedValue_adds_missing_field_item_before_subtotal_items()
+    {
+        // Excel tries to repair a workbook if a subtotal item is not at the end of the field items.
+        using var ms = CreateFileWithoutRomeItem();
+        using (var wb = new XLWorkbook(ms))
+        {
+            wb.Worksheet(1).PivotTable("pt").ReportFilters.Single().AddSelectedValue("Rome");
+            wb.Save();
+        }
+
+        using (var document = SpreadsheetDocument.Open(ms, false))
+        {
+            var definition = document.WorkbookPart!.WorksheetParts.Single().PivotTableParts.Single().PivotTableDefinition!;
+            var cityItems = definition.PivotFields!.Elements<PivotField>().ElementAt(1).Items!.Elements<Item>().ToList();
+            Assert.AreEqual(new uint?[] { 0, 1, 3, 2, null }, cityItems.Select(i => i.Index?.Value));
+            Assert.AreEqual(ItemValues.Default, cityItems.Last().ItemType!.Value);
+            var pageField = definition.PageFields!.Elements<PageField>().Single();
+            Assert.AreEqual(3, pageField.Item!.Value);
+        }
+
+        using (var wb = new XLWorkbook(ms))
+        {
+            var filter = wb.Worksheet(1).PivotTable("pt").ReportFilters.Single();
+            Assert.AreEqual(new XLCellValue[] { "Rome" }, filter.SelectedValues);
+        }
+    }
+
+    [Test]
+    [Issue("41")]
+    public void AddSelectedValue_with_multiple_selection_adds_missing_field_item_before_subtotal_items()
+    {
+        using var ms = CreateFileWithoutRomeItem();
+        using var wb = new XLWorkbook(ms);
+        var pt = (XLPivotTable)wb.Worksheet(1).PivotTable("pt");
+        var filter = pt.ReportFilters.Single();
+
+        filter.AddSelectedValue("Paris");
+        filter.AddSelectedValue("Rome");
+
+        var cityItems = pt.PivotFields[1].Items;
+        Assert.AreEqual(new int?[] { 0, 1, 3, 2, null }, cityItems.Select(i => i.ItemIndex));
+        Assert.AreEqual(XLPivotItemType.Default, cityItems.Last().ItemType);
+        CollectionAssert.AreEquivalent(new XLCellValue[] { "Paris", "Rome" }, filter.SelectedValues);
+    }
+
+    [Test]
+    [Issue("41")]
+    public void GetAllItems_adds_missing_field_item_before_subtotal_items()
+    {
+        using var ms = CreateFileWithoutRomeItem();
+        using var wb = new XLWorkbook(ms);
+        var pt = (XLPivotTable)wb.Worksheet(1).PivotTable("pt");
+        var cityField = pt.PivotFields[1];
+
+        var items = cityField.GetAllItems(value => value.GetText().Contains('o'));
+
+        Assert.AreEqual(new int?[] { 0, 2, 3 }, items.Select(i => i.ItemIndex));
+        Assert.AreEqual(new int?[] { 0, 1, 3, 2, null }, cityField.Items.Select(i => i.ItemIndex));
+        Assert.AreEqual(XLPivotItemType.Default, cityField.Items.Last().ItemType);
+    }
+
+    [Test]
     public void Filter_field_is_only_in_filter_list()
     {
         using var wb = new XLWorkbook();
@@ -241,6 +304,31 @@ internal class XLPivotTablePageFieldTests
 
             if (selectedItem is not null)
                 definition.PageFields!.Elements<PageField>().Single().Item = selectedItem.Value;
+        }
+
+        return ms;
+    }
+
+    /// <summary>
+    /// Creates a file with a City filter. The City field has no item for the shared item "Rome".
+    /// Excel does not save such a field, but other producers can.
+    /// </summary>
+    private static MemoryStream CreateFileWithoutRomeItem()
+    {
+        var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var pt = CreatePivotTable(wb);
+            pt.ReportFilters.Add("City");
+            wb.SaveAs(ms);
+        }
+
+        using (var document = SpreadsheetDocument.Open(ms, true))
+        {
+            var definition = document.WorkbookPart!.WorksheetParts.Single().PivotTableParts.Single().PivotTableDefinition!;
+            var cityItems = definition.PivotFields!.Elements<PivotField>().ElementAt(1).Items!;
+            cityItems.Elements<Item>().Single(i => i.Index?.Value == 2).Remove();
+            cityItems.Count = (uint)cityItems.Elements<Item>().Count();
         }
 
         return ms;
