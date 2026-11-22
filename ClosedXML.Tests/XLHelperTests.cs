@@ -27,6 +27,7 @@ namespace ClosedXML.Tests
 
         [Test]
         [SetCulture("tr-TR")]
+        [Issue("ClosedXML/ClosedXML#2901")]
         public void IsValidColumn_ignores_current_culture_for_lowercase_i()
         {
             // The Turkish culture changes the upper case of "i" to "İ" (U+0130), which is not a column letter.
@@ -40,6 +41,7 @@ namespace ClosedXML.Tests
 
         [Test]
         [SetCulture("tr-TR")]
+        [Issue("ClosedXML/ClosedXML#2901")]
         public void Range_with_lowercase_i_column_is_valid_in_any_culture()
         {
             using var wb = new XLWorkbook();

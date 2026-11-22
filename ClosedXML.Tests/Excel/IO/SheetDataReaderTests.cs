@@ -513,6 +513,37 @@ internal class SheetDataReaderTests
     }
 
     [Test]
+    public void Array_formula_text_results_are_not_shared_strings()
+    {
+        // The text result of a formula is stored in the sheet, not in the shared string table.
+        // This applies to each cell of the array, not only to the master cell.
+        AssertSheetData(
+            """
+            <sheetData>
+              <row r="1">
+                <c r="A1" t="str">
+                  <f t="array" ref="A1:B2">"a"</f>
+                  <v>a</v>
+                </c>
+                <c r="B1" t="str"><v>a</v></c>
+              </row>
+              <row r="2">
+                <c r="A2" t="str"><v>a</v></c>
+                <c r="B2" t="str"><v>a</v></c>
+              </row>
+            </sheetData>
+            """,
+            (ws, _) =>
+            {
+                foreach (var address in new[] { "A1", "B1", "A2", "B2" })
+                {
+                    Assert.True(ws.Cell(address).HasArrayFormula, address);
+                    Assert.False(ws.Cell(address).ShareString, address);
+                }
+            });
+    }
+
+    [Test]
     public void Shared_formula_translates_relative_references()
     {
         AssertSheetData(

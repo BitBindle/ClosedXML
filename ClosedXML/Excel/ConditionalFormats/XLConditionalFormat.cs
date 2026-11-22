@@ -264,7 +264,7 @@ namespace ClosedXML.Excel
 
         public IXLStyle WhenContains(String value)
         {
-            Values.Initialize(new XLFormula { Value = value });
+            Values.Initialize(XLFormula.Text(value));
             ConditionalFormatType = XLConditionalFormatType.ContainsText;
             Operator = XLCFOperator.Contains;
             return Style;
@@ -272,7 +272,7 @@ namespace ClosedXML.Excel
 
         public IXLStyle WhenNotContains(String value)
         {
-            Values.Initialize(new XLFormula { Value = value });
+            Values.Initialize(XLFormula.Text(value));
             ConditionalFormatType = XLConditionalFormatType.NotContainsText;
             Operator = XLCFOperator.NotContains;
             return Style;
@@ -280,7 +280,7 @@ namespace ClosedXML.Excel
 
         public IXLStyle WhenStartsWith(String value)
         {
-            Values.Initialize(new XLFormula { Value = value });
+            Values.Initialize(XLFormula.Text(value));
             ConditionalFormatType = XLConditionalFormatType.StartsWith;
             Operator = XLCFOperator.StartsWith;
             return Style;
@@ -288,7 +288,7 @@ namespace ClosedXML.Excel
 
         public IXLStyle WhenEndsWith(String value)
         {
-            Values.Initialize(new XLFormula { Value = value });
+            Values.Initialize(XLFormula.Text(value));
             ConditionalFormatType = XLConditionalFormatType.EndsWith;
             Operator = XLCFOperator.EndsWith;
             return Style;

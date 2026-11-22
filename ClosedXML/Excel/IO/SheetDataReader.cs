@@ -272,7 +272,7 @@ internal partial class SheetDataReader
             {
                 for (var row = arrayArea.FirstPoint.Row; row <= arrayArea.LastPoint.Row; ++row)
                 {
-                    valueSlice.SetShareString(cellAddress, false);
+                    valueSlice.SetShareString(new Point(row, col), false);
                 }
             }
         }

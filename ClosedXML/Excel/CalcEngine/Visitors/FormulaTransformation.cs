@@ -24,7 +24,16 @@ internal static class FormulaTransformation
         if (!MightContainFutureFunction(formula.AsSpan()))
             return formula;
 
-        return FormulaConverter.ModifyA1(formula, sheetName, origin.Row, origin.Column, RemapFutureFunctions);
+        try
+        {
+            return FormulaConverter.ModifyA1(formula, sheetName, origin.Row, origin.Column, RemapFutureFunctions);
+        }
+        catch (ParsingException)
+        {
+            // The method does not parse a formula without a future function. Thus it also keeps
+            // an unparsable formula with a future function.
+            return formula;
+        }
     }
 
     private static bool MightContainFutureFunction(ReadOnlySpan<char> formula)

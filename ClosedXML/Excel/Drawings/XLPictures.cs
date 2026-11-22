@@ -140,15 +140,32 @@ namespace ClosedXML.Excel.Drawings
         internal IXLPicture Add(Stream stream, string name, int Id)
         {
             var picture = (XLPicture)Add(stream);
-            picture.SetName(name);
+
+            // Excel can save a picture with an empty name. Keep the generated name for it, as Excel does.
+            if (!String.IsNullOrEmpty(name))
+                picture.SetName(name);
+
             picture.Id = Id;
             return picture;
+        }
+
+        /// <summary>
+        /// Give a new generated name to each of the <paramref name="pictures"/> that has the name of a different picture.
+        /// </summary>
+        internal void RenameDuplicates(IEnumerable<XLPicture> pictures)
+        {
+            foreach (var picture in pictures)
+            {
+                var hasDuplicate = _pictures.Any(p => p != picture && p.Name.Equals(picture.Name, StringComparison.OrdinalIgnoreCase));
+                if (hasDuplicate)
+                    picture.SetName(GetNextPictureName());
+            }
         }
 
         private String GetNextPictureName()
         {
             var pictureNumber = this.Count;
-            while (_pictures.Any(p => p.Name == $"Picture {pictureNumber}"))
+            while (_pictures.Any(p => p.Name.Equals($"Picture {pictureNumber}", StringComparison.OrdinalIgnoreCase)))
             {
                 pictureNumber++;
             }

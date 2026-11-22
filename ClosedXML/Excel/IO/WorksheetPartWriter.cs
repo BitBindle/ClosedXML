@@ -1489,6 +1489,10 @@ namespace ClosedXML.Excel.IO
 
             foreach (var (columnNumber, xlFilterColumn) in xlAutoFilter.Columns)
             {
+                // ClosedXML has no data to save for a column without a filter condition.
+                if (xlFilterColumn.FilterType == XLFilterType.None)
+                    continue;
+
                 var filterColumn = new FilterColumn { ColumnId = (UInt32)columnNumber - 1 };
 
                 switch (xlFilterColumn.FilterType)

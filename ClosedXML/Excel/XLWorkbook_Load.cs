@@ -419,8 +419,10 @@ namespace ClosedXML.Excel
                             var clientData = shape.Elements().First(e => e.Name.LocalName == "ClientData");
                             LoadClientData(xlComment, clientData);
 
-                            var textBox = shape.Elements().First(e => e.Name.LocalName == "textbox");
-                            LoadTextBox(xlComment, textBox);
+                            // The textbox element is optional (CT_Shape of VML).
+                            var textBox = shape.Elements().FirstOrDefault(e => e.Name.LocalName == "textbox");
+                            if (textBox != null)
+                                LoadTextBox(xlComment, textBox);
 
                             var alt = shape.Attribute("alt");
                             if (alt != null) xlComment.Style.Web.SetAlternateText(alt.Value);
@@ -500,6 +502,7 @@ namespace ClosedXML.Excel
             if (wsPart.DrawingsPart != null)
             {
                 var drawingsPart = wsPart.DrawingsPart;
+                var unnamedPictures = new List<XLPicture>();
 
                 foreach (var anchor in drawingsPart.WorksheetDrawing.ChildElements)
                 {
@@ -517,6 +520,8 @@ namespace ClosedXML.Excel
 
                         var picture = ws.AddPicture(ms, vsdp.Name, Convert.ToInt32(vsdp.Id.Value)) as XLPicture;
                         picture.RelId = imgId;
+                        if (String.IsNullOrEmpty(vsdp.Name))
+                            unnamedPictures.Add(picture);
 
                         Xdr.ShapeProperties spPr = anchor.Descendants<Xdr.ShapeProperties>().First();
                         picture.Placement = XLPicturePlacement.FreeFloating;
@@ -569,6 +574,9 @@ namespace ClosedXML.Excel
                         }
                     }
                 }
+
+                // A picture that loads later can have the generated name of an unnamed picture.
+                ws.Pictures.RenameDuplicates(unnamedPictures);
             }
         }
 

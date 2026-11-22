@@ -379,7 +379,7 @@ internal class WorksheetPartReader
                      XLConditionalFormatType.StartsWith or
                      XLConditionalFormatType.EndsWith)
             {
-                conditionalFormat.Values.Add(new XLFormula(fr.Text?.Value ?? string.Empty) { IsFormula = false });
+                conditionalFormat.Values.Add(XLFormula.Text(fr.Text?.Value));
             }
             else if (conditionalFormat.ConditionalFormatType == XLConditionalFormatType.Top10)
             {
