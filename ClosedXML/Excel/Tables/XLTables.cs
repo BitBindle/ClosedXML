@@ -81,6 +81,15 @@ namespace ClosedXML.Excel
                 Deleted.Add(relId);
         }
 
+        /// <summary>
+        /// Changes the key of a table in the list after a change of its name.
+        /// </summary>
+        internal void Rename(String oldName, XLTable table)
+        {
+            _tables.Remove(oldName);
+            _tables.Add(table.Name, table);
+        }
+
         public IXLTable Table(Int32 index)
         {
             return _tables.ElementAt(index).Value;

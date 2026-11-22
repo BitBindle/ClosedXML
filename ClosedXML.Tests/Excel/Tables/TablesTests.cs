@@ -784,6 +784,89 @@ namespace ClosedXML.Tests.Excel
         }
 
         [Test]
+        [Issue("30")]
+        public void Rename_of_table_from_AsTable_does_not_add_table_to_worksheet_tables()
+        {
+            // IXLRange.AsTable documents that the table is not in the Tables list.
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("B2").Value = "Header";
+            ws.Cell("B3").Value = 1;
+
+            var table = ws.Range("B2:B3").AsTable();
+            table.Name = "Other";
+
+            Assert.AreEqual("Other", table.Name);
+            CollectionAssert.IsEmpty(ws.Tables);
+        }
+
+        [Test]
+        [Issue("30")]
+        public void AsTable_with_name_on_same_range_does_not_add_table_to_worksheet_tables()
+        {
+            // The range repository gives the same table object for the same range, so the second call renames it.
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("B2").Value = "Header";
+            ws.Cell("B3").Value = 1;
+
+            var first = ws.Range("B2:B3").AsTable("First");
+            var second = ws.Range("B2:B3").AsTable("Second");
+
+            Assert.AreSame(first, second);
+            Assert.AreEqual("Second", second.Name);
+            CollectionAssert.IsEmpty(ws.Tables);
+        }
+
+        [Test]
+        [Issue("30")]
+        public void Rename_of_table_in_worksheet_tables_replaces_old_name()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("B2").Value = "Header";
+            ws.Cell("B3").Value = 1;
+            var table = ws.Range("B2:B3").CreateTable("Old");
+
+            table.Name = "New";
+
+            Assert.AreEqual(1, ws.Tables.Count());
+            Assert.False(ws.Tables.Contains("Old"));
+            Assert.AreSame(table, ws.Tables.Table("New"));
+        }
+
+        [Test]
+        [Issue("30")]
+        public void Rename_of_loaded_table_saves_table_with_new_name()
+        {
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                ws.Cell("B2").Value = "Header";
+                ws.Cell("B3").Value = 1;
+                ws.Range("B2:B3").CreateTable("Old");
+                wb.SaveAs(ms);
+            }
+
+            using (var wb = new XLWorkbook(ms))
+            {
+                var ws = wb.Worksheet(1);
+                ws.Tables.Table("Old").Name = "New";
+                Assert.AreEqual(1, ws.Tables.Count());
+                wb.Save();
+            }
+
+            using (var wb = new XLWorkbook(ms))
+            {
+                var tables = wb.Worksheet(1).Tables;
+                Assert.AreEqual(1, tables.Count());
+                Assert.AreEqual("New", tables.Single().Name);
+                Assert.AreEqual("B2:B3", tables.Single().RangeAddress.ToString());
+            }
+        }
+
+        [Test]
         public void CanResizeTable()
         {
             using (var wb = new XLWorkbook())
