@@ -187,7 +187,7 @@ namespace ClosedXML.Tests
 
         [Test]
         [Issue("77")]
-        public void Column_letter_and_column_number_round_trip()
+        public void Column_letter_converts_to_column_number_and_back()
         {
             for (var column = XLHelper.MinColumnNumber; column <= XLHelper.MaxColumnNumber; column++)
             {
@@ -262,7 +262,7 @@ namespace ClosedXML.Tests
         [TestCase("B$5", 5, 2, true, false)]
         [TestCase("$xfd$1048576", 1048576, 16384, true, true)]
         [Issue("77")]
-        public void A1_address_is_parsed(string text, int row, int column, bool fixedRow, bool fixedColumn)
+        public void Create_reads_row_column_and_dollar_signs(string text, int row, int column, bool fixedRow, bool fixedColumn)
         {
             var address = XLAddress.Create(text);
             Assert.AreEqual(row, address.RowNumber);
@@ -278,7 +278,7 @@ namespace ClosedXML.Tests
         [TestCase("$2:3", "A2:XFD3")]
         [TestCase("B:$D", "B1:D1048576")]
         [Issue("77")]
-        public void Range_address_is_parsed(string text, string expected)
+        public void Constructor_reads_range_address(string text, string expected)
         {
             using var wb = new XLWorkbook();
             var ws = (XLWorksheet)wb.AddWorksheet("Sheet");

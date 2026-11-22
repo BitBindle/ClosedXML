@@ -55,7 +55,7 @@ namespace ClosedXML.Excel
             var colonIndex = addressToUse.IndexOf(':');
             if (colonIndex >= 0)
             {
-                // Text after a second colon is ignored.
+                // The constructor ignores the text after a second colon.
                 firstSpan = addressToUse[..colonIndex];
                 secondSpan = addressToUse[(colonIndex + 1)..];
                 var secondColonIndex = secondSpan.IndexOf(':');
@@ -75,7 +75,7 @@ namespace ClosedXML.Excel
             }
             else
             {
-                // A range of whole rows or whole columns, for example 1:3 or A:C.
+                // This branch reads a range of whole rows or whole columns, for example 1:3 or A:C.
                 var firstPart = firstSpan.ToString().Replace("$", String.Empty);
                 var secondPart = secondSpan.ToString().Replace("$", String.Empty);
                 if (char.IsDigit(firstPart[0]))
