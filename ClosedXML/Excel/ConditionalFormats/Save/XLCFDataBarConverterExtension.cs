@@ -1,4 +1,5 @@
 using ClosedXML.Extensions;
+using ClosedXML.Utils;
 using DocumentFormat.OpenXml.Office.Excel;
 using DocumentFormat.OpenXml.Office2010.Excel;
 using System.Collections.Generic;
@@ -27,13 +28,21 @@ namespace ClosedXML.Excel
                 Id = ((XLConditionalFormat)cf).Id.WrapInBraces()
             };
 
+            var options = ((XLConditionalFormat)cf).DataBarOptions;
             DataBar dataBar = new DataBar()
             {
-                MinLength = 0,
-                MaxLength = 100,
+                MinLength = options.MinLength,
+                MaxLength = options.MaxLength,
                 Gradient = cf.Gradient,
-                ShowValue = !cf.ShowBarOnly
+                ShowValue = !cf.ShowBarOnly,
+                Border = OpenXmlHelper.GetBooleanValue(options.Border, false),
+                NegativeBarColorSameAsPositive = OpenXmlHelper.GetBooleanValue(options.NegativeBarColorSameAsPositive, false),
+                NegativeBarBorderColorSameAsPositive = OpenXmlHelper.GetBooleanValue(options.NegativeBarBorderColorSameAsPositive, true),
             };
+            if (options.Direction != XLCFDataBarDirection.Context)
+                dataBar.Direction = options.Direction.ToOpenXml();
+            if (options.AxisPosition != XLCFDataBarAxisPosition.Automatic)
+                dataBar.AxisPosition = options.AxisPosition.ToOpenXml();
 
             var cfMinType = cf.ContentTypes.TryGetValue(1, out var contentType1)
                 ? GetCFType(contentType1.ToOpenXml())
@@ -55,19 +64,24 @@ namespace ClosedXML.Excel
                 cfMax.Append(new Formula() { Text = cf.Values[2].Value });
             }
 
-            var barAxisColor = new BarAxisColor { Rgb = XLColor.Black.Color.ToHex() };
-
             var negativeFillColor = new NegativeFillColor { Rgb = cf.Colors[1].Color.ToHex() };
             if (cf.Colors.Count == 2)
             {
                 negativeFillColor = new NegativeFillColor { Rgb = cf.Colors[2].Color.ToHex() };
             }
 
+            // The schema gives the order of the elements.
             dataBar.Append(cfMin);
             dataBar.Append(cfMax);
+            if (options.BorderColor is not null)
+                dataBar.Append(new BorderColor().FromClosedXMLColor<BorderColor>(options.BorderColor));
 
             dataBar.Append(negativeFillColor);
-            dataBar.Append(barAxisColor);
+            if (options.NegativeBorderColor is not null)
+                dataBar.Append(new NegativeBorderColor().FromClosedXMLColor<NegativeBorderColor>(options.NegativeBorderColor));
+
+            if (options.AxisColor is not null)
+                dataBar.Append(new BarAxisColor().FromClosedXMLColor<BarAxisColor>(options.AxisColor));
 
             conditionalFormattingRule.Append(dataBar);
 

@@ -703,6 +703,8 @@ internal class WorksheetPartReader
                 // The schema default of the gradient attribute is true. Excel writes the attribute only for a solid fill.
                 var dataBar = conditionalFormattingRule.Elements<X14.DataBar>().FirstOrDefault();
                 xlConditionalFormat.Gradient = dataBar?.Gradient?.Value ?? true;
+                if (dataBar is not null)
+                    xlConditionalFormat.DataBarOptions = LoadDataBarOptions(dataBar);
             }
         }
 
@@ -757,6 +759,24 @@ internal class WorksheetPartReader
                 xlSparklineGroup.SetSparkline(location, sparkline.Formula?.Text);
             }
         }
+    }
+
+    private static XLCFDataBarOptions LoadDataBarOptions(X14.DataBar dataBar)
+    {
+        // The defaults are the schema defaults of [MS-XLSX] CT_DataBar.
+        return new XLCFDataBarOptions
+        {
+            MinLength = dataBar.MinLength?.Value ?? 10,
+            MaxLength = dataBar.MaxLength?.Value ?? 90,
+            Border = dataBar.Border?.Value ?? false,
+            BorderColor = dataBar.GetFirstChild<X14.BorderColor>()?.ToClosedXMLColor(),
+            NegativeBarColorSameAsPositive = dataBar.NegativeBarColorSameAsPositive?.Value ?? false,
+            NegativeBarBorderColorSameAsPositive = dataBar.NegativeBarBorderColorSameAsPositive?.Value ?? true,
+            NegativeBorderColor = dataBar.GetFirstChild<X14.NegativeBorderColor>()?.ToClosedXMLColor(),
+            Direction = dataBar.Direction?.Value.ToClosedXml() ?? XLCFDataBarDirection.Context,
+            AxisPosition = dataBar.AxisPosition?.Value.ToClosedXml() ?? XLCFDataBarAxisPosition.Automatic,
+            AxisColor = dataBar.GetFirstChild<X14.BarAxisColor>()?.ToClosedXMLColor(),
+        };
     }
 
     private static void ApplyStyle(IXLFormatContainer container, Int32 styleIndex, XLWorkbookStyles styles)

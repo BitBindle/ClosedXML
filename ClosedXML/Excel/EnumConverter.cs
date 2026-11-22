@@ -904,6 +904,32 @@ namespace ClosedXML.Excel
             }
         }
 
+        public static X14.DataBarDirectionValues ToOpenXml(this XLCFDataBarDirection value)
+        {
+            switch (value)
+            {
+                case XLCFDataBarDirection.Context: return X14.DataBarDirectionValues.Context;
+                case XLCFDataBarDirection.LeftToRight: return X14.DataBarDirectionValues.LeftToRight;
+                case XLCFDataBarDirection.RightToLeft: return X14.DataBarDirectionValues.RightToLeft;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
+            }
+        }
+
+        public static X14.DataBarAxisPositionValues ToOpenXml(this XLCFDataBarAxisPosition value)
+        {
+            switch (value)
+            {
+                case XLCFDataBarAxisPosition.Automatic: return X14.DataBarAxisPositionValues.Automatic;
+                case XLCFDataBarAxisPosition.Middle: return X14.DataBarAxisPositionValues.Middle;
+                case XLCFDataBarAxisPosition.None: return X14.DataBarAxisPositionValues.None;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(value), "Not implemented value!");
+            }
+        }
+
         public static X14.DisplayBlanksAsValues ToOpenXml(this XLDisplayBlanksAsValues value)
         {
             switch (value)
@@ -1537,6 +1563,32 @@ namespace ClosedXML.Excel
         public static XLSparklineAxisMinMax ToClosedXml(this X14.SparklineAxisMinMaxValues value)
         {
             return SparklineAxisMinMaxMap[value];
+        }
+
+        private static readonly IReadOnlyDictionary<X14.DataBarDirectionValues, XLCFDataBarDirection> DataBarDirectionMap =
+            new Dictionary<X14.DataBarDirectionValues, XLCFDataBarDirection>
+            {
+                { X14.DataBarDirectionValues.Context, XLCFDataBarDirection.Context },
+                { X14.DataBarDirectionValues.LeftToRight, XLCFDataBarDirection.LeftToRight },
+                { X14.DataBarDirectionValues.RightToLeft, XLCFDataBarDirection.RightToLeft },
+            };
+
+        public static XLCFDataBarDirection ToClosedXml(this X14.DataBarDirectionValues value)
+        {
+            return DataBarDirectionMap[value];
+        }
+
+        private static readonly IReadOnlyDictionary<X14.DataBarAxisPositionValues, XLCFDataBarAxisPosition> DataBarAxisPositionMap =
+            new Dictionary<X14.DataBarAxisPositionValues, XLCFDataBarAxisPosition>
+            {
+                { X14.DataBarAxisPositionValues.Automatic, XLCFDataBarAxisPosition.Automatic },
+                { X14.DataBarAxisPositionValues.Middle, XLCFDataBarAxisPosition.Middle },
+                { X14.DataBarAxisPositionValues.None, XLCFDataBarAxisPosition.None },
+            };
+
+        public static XLCFDataBarAxisPosition ToClosedXml(this X14.DataBarAxisPositionValues value)
+        {
+            return DataBarAxisPositionMap[value];
         }
 
         private static readonly IReadOnlyDictionary<X14.DisplayBlanksAsValues, XLDisplayBlanksAsValues> DisplayBlanksAsMap =

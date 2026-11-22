@@ -37,6 +37,7 @@ namespace ClosedXML.Excel
                     && xx.ShowIconOnly == yy.ShowIconOnly
                     && xx.ShowBarOnly == yy.ShowBarOnly
                     && xx.Gradient == yy.Gradient
+                    && xx.DataBarOptions == yy.DataBarOptions
                     && SetEquals(xxValues, yyValues)
                     && SetEquals(xxFormulas, yyFormulas)
                     && Equals(xx.Colors, yy.Colors)
@@ -130,6 +131,7 @@ namespace ClosedXML.Excel
             ShowIconOnly = other.ShowIconOnly;
             ShowBarOnly = other.ShowBarOnly;
             Gradient = other.Gradient;
+            DataBarOptions = other.DataBarOptions;
             StopIfTrue = other.StopIfTrue;
 
             var sourceAnchor = other.Areas[0].FirstPoint;
@@ -208,6 +210,11 @@ namespace ClosedXML.Excel
         public Boolean ShowBarOnly { get; set; }
 
         public Boolean Gradient { get; set; } = true;
+
+        /// <summary>
+        /// The options of a data bar that only an Excel 2010 rule has. The record is immutable, so a copy can share it.
+        /// </summary>
+        internal XLCFDataBarOptions DataBarOptions { get; set; } = XLCFDataBarOptions.Default;
 
         public Boolean StopIfTrue { get; set; }
 
