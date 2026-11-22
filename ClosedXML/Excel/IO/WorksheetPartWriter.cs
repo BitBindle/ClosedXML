@@ -1498,7 +1498,11 @@ namespace ClosedXML.Excel.IO
                         foreach (var xlFilter in xlFilterColumn)
                         {
                             // Since OOXML allows only string, the operand for custom filter must be serialized.
-                            var filterValue = xlFilter.CustomValue.ToString(CultureInfo.InvariantCulture);
+                            // A number gets the round-trip text, because the default format gives different digits on .NET Framework.
+                            var customValue = xlFilter.CustomValue;
+                            var filterValue = customValue.IsNumber
+                                ? ObjectExtensions.ToRoundTripString(customValue.GetNumber())
+                                : customValue.ToString(CultureInfo.InvariantCulture);
                             var customFilter = new CustomFilter { Val = filterValue };
 
                             if (xlFilter.Operator != XLFilterOperator.Equal)
