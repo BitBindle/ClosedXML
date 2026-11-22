@@ -493,6 +493,110 @@ namespace ClosedXML.Tests
             Assert.AreEqual(5, outValue);
         }
 
+        // Int64.MaxValue and UInt64.MaxValue become 2^63 and 2^64 as a double. These values are
+        // outside the range, so the conversion must fail and not wrap around.
+        [TestCase(9223372036854775808d)]
+        [TestCase(1e19)]
+        [TestCase(-9223372036854777856d)]
+        [Issue("15")]
+        public void TryGetValue_long_fails_outside_range(double cellValue)
+        {
+            using var wb = new XLWorkbook();
+            var cell = wb.AddWorksheet().Cell("A1").SetValue(cellValue);
+
+            Assert.IsFalse(cell.TryGetValue(out long _));
+            Assert.Throws<InvalidCastException>(() => cell.GetValue<long>());
+        }
+
+        [TestCase(9223372036854774784d, 9223372036854774784L)]
+        [TestCase(-9223372036854775808d, long.MinValue)]
+        [Issue("15")]
+        public void TryGetValue_long_succeeds_at_range_limits(double cellValue, long expected)
+        {
+            using var wb = new XLWorkbook();
+            var cell = wb.AddWorksheet().Cell("A1").SetValue(cellValue);
+
+            Assert.IsTrue(cell.TryGetValue(out long value));
+            Assert.AreEqual(expected, value);
+        }
+
+        [TestCase(18446744073709551616d)]
+        [TestCase(1e20)]
+        [TestCase(-1d)]
+        [Issue("15")]
+        public void TryGetValue_ulong_fails_outside_range(double cellValue)
+        {
+            using var wb = new XLWorkbook();
+            var cell = wb.AddWorksheet().Cell("A1").SetValue(cellValue);
+
+            Assert.IsFalse(cell.TryGetValue(out ulong _));
+            Assert.Throws<InvalidCastException>(() => cell.GetValue<ulong>());
+        }
+
+        [TestCase(18446744073709549568d, 18446744073709549568UL)]
+        [TestCase(0d, 0UL)]
+        [Issue("15")]
+        public void TryGetValue_ulong_succeeds_at_range_limits(double cellValue, ulong expected)
+        {
+            using var wb = new XLWorkbook();
+            var cell = wb.AddWorksheet().Cell("A1").SetValue(cellValue);
+
+            Assert.IsTrue(cell.TryGetValue(out ulong value));
+            Assert.AreEqual(expected, value);
+        }
+
+        // decimal.MaxValue is about 7.9e28. A larger double must fail and not throw an OverflowException.
+        [TestCase(1e30)]
+        [TestCase(-1e30)]
+        [TestCase(7.922816251426435e28)]
+        [TestCase(double.MaxValue)]
+        [Issue("15")]
+        public void TryGetValue_decimal_fails_outside_range(double cellValue)
+        {
+            using var wb = new XLWorkbook();
+            var cell = wb.AddWorksheet().Cell("A1").SetValue(cellValue);
+
+            Assert.IsFalse(cell.TryGetValue(out decimal _));
+            Assert.IsFalse(cell.TryGetValue(out decimal? _));
+            Assert.Throws<InvalidCastException>(() => cell.GetValue<decimal>());
+        }
+
+        [TestCase(7.92e28, "79200000000000000000000000000")]
+        [TestCase(-7.92e28, "-79200000000000000000000000000")]
+        [Issue("15")]
+        public void TryGetValue_decimal_succeeds_near_range_limit(double cellValue, string expected)
+        {
+            using var wb = new XLWorkbook();
+            var cell = wb.AddWorksheet().Cell("A1").SetValue(cellValue);
+
+            Assert.IsTrue(cell.TryGetValue(out decimal value));
+            Assert.AreEqual(decimal.Parse(expected, CultureInfo.InvariantCulture), value);
+        }
+
+        [Test]
+        [Issue("15")]
+        public void TryGetValue_decimal_does_not_throw_at_range_limit()
+        {
+            // The double nearest to decimal.MaxValue is 2^96. On .NET, the cast to decimal throws
+            // an OverflowException. TryGetValue must not throw.
+            using var wb = new XLWorkbook();
+            var cell = wb.AddWorksheet().Cell("A1").SetValue((double)decimal.MaxValue);
+
+            Assert.DoesNotThrow(() => cell.TryGetValue(out decimal _));
+        }
+
+        [Test]
+        [Issue("15")]
+        public void GetValue_decimal_keeps_15_significant_digits()
+        {
+            // A cell keeps a number as a double, and the conversion to decimal keeps 15 significant digits.
+            using var wb = new XLWorkbook();
+            var cell = wb.AddWorksheet().Cell("A1").SetValue(12345678901234567.89m);
+
+            Assert.AreEqual(12345678901234600m, cell.GetValue<decimal>());
+            Assert.AreEqual(1.5m, cell.SetValue(1.5m).GetValue<decimal>());
+        }
+
         [Test]
         public void TryGetValue_Unicode_String()
         {

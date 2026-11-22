@@ -299,6 +299,16 @@ namespace ClosedXML.Excel
 
         public TimeSpan GetTimeSpan() => Value.GetTimeSpan();
 
+        /// <summary>
+        /// 2^63, the smallest double that is more than <see cref="Int64.MaxValue"/>.
+        /// </summary>
+        private const double Int64UpperLimit = 9223372036854775808d;
+
+        /// <summary>
+        /// 2^64, the smallest double that is more than <see cref="UInt64.MaxValue"/>.
+        /// </summary>
+        private const double UInt64UpperLimit = 18446744073709551616d;
+
         public Boolean TryGetValue<T>(out T value)
         {
             XLCellValue currentValue;
@@ -380,11 +390,25 @@ namespace ClosedXML.Excel
                 if (typeCode == TypeCode.Single && doubleValue is < Single.MinValue or > Single.MaxValue)
                     return false;
 
+                if (typeCode == TypeCode.Decimal)
+                {
+                    // On .NET, the cast throws for each double of 2^96 or more. The limit on .NET
+                    // Framework is not measured, so catch the overflow instead of a constant check.
+                    try
+                    {
+                        value = (T)(object)(Decimal)doubleValue;
+                        return true;
+                    }
+                    catch (OverflowException)
+                    {
+                        return false;
+                    }
+                }
+
                 value = typeCode switch
                 {
                     TypeCode.Single => (T)(object)(Single)doubleValue,
                     TypeCode.Double => (T)(object)doubleValue,
-                    TypeCode.Decimal => (T)(object)(Decimal)doubleValue,
                     _ => throw new NotSupportedException()
                 };
                 return true;
@@ -407,8 +431,10 @@ namespace ClosedXML.Excel
                     TypeCode.UInt16 => doubleValue >= UInt16.MinValue && doubleValue <= UInt16.MaxValue,
                     TypeCode.Int32 => doubleValue >= Int32.MinValue && doubleValue <= Int32.MaxValue,
                     TypeCode.UInt32 => doubleValue >= UInt32.MinValue && doubleValue <= UInt32.MaxValue,
-                    TypeCode.Int64 => doubleValue >= Int64.MinValue && doubleValue <= Int64.MaxValue,
-                    TypeCode.UInt64 => doubleValue >= UInt64.MinValue && doubleValue <= UInt64.MaxValue,
+                    // Int64.MaxValue and UInt64.MaxValue become 2^63 and 2^64 as a double, which
+                    // are outside the range. The upper limit must exclude them.
+                    TypeCode.Int64 => doubleValue >= Int64.MinValue && doubleValue < Int64UpperLimit,
+                    TypeCode.UInt64 => doubleValue >= UInt64.MinValue && doubleValue < UInt64UpperLimit,
                     _ => throw new NotSupportedException()
                 };
                 if (!valueIsWithinBounds)

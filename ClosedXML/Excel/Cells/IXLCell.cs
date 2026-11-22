@@ -338,7 +338,9 @@ namespace ClosedXML.Excel
         ///   <item>Boolean - uses a logic of <see cref="XLCellValue.TryConvert(out Boolean)"/></item>
         ///   <item>Number (<c>s/byte</c>, <c>u/short</c>, <c>u/int</c>, <c>u/long</c>, <c>float</c>, <c>double</c>, or <c>decimal</c>)
         ///         - uses a logic of <see cref="XLCellValue.TryConvert(out Double, System.Globalization.CultureInfo)"/> and succeeds,
-        ///         if the value fits into the target type.</item>
+        ///         if the value fits into the target type. A cell keeps a number as a <c>double</c>. The conversion
+        ///         to <c>decimal</c> keeps at most 15 significant digits, for example <c>12345678901234567.89m</c>
+        ///         gives <c>12345678901234600m</c>.</item>
         ///   <item>String - sets the result to a text representation of a cell value (using current culture).</item>
         ///   <item>DateTime - uses a logic of <see cref="XLCellValue.TryConvert(out DateTime)"/></item>
         ///   <item>TimeSpan - uses a logic of <see cref="XLCellValue.TryConvert(out TimeSpan, System.Globalization.CultureInfo)"/></item>
