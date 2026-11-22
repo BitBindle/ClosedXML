@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Linq;
+using System.Text;
 using ClosedXML.Excel;
 using ClosedXML.Excel.IO;
 using ClosedXML.IO;
@@ -124,6 +127,104 @@ internal class SheetDataReaderTests
             </sheetData>
             """,
             (ws, _) => Assert.True(ws.Cell("A1").Value.IsBlank));
+    }
+
+    /// <summary>
+    /// Number cells of a workbook that Excel saved with 17 significant digits, and the bits of the nearest double.
+    /// </summary>
+    private static readonly TestCaseData[] ExcelNumbers =
+    {
+        new TestCaseData("42.043900000000001", 0x4045059E83E425AFUL),
+        new TestCaseData("1.8654637783131349E-5", 0x3EF38F90F278D788UL),
+        new TestCaseData("8.5000000000000006E-2", 0x3FB5C28F5C28F5C3UL),
+        new TestCaseData("7.0974999999999996E-2", 0x3FB22B6AE7D566CFUL),
+        new TestCaseData("5.8427534995500012E-2", 0x3FADEA36BFFBAECFUL),
+        new TestCaseData("7.1730669903414104E-2", 0x3FB25CF0F15AF73DUL),
+        new TestCaseData("68.738276465294106", 0x40512F3FEBEE760FUL),
+        new TestCaseData("0.64949595641478497", 0x3FE4C8ABBE75F19BUL),
+        new TestCaseData("1176.4705882352939", 0x409261E1E1E1E1E1UL),
+        new TestCaseData("11.576328541025971", 0x4027271488D6EA77UL),
+        new TestCaseData("16.076328541025969", 0x4030138A446B753BUL),
+        new TestCaseData("0.31961180303614128", 0x3FD47485105D2C29UL),
+        new TestCaseData("4.8196118030361417", 0x401347485105D2C3UL),
+        new TestCaseData("4.4999999999999998E-2", 0x3FA70A3D70A3D70AUL),
+        new TestCaseData("3.2799597532906931E-3", 0x3F6ADE92FBEC2C61UL),
+        new TestCaseData("8.6394960319995793", 0x4021476C061EB84DUL),
+        new TestCaseData("-0.10346701834730029", 0xBFBA7CD084042B5EUL),
+        new TestCaseData("1.3759264999163581E-6", 0x3EB7158F2F850001UL),
+        new TestCaseData("-0.86136133483801225", 0xBFEB9045A56561A2UL),
+        new TestCaseData("-3.5342534968048879E-2", 0xBFA2186AAFB0E635UL),
+        new TestCaseData("-1.255439488689891E-5", 0xBEEA5416E50CFFFFUL),
+        new TestCaseData("0.91836691248611024", 0x3FED634301DB671EUL),
+        new TestCaseData("8.1633087513889813E-2", 0x3FB4E5E7F124C714UL),
+        new TestCaseData("71.923671458974027", 0x4051FB1D6EE522B1UL),
+        new TestCaseData("5.8332631425899999", 0x40175542EEE98B81UL),
+        new TestCaseData("5.7165978797381998", 0x4016DDCBD5A76F1DUL),
+        new TestCaseData("117.64705882352941", 0x405D696969696969UL),
+        new TestCaseData("0.21418159555235439", 0x3FCB6A4D7226B70CUL),
+        new TestCaseData("251.97834770865211", 0x406F7F4E9FDA98E0UL),
+        new TestCaseData("2.3553612818440761E-5", 0x3EF8B29FF2B85BD7UL),
+        new TestCaseData("1.0256220499444959", 0x3FF068F2AAA916E4UL),
+        new TestCaseData("1.4214999981278845E-3", 0x3F574A340034CF9BUL),
+        new TestCaseData("89648.105656933447", 0x40F5E301B0C5531CUL),
+        new TestCaseData("1.3123206336756597E-2", 0x3F8AE056F047BD92UL),
+    };
+
+    [TestCaseSource(nameof(ExcelNumbers))]
+    [Issue("38")]
+    public void Reads_number_that_excel_saved_as_nearest_double(string text, ulong expectedBits)
+    {
+        AssertSheetData(
+            $"""
+            <sheetData>
+              <row r="1">
+                <c r="A1"><v>{text}</v></c>
+              </row>
+            </sheetData>
+            """,
+            (ws, _) => Assert.AreEqual(expectedBits, (ulong)BitConverter.DoubleToInt64Bits(ws.Cell("A1").GetDouble())));
+    }
+
+    [Test]
+    [Issue("38")]
+    public void Reads_17_digit_text_of_random_numbers_as_same_number()
+    {
+        // .NET Framework can parse a text with more than 15 significant digits to a neighbor of the nearest double.
+        var random = new Random(12345);
+        var values = new double[20000];
+        var bytes = new byte[8];
+        for (var i = 0; i < values.Length; ++i)
+        {
+            if (i % 2 == 0)
+            {
+                values[i] = (random.NextDouble() - 0.5) * Math.Pow(10, random.Next(-10, 11));
+                continue;
+            }
+
+            double value;
+            do
+            {
+                random.NextBytes(bytes);
+                value = BitConverter.ToDouble(bytes, 0);
+            } while (double.IsNaN(value) || double.IsInfinity(value) || value == 0);
+
+            values[i] = value;
+        }
+
+        var xml = new StringBuilder("<sheetData>");
+        for (var i = 0; i < values.Length; ++i)
+            xml.Append($"<row r=\"{i + 1}\"><c r=\"A{i + 1}\"><v>{values[i].ToString("G17", CultureInfo.InvariantCulture)}</v></c></row>");
+
+        xml.Append("</sheetData>");
+
+        AssertSheetData(xml.ToString(), (ws, _) =>
+        {
+            var differences = Enumerable.Range(0, values.Length)
+                .Where(i => BitConverter.DoubleToInt64Bits(ws.Cell(i + 1, 1).GetDouble()) != BitConverter.DoubleToInt64Bits(values[i]))
+                .Select(i => $"{values[i].ToString("G17", CultureInfo.InvariantCulture)} {BitConverter.DoubleToInt64Bits(values[i]):X16} {BitConverter.DoubleToInt64Bits(ws.Cell(i + 1, 1).GetDouble()):X16}")
+                .ToList();
+            Assert.IsEmpty(differences, $"{differences.Count} differences: {string.Join("; ", differences.Take(40))}");
+        });
     }
 
     [TestCase("1", true)]
