@@ -295,6 +295,28 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(expectedError, wb.Worksheet("Current").Evaluate($"SUM({formula})"));
         }
 
+        [TestCase("(A1:C3) (B2:D4)", 4)]
+        [TestCase("A1:B2 (A1,B2)", 2)]
+        [TestCase("(A1:C3,E1:F4) B2:E3", 4 + 2)]
+        [TestCase("IF(TRUE,A1:C3) B2:D4", 4)]
+        [Issue("58")]
+        public void Intersection_AcceptsEachReferenceExpressionAsOperand(string formula, int expectedSum)
+        {
+            // An operand can be an expression in parentheses, a union in parentheses or a function call.
+            using var wb = CreateIntersectionWorkbook();
+
+            Assert.AreEqual(expectedSum, wb.Worksheet("Current").Evaluate($"SUM({formula})"));
+        }
+
+        [Test]
+        [Issue("58")]
+        public void Intersection_WithErrorLiteralOperandIsThatError()
+        {
+            using var wb = CreateIntersectionWorkbook();
+
+            Assert.AreEqual(XLError.CellReference, wb.Worksheet("Current").Evaluate("SUM(A1:B2 #REF!)"));
+        }
+
         [Test]
         [Issue("48")]
         public void Intersection_ChangeOfSharedCellRecalculatesFormula()

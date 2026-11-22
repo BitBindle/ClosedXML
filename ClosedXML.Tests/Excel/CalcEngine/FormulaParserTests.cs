@@ -486,7 +486,84 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             AssertCanParseButNotEvaluate(formula, "References from other files are not yet implemented.");
         }
 
+        [Test]
+        public void Prefix_can_be_file_and_sheets_for_3d_reference()
+        {
+            var reference = (ReferenceNode)Parse("[1]Jan:Dec!A1");
+
+            AssertPrefix(reference.Prefix, 1, null, "Jan", "Dec");
+        }
+
+        [Test]
+        public void Prefix_of_function_can_be_sheet()
+        {
+            var function = (FunctionNode)Parse("Sheet1!SUM(1)");
+
+            AssertPrefix(function.Prefix, null, "Sheet1", null, null);
+            Assert.AreEqual("SUM", function.Name);
+        }
+
+        [Test]
+        public void Prefix_of_function_can_be_file_and_sheet()
+        {
+            var function = (FunctionNode)Parse("[1]Sheet1!SUM(1)");
+
+            AssertPrefix(function.Prefix, 1, "Sheet1", null, null);
+            Assert.AreEqual("SUM", function.Name);
+        }
+
+        [Test]
+        public void Prefix_of_name_can_be_file()
+        {
+            var name = (NameNode)Parse("[1]!MyName");
+
+            AssertPrefix(name.Prefix, 1, null, null, null);
+            Assert.AreEqual("MyName", name.Name);
+        }
+
+        [Test]
+        public void Prefix_of_name_can_be_file_and_sheet()
+        {
+            var name = (NameNode)Parse("[1]Sheet1!MyName");
+
+            AssertPrefix(name.Prefix, 1, "Sheet1", null, null);
+            Assert.AreEqual("MyName", name.Name);
+        }
+
+        [TestCase("Table1[Col]", null, "Table1", "Col", "Col")]
+        [TestCase("Table1[[Col]:[Col2]]", null, "Table1", "Col", "Col2")]
+        [TestCase("Table1[#All]", null, "Table1", null, null)]
+        [TestCase("[1]!Table1[Col]", 1, "Table1", "Col", "Col")]
+        [TestCase("[1]!Table1[#Data]", 1, "Table1", null, null)]
+        public void Structured_reference_has_table_and_columns(string formula, int? workbookIndex, string table, string firstColumn, string lastColumn)
+        {
+            // A reference to the whole table has no columns.
+            var reference = (StructuredReferenceNode)Parse(formula);
+
+            if (workbookIndex is null)
+                Assert.IsNull(reference.Prefix);
+            else
+                AssertPrefix(reference.Prefix, workbookIndex, null, null, null);
+            Assert.AreEqual(table, reference.Table);
+            Assert.AreEqual(firstColumn, reference.FirstColumn);
+            Assert.AreEqual(lastColumn, reference.LastColumn);
+        }
+
         #endregion
+
+        private static ValueNode Parse(string formula)
+        {
+            return new XLCalcEngine(CultureInfo.InvariantCulture).Parse(formula).AstRoot;
+        }
+
+        private static void AssertPrefix(PrefixNode prefix, int? workbookIndex, string sheet, string firstSheet, string lastSheet)
+        {
+            Assert.IsNotNull(prefix);
+            Assert.AreEqual(workbookIndex, prefix.File?.Numeric);
+            Assert.AreEqual(sheet, prefix.Sheet);
+            Assert.AreEqual(firstSheet, prefix.FirstSheet);
+            Assert.AreEqual(lastSheet, prefix.LastSheet);
+        }
 
         private static void AssertCanParseButNotEvaluate(string formula, string notSupportedMessage)
         {

@@ -1053,6 +1053,29 @@ namespace ClosedXML.Tests.Excel.Sparklines
             Assert.AreEqual("'Sheet 3'!D6:H6", target.Sparkline.SparklineGroup.DateRange.RangeAddress.ToString(XLReferenceStyle.A1, true));
         }
 
+        [Test]
+        public void CopyGroupToDifferentWorksheetMovesSourceDataOfSourceSheet()
+        {
+            using var wb = new XLWorkbook();
+            var ws1 = wb.AddWorksheet("Sheet 1");
+            var ws2 = (XLWorksheet)wb.AddWorksheet("Sheet2");
+            var group = (XLSparklineGroup)ws1.SparklineGroups.Add("A1:A4", "B1:F4");
+
+            // A loaded file can have a defined name as the source data.
+            group.SetSparkline(new Point(1, 1), "'Sheet 1'!B1:F1");
+            group.SetSparkline(new Point(2, 1), "'Sheet 1'!Values");
+            group.SetSparkline(new Point(3, 1), "Other!Values");
+            group.SetSparkline(new Point(4, 1), "Values");
+
+            var copy = group.CopyTo(ws2);
+
+            var formulas = copy.Sparklines.ToDictionary(x => x.Location.Row, x => x.SourceDataFormula);
+            Assert.AreEqual("Sheet2!B1:F1", formulas[1]);
+            Assert.AreEqual("Sheet2!Values", formulas[2]);
+            Assert.AreEqual("Other!Values", formulas[3]);
+            Assert.AreEqual("Values", formulas[4]);
+        }
+
         #endregion Copy sparkline groups
 
         #region Test Examples

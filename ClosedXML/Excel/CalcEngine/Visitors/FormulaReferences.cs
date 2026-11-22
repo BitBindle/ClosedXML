@@ -87,18 +87,19 @@ internal class FormulaReferences
             return base.Reference(context, range, reference);
         }
 
-        public override object? SheetReference(FormulaReferences context, SymbolRange range, string sheet, ReferenceArea reference)
+        public override object? SheetReference(FormulaReferences context, SymbolRange range, ReadOnlySpan<char> sheet, ReferenceArea reference)
         {
-            context.SheetReferences.Add(new XLSheetReference(sheet, new XLReference(reference)));
+            context.SheetReferences.Add(new XLSheetReference(sheet.ToString(), new XLReference(reference)));
             return base.SheetReference(context, range, sheet, reference);
         }
 
-        public override object? StructureReference(FormulaReferences context, SymbolRange range, string table, StructuredReferenceArea area,
-            string? firstColumn, string? lastColumn)
+        public override object? StructureReference(FormulaReferences context, SymbolRange range, ReadOnlySpan<char> table, StructuredReferenceArea area,
+            ReadOnlySpan<char> firstColumn, ReadOnlySpan<char> lastColumn)
         {
             // TODO: Temporary placeholder, extract range detection from CalculationVisitor
-            if (firstColumn is not null)
-                context.StructuredReferences.Add((table, firstColumn, context._formula.Substring(range.Start, range.End - range.Start)));
+            // The first column is empty for a reference to the whole table.
+            if (!firstColumn.IsEmpty)
+                context.StructuredReferences.Add((table.ToString(), firstColumn.ToString(), context._formula.Substring(range.Start, range.End - range.Start)));
 
             return base.StructureReference(context, range, table, area, firstColumn, lastColumn);
         }

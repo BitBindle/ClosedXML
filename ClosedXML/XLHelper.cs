@@ -50,6 +50,14 @@ namespace ClosedXML.Excel
         internal static readonly StringComparer SheetComparer = StringComparer.OrdinalIgnoreCase;
 
         /// <summary>
+        /// Compare a sheet name in a span with a sheet name. It uses the rules of <see cref="SheetComparer"/>.
+        /// </summary>
+        internal static bool SheetNameEquals(ReadOnlySpan<char> sheetName, string otherSheetName)
+        {
+            return ((IAlternateEqualityComparer<ReadOnlySpan<char>, string?>)SheetComparer).Equals(sheetName, otherSheetName);
+        }
+
+        /// <summary>
         /// Comparer used to compare defined names.
         /// </summary>
         internal static readonly StringComparer NameComparer = StringComparer.OrdinalIgnoreCase;

@@ -1,5 +1,6 @@
 using ClosedXML.Extensions;
 using ClosedXML.Parser;
+using System;
 
 namespace ClosedXML.Excel.CalcEngine.Visitors;
 
@@ -17,19 +18,21 @@ internal class ReferenceShiftOnInsertRefModVisitor : CopyVisitor
         _shiftDown = shiftDown;
     }
 
-    public override TransformedSymbol SheetReference(ModContext ctx, SymbolRange range, string sheet, ReferenceArea reference)
+    public override TransformedSymbol SheetReference(ModContext ctx, SymbolRange range, ReadOnlySpan<char> sheet, ReferenceArea reference)
     {
         return ShiftFormulaReferences(ctx, range, sheet, reference);
     }
 
     public override TransformedSymbol Reference(ModContext ctx, SymbolRange range, ReferenceArea reference)
     {
-        return ShiftFormulaReferences(ctx, range, null, reference);
+        return ShiftFormulaReferences(ctx, range, ReadOnlySpan<char>.Empty, reference);
     }
 
-    private TransformedSymbol ShiftFormulaReferences(ModContext ctx, SymbolRange range, string? referenceSheetName, ReferenceArea referenceToShift)
+    // The referenceSheetName is empty, if the reference has no sheet.
+    private TransformedSymbol ShiftFormulaReferences(ModContext ctx, SymbolRange range, ReadOnlySpan<char> referenceSheetName, ReferenceArea referenceToShift)
     {
-        if (!XLHelper.SheetComparer.Equals(_insertedBookArea.Name, referenceSheetName ?? ctx.Sheet))
+        var sheetName = referenceSheetName.IsEmpty ? ctx.Sheet.AsSpan() : referenceSheetName;
+        if (!XLHelper.SheetNameEquals(sheetName, _insertedBookArea.Name))
             return TransformedSymbol.CopyOriginal(ctx.Formula, range);
 
         var wouldSplitArea = _shiftDown
@@ -48,7 +51,7 @@ internal class ReferenceShiftOnInsertRefModVisitor : CopyVisitor
         if (referenceToShift == shiftedReference.Value)
             return TransformedSymbol.CopyOriginal(ctx.Formula, range);
 
-        var shiftedReferenceA1 = shiftedReference.Value.GetDisplayStringA1(referenceSheetName);
+        var shiftedReferenceA1 = shiftedReference.Value.GetDisplayStringA1(referenceSheetName.IsEmpty ? null : referenceSheetName.ToString());
         return TransformedSymbol.ToText(ctx.Formula, range, shiftedReferenceA1);
     }
 }

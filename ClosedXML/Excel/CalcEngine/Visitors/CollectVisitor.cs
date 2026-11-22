@@ -16,7 +16,7 @@ internal abstract class CollectVisitor<TContext> : IAstFactory<object?, object?,
         return default;
     }
 
-    public virtual object? TextValue(TContext context, SymbolRange range, string text)
+    public virtual object? TextValue(TContext context, SymbolRange range, ReadOnlySpan<char> text)
     {
         return default;
     }
@@ -51,7 +51,7 @@ internal abstract class CollectVisitor<TContext> : IAstFactory<object?, object?,
         return default;
     }
 
-    public virtual object? TextNode(TContext context, SymbolRange range, string text)
+    public virtual object? TextNode(TContext context, SymbolRange range, ReadOnlySpan<char> text)
     {
         return default;
     }
@@ -61,7 +61,7 @@ internal abstract class CollectVisitor<TContext> : IAstFactory<object?, object?,
         return default;
     }
 
-    public virtual object? SheetReference(TContext context, SymbolRange range, string sheet, ReferenceArea reference)
+    public virtual object? SheetReference(TContext context, SymbolRange range, ReadOnlySpan<char> sheet, ReferenceArea reference)
     {
         return default;
     }
@@ -71,18 +71,18 @@ internal abstract class CollectVisitor<TContext> : IAstFactory<object?, object?,
         return default;
     }
 
-    public virtual object? Reference3D(TContext context, SymbolRange range, string firstSheet, string lastSheet, ReferenceArea reference)
+    public virtual object? Reference3D(TContext context, SymbolRange range, ReadOnlySpan<char> firstSheet, ReadOnlySpan<char> lastSheet, ReferenceArea reference)
     {
         return default;
     }
 
-    public virtual object? ExternalSheetReference(TContext context, SymbolRange range, int workbookIndex, string sheet,
+    public virtual object? ExternalSheetReference(TContext context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> sheet,
         ReferenceArea reference)
     {
         return default;
     }
 
-    public virtual object? ExternalReference3D(TContext context, SymbolRange range, int workbookIndex, string firstSheet, string lastSheet,
+    public virtual object? ExternalReference3D(TContext context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> firstSheet, ReadOnlySpan<char> lastSheet,
         ReferenceArea reference)
     {
         return default;
@@ -93,12 +93,12 @@ internal abstract class CollectVisitor<TContext> : IAstFactory<object?, object?,
         return default;
     }
 
-    public virtual object? Function(TContext context, SymbolRange range, string sheetName, ReadOnlySpan<char> functionName, IReadOnlyList<object?> args)
+    public virtual object? Function(TContext context, SymbolRange range, ReadOnlySpan<char> sheetName, ReadOnlySpan<char> functionName, IReadOnlyList<object?> args)
     {
         return default;
     }
 
-    public virtual object? ExternalFunction(TContext context, SymbolRange range, int workbookIndex, string sheetName,
+    public virtual object? ExternalFunction(TContext context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> sheetName,
         ReadOnlySpan<char> functionName, IReadOnlyList<object?> arguments)
     {
         return default;
@@ -115,45 +115,45 @@ internal abstract class CollectVisitor<TContext> : IAstFactory<object?, object?,
         return default;
     }
 
-    public virtual object? StructureReference(TContext context, SymbolRange range, StructuredReferenceArea area, string? firstColumn,
-        string? lastColumn)
+    public virtual object? StructureReference(TContext context, SymbolRange range, StructuredReferenceArea area, ReadOnlySpan<char> firstColumn,
+        ReadOnlySpan<char> lastColumn)
     {
         return default;
     }
 
-    public virtual object? StructureReference(TContext context, SymbolRange range, string table, StructuredReferenceArea area,
-        string? firstColumn, string? lastColumn)
+    public virtual object? StructureReference(TContext context, SymbolRange range, ReadOnlySpan<char> table, StructuredReferenceArea area,
+        ReadOnlySpan<char> firstColumn, ReadOnlySpan<char> lastColumn)
     {
         return default;
     }
 
-    public virtual object? ExternalStructureReference(TContext context, SymbolRange range, int workbookIndex, string table,
-        StructuredReferenceArea area, string? firstColumn, string? lastColumn)
+    public virtual object? ExternalStructureReference(TContext context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> table,
+        StructuredReferenceArea area, ReadOnlySpan<char> firstColumn, ReadOnlySpan<char> lastColumn)
     {
         return default;
     }
 
-    public virtual object? Name(TContext context, SymbolRange range, string name)
+    public virtual object? Name(TContext context, SymbolRange range, ReadOnlySpan<char> name)
     {
         return default;
     }
 
-    public virtual object? SheetName(TContext context, SymbolRange range, string sheet, string name)
+    public virtual object? SheetName(TContext context, SymbolRange range, ReadOnlySpan<char> sheet, ReadOnlySpan<char> name)
     {
         return default;
     }
 
-    public virtual object? BangName(TContext context, SymbolRange range, string name)
+    public virtual object? BangName(TContext context, SymbolRange range, ReadOnlySpan<char> name)
     {
         return default;
     }
 
-    public virtual object? ExternalName(TContext context, SymbolRange range, int workbookIndex, string name)
+    public virtual object? ExternalName(TContext context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> name)
     {
         return default;
     }
 
-    public virtual object? ExternalSheetName(TContext context, SymbolRange range, int workbookIndex, string sheet, string name)
+    public virtual object? ExternalSheetName(TContext context, SymbolRange range, int workbookIndex, ReadOnlySpan<char> sheet, ReadOnlySpan<char> name)
     {
         return default;
     }

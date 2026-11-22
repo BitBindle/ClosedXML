@@ -1059,10 +1059,6 @@ namespace ClosedXML.Tests
             }
         }
 
-        /// <summary>
-        /// Create a workbook with a pivot table, a custom pivot style <c>MyPivotStyle</c> and the
-        /// <paramref name="styleInfo"/> as the style info of the pivot table.
-        /// </summary>
         [Test]
         [Issue("60")]
         public void Save_keeps_offset_of_pivot_area()
@@ -1100,6 +1096,10 @@ namespace ClosedXML.Tests
             }
         }
 
+        /// <summary>
+        /// Create a workbook with a pivot table, a custom pivot style <c>MyPivotStyle</c> and the
+        /// <paramref name="styleInfo"/> as the style info of the pivot table.
+        /// </summary>
         private static MemoryStream CreatePivotTableWithStyleInfo(PivotTableStyle styleInfo)
         {
             var ms = new MemoryStream();

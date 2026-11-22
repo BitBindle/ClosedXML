@@ -61,6 +61,8 @@ To install ClosedXML, run the following command in the Package Manager Console
 PM> Install-Package ClosedXML
 ```
 
+The ClosedXML package of this fork depends on `ClosedXML.Parser` 3.0.0 or later. This version is only on the GitHub Packages feed of BitBindle (`https://nuget.pkg.github.com/BitBindle/index.json`). nuget.org has a different package with the same ID. Add the feed and a package source mapping for `ClosedXML.Parser` to your `nuget.config`, as in the `nuget.config` of this repository. The feed needs a token with the `read:packages` scope.
+
 ### What can you do with this?
 
 ClosedXML allows you to create Excel files without the Excel application. The typical example is creating Excel reports on a web server.
