@@ -81,7 +81,7 @@ internal class XLPivotCacheFieldTests
 
     [Test]
     [Issue("45")]
-    public void Refresh_removes_calculated_field_with_name_of_source_field()
+    public void Refresh_renames_source_field_with_name_of_calculated_field()
     {
         using var ms = CreateFileWithCalculatedField();
         using var wb = new XLWorkbook(ms);
@@ -90,7 +90,10 @@ internal class XLPivotCacheFieldTests
 
         pt.PivotCache.Refresh();
 
-        Assert.AreEqual(new[] { "Double", "Value" }, pt.PivotCache.FieldNames);
+        Assert.AreEqual(new[] { "Double2", "Value", "Double" }, pt.PivotCache.FieldNames);
+        Assert.AreEqual(new[] { "Value", "Double" }, pt.Values.Select(v => v.SourceName));
+        var calculatedField = ((XLPivotCache)pt.PivotCache).GetFieldValues(2);
+        Assert.AreEqual("Value*2", calculatedField.Formula);
     }
 
     [Test]

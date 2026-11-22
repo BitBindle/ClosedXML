@@ -70,10 +70,14 @@ namespace ClosedXML.Excel
             // contain it, so keep it. A group field depends on positions and values of the old
             // records. The groups are not valid for the new records, so remove the group field.
             var calculatedFields = new List<(String Name, XLPivotCacheValues Values)>();
+            var calculatedFieldNames = new HashSet<String>(XLHelper.NameComparer);
             for (var i = 0; i < _fieldNames.Count; ++i)
             {
                 if (_values[i] is { IsDatabaseField: false, Formula: not null })
+                {
                     calculatedFields.Add((_fieldNames[i], _values[i]));
+                    calculatedFieldNames.Add(_fieldNames[i]);
+                }
             }
 
             _fieldIndexes.Clear();
@@ -88,15 +92,13 @@ namespace ClosedXML.Excel
 
                 var fieldRecords = new XLPivotCacheValues(valueSlice, column, area);
 
-                AddField(AdjustedFieldName(header), fieldRecords);
+                // Pivot tables find fields by name. A source field with the name of a calculated
+                // field gets a different name, thus a pivot table keeps the calculated field.
+                AddField(AdjustedFieldName(header, calculatedFieldNames), fieldRecords);
             }
 
             foreach (var (name, values) in calculatedFields)
-            {
-                // Excel doesn't allow a calculated field with a name of a source field.
-                if (!ContainsField(name))
-                    AddField(name, values);
-            }
+                AddField(name, values);
 
             UpdatePivotTables();
             return this;
@@ -207,11 +209,11 @@ namespace ClosedXML.Excel
             return indexes;
         }
 
-        private String AdjustedFieldName(String header)
+        private String AdjustedFieldName(String header, ISet<String> reservedNames)
         {
             var modifiedHeader = header;
             var i = 1;
-            while (_fieldNames.Contains(modifiedHeader, StringComparer.OrdinalIgnoreCase))
+            while (_fieldNames.Contains(modifiedHeader, StringComparer.OrdinalIgnoreCase) || reservedNames.Contains(modifiedHeader))
             {
                 i++;
                 modifiedHeader = header + i.ToInvariantString();
