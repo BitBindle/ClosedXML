@@ -1,6 +1,7 @@
 using ClosedXML.Excel;
 using NUnit.Framework;
 using System;
+using System.IO;
 using System.Linq;
 
 namespace ClosedXML.Tests.Excel
@@ -219,7 +220,8 @@ namespace ClosedXML.Tests.Excel
             }
         }
 
-        [Test, Ignore("Shifting formulas is done by regexp that breaks array formula.")]
+        [Test]
+        [Issue("88")]
         public void ShiftFormula()
         {
             using (var wb = new XLWorkbook())
@@ -236,6 +238,140 @@ namespace ClosedXML.Tests.Excel
                 Assert.True(ws.Cell("A3").HasArrayFormula);
                 Assert.AreEqual("DAYS360(B3:B5, C3:C5)", ws.Cell("A3").FormulaA1);
             }
+        }
+
+        [Test]
+        [Issue("88")]
+        public void Array_formula_stays_an_array_formula_after_an_insert_below_it()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet("Sheet1");
+            ws.Range("A1:A2").FormulaArrayA1 = "B1:B2*C1:C2";
+
+            ws.Row(5).InsertRowsAbove(1);
+
+            Assert.True(ws.Cell("A1").HasArrayFormula);
+            Assert.True(ws.Cell("A2").HasArrayFormula);
+            Assert.AreEqual("B1:B2*C1:C2", ws.Cell("A1").FormulaA1);
+        }
+
+        [Test]
+        [Issue("88")]
+        public void Insert_of_a_row_above_an_array_formula_moves_the_array_formula()
+        {
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet("Sheet1");
+                ws.Cell("B1").Value = 2;
+                ws.Cell("B2").Value = 3;
+                ws.Cell("C1").Value = 5;
+                ws.Cell("C2").Value = 7;
+                ws.Range("A1:A2").FormulaArrayA1 = "B1:B2*C1:C2";
+
+                ws.Row(1).InsertRowsAbove(1);
+
+                Assert.False(ws.Cell("A1").HasFormula);
+                Assert.True(ws.Cell("A2").HasArrayFormula);
+                Assert.True(ws.Cell("A3").HasArrayFormula);
+                Assert.AreEqual("B2:B3*C2:C3", ws.Cell("A2").FormulaA1);
+                Assert.AreEqual("A2:A3", ws.Cell("A3").FormulaReference!.ToString());
+                Assert.AreEqual(10, ws.Cell("A2").Value);
+                Assert.AreEqual(21, ws.Cell("A3").Value);
+                wb.SaveAs(ms);
+            }
+
+            using var loaded = new XLWorkbook(ms);
+            var loadedSheet = loaded.Worksheet("Sheet1");
+            Assert.True(loadedSheet.Cell("A3").HasArrayFormula);
+            Assert.AreEqual("B2:B3*C2:C3", loadedSheet.Cell("A3").FormulaA1);
+            Assert.AreEqual("A2:A3", loadedSheet.Cell("A2").FormulaReference!.ToString());
+        }
+
+        [Test]
+        [Issue("88")]
+        public void Insert_in_another_sheet_changes_only_the_references_of_an_array_formula()
+        {
+            using var wb = new XLWorkbook();
+            var data = wb.AddWorksheet("Data");
+            var report = wb.AddWorksheet("Report");
+            report.Range("A1:A2").FormulaArrayA1 = "Data!B1:B2*2";
+
+            data.Row(1).InsertRowsAbove(1);
+
+            Assert.True(report.Cell("A1").HasArrayFormula);
+            Assert.AreEqual("Data!B2:B3*2", report.Cell("A2").FormulaA1);
+            Assert.AreEqual("A1:A2", report.Cell("A1").FormulaReference!.ToString());
+        }
+
+        [Test]
+        [Issue("88")]
+        public void Unparsable_array_formula_stays_the_same_after_an_insert()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet("Sheet1");
+            ws.Range("A2:A3").FormulaArrayA1 = "B2:B3*";
+
+            ws.Row(1).InsertRowsAbove(1);
+
+            Assert.True(ws.Cell("A3").HasArrayFormula);
+            Assert.AreEqual("B2:B3*", ws.Cell("A3").FormulaA1);
+        }
+
+        [Test]
+        [Issue("88")]
+        public void Insert_of_a_column_moves_the_range_and_the_inputs_of_a_data_table()
+        {
+            using var wb = new XLWorkbook();
+            var ws = (XLWorksheet)wb.AddWorksheet("Sheet1");
+            var formula = XLCellFormula.DataTable2D(Area.Parse("B2:C3"), new Point(1, 1), false, new Point(2, 1), false);
+            ws.Internals.CellsCollection.FormulaSlice.SetArray(formula.Range, formula);
+
+            ws.Column(1).InsertColumnsBefore(1);
+
+            var shifted = ws.Cell("C2").Formula!;
+            Assert.AreSame(shifted, ws.Cell("D3").Formula);
+            Assert.AreEqual(FormulaType.DataTable, shifted.Type);
+            Assert.AreEqual("C2:D3", shifted.Range.ToString());
+            Assert.AreEqual(new Point(1, 2), shifted.Input1);
+            Assert.AreEqual(new Point(2, 2), shifted.Input2);
+            Assert.AreEqual("{TABLE(B2,B1}", shifted.A1);
+        }
+
+        [TestCase(true, "{TABLE(#REF!,}")]
+        [TestCase(false, "{TABLE(,#REF!}")]
+        [Issue("88")]
+        public void Delete_of_the_input_of_a_data_table_marks_the_input_as_deleted(bool isRowDataTable, string expectedText)
+        {
+            using var wb = new XLWorkbook();
+            var ws = (XLWorksheet)wb.AddWorksheet("Sheet1");
+            var formula = XLCellFormula.DataTable1D(Area.Parse("B2:C3"), new Point(1, 1), false, isRowDataTable);
+            ws.Internals.CellsCollection.FormulaSlice.SetArray(formula.Range, formula);
+
+            ws.Row(1).Delete();
+
+            var shifted = ws.Cell("B1").Formula!;
+            Assert.AreEqual(FormulaType.DataTable, shifted.Type);
+            Assert.AreEqual("B1:C2", shifted.Range.ToString());
+            Assert.True(shifted.Input1Deleted);
+            Assert.AreEqual(expectedText, shifted.A1);
+        }
+
+        [Test]
+        [Issue("88")]
+        public void Delete_of_a_row_marks_the_second_input_of_a_data_table_as_deleted()
+        {
+            using var wb = new XLWorkbook();
+            var ws = (XLWorksheet)wb.AddWorksheet("Sheet1");
+            var formula = XLCellFormula.DataTable2D(Area.Parse("B3:C4"), new Point(1, 1), false, new Point(2, 1), false);
+            ws.Internals.CellsCollection.FormulaSlice.SetArray(formula.Range, formula);
+
+            ws.Row(2).Delete();
+
+            var shifted = ws.Cell("B2").Formula!;
+            Assert.False(shifted.Input1Deleted);
+            Assert.True(shifted.Input2Deleted);
+            Assert.AreEqual("{TABLE(#REF!,A1}", shifted.A1);
         }
 
         [Test]

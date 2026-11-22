@@ -1293,10 +1293,22 @@ namespace ClosedXML.Excel
         /// Shift the references in the formula of the cell, after an insert or a delete of cells.
         /// </summary>
         /// <param name="refMod">The visitor that shifts each reference.</param>
-        internal void ShiftFormulaReferences(CopyVisitor refMod)
+        /// <param name="shiftedSharedFormulas">The array formulas and data tables that the shift
+        /// already changed. The method adds the formula of the cell to it.</param>
+        internal void ShiftFormulaReferences(CopyVisitor refMod, HashSet<XLCellFormula> shiftedSharedFormulas)
         {
             if (Formula is not { } formula)
                 return;
+
+            if (formula.Type != FormulaType.Normal)
+            {
+                // The cells of an array formula or a data table share one formula. Shift it only
+                // one time. The shift changes the range, so the range cannot identify the first cell.
+                if (shiftedSharedFormulas.Add(formula))
+                    formula.ShiftReferences(Worksheet.Name, refMod);
+
+                return;
+            }
 
             var formulaA1 = formula.A1;
             string shiftedFormulaA1;
@@ -1310,10 +1322,9 @@ namespace ClosedXML.Excel
                 shiftedFormulaA1 = formulaA1;
             }
 
-            // Do not create a new formula for a normal formula without a change. The setter
-            // changes an array formula to a normal formula, so an array formula always goes
-            // through the setter. The setter also marks the formula as dirty, so do that here too.
-            if (formula.Type == FormulaType.Normal && shiftedFormulaA1 == formulaA1)
+            // Do not create a new formula without a change. The setter also marks the formula as
+            // dirty, so do that here too.
+            if (shiftedFormulaA1 == formulaA1)
             {
                 InvalidateFormula();
                 return;

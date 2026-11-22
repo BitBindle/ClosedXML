@@ -191,21 +191,7 @@ namespace ClosedXML.Excel
             bool input1Deleted,
             bool isRowDataTable)
         {
-            String rowInput;
-            String colInput;
-            if (isRowDataTable)
-            {
-                colInput = string.Empty;
-                rowInput = input1Deleted ? "#REF!" : input1Address.ToString();
-            }
-            else
-            {
-                colInput = input1Deleted ? "#REF!" : input1Address.ToString();
-                rowInput = string.Empty;
-            }
-
-            var formula = string.Format(DataTableFormulaFormat, rowInput, colInput);
-            return new XLCellFormula(formula)
+            var formula = new XLCellFormula(string.Empty)
             {
                 Range = range,
                 Type = FormulaType.DataTable,
@@ -214,6 +200,8 @@ namespace ClosedXML.Excel
                     (isRowDataTable ? FormulaFlags.Is1DRow : FormulaFlags.None) |
                     (input1Deleted ? FormulaFlags.Input1Deleted : FormulaFlags.None)
             };
+            formula.A1 = formula.GetDataTableText();
+            return formula;
         }
 
         /// <summary>
@@ -231,10 +219,7 @@ namespace ClosedXML.Excel
             Point input2Address,
             bool input2Deleted)
         {
-            var colInput = input1Deleted ? "#REF!" : input1Address.ToString();
-            var rowInput = input2Deleted ? "#REF!" : input2Address.ToString();
-            var formula = string.Format(DataTableFormulaFormat, rowInput, colInput);
-            return new XLCellFormula(formula)
+            var formula = new XLCellFormula(string.Empty)
             {
                 Range = range,
                 Type = FormulaType.DataTable,
@@ -244,6 +229,25 @@ namespace ClosedXML.Excel
                          (input1Deleted ? FormulaFlags.Input1Deleted : FormulaFlags.None) |
                          (input2Deleted ? FormulaFlags.Input2Deleted : FormulaFlags.None)
             };
+            formula.A1 = formula.GetDataTableText();
+            return formula;
+        }
+
+        /// <summary>
+        /// Get the placeholder text of a data table formula from its inputs.
+        /// </summary>
+        private string GetDataTableText()
+        {
+            var input1 = Input1Deleted ? XLHelper.RefError : _input1.ToString();
+            if (Is2DDataTable)
+            {
+                var input2 = Input2Deleted ? XLHelper.RefError : _input2.ToString();
+                return string.Format(DataTableFormulaFormat, input2, input1);
+            }
+
+            return IsRowDataTable
+                ? string.Format(DataTableFormulaFormat, input1, string.Empty)
+                : string.Format(DataTableFormulaFormat, string.Empty, input1);
         }
 
         /// <summary>
@@ -312,6 +316,61 @@ namespace ClosedXML.Excel
             {
                 A1 = res;
                 IsDirty = true;
+            }
+        }
+
+        /// <summary>
+        /// Shift the references of an array formula or a data table formula, after an insert or a
+        /// delete of cells. The cells of the formula share it, so the method changes it for all of
+        /// them. The type of the formula stays the same.
+        /// </summary>
+        /// <param name="sheetName">The name of the sheet of the formula cells.</param>
+        /// <param name="refMod">The visitor that shifts each reference.</param>
+        internal void ShiftReferences(string sheetName, CopyVisitor refMod)
+        {
+            Debug.Assert(Type is FormulaType.Array or FormulaType.DataTable, "A normal formula has no range.");
+            var origin = Range.FirstPoint;
+            if (Type == FormulaType.Array)
+            {
+                A1 = ShiftText(A1, sheetName, origin, refMod);
+            }
+            else
+            {
+                if (!Input1Deleted)
+                    ShiftInput(ref _input1, FormulaFlags.Input1Deleted, sheetName, origin, refMod);
+
+                if (Is2DDataTable && !Input2Deleted)
+                    ShiftInput(ref _input2, FormulaFlags.Input2Deleted, sheetName, origin, refMod);
+
+                A1 = GetDataTableText();
+            }
+
+            // A deleted range has no cells, so the range doesn't matter.
+            if (Area.TryParse(ShiftText(Range.ToString(), sheetName, origin, refMod), out var shiftedRange))
+                Range = shiftedRange;
+
+            IsDirty = true;
+        }
+
+        private void ShiftInput(ref Point input, FormulaFlags deletedFlag, string sheetName, Point origin, CopyVisitor refMod)
+        {
+            var shiftedInput = ShiftText(input.ToString(), sheetName, origin, refMod);
+            if (Point.TryParse(shiftedInput, out var shiftedPoint))
+                input = shiftedPoint;
+            else
+                _flags |= deletedFlag;
+        }
+
+        private static string ShiftText(string formulaA1, string sheetName, Point origin, CopyVisitor refMod)
+        {
+            try
+            {
+                return FormulaConverter.ModifyA1(formulaA1, sheetName, origin.Row, origin.Column, refMod);
+            }
+            catch (ParsingException)
+            {
+                // The parser cannot find the references of an unparsable formula. The formula stays the same.
+                return formulaA1;
             }
         }
 
