@@ -193,17 +193,20 @@ namespace ClosedXML.Excel
             foreach (var rl in RowLabels)
                 CopyPivotField(rl, newPivotTable.RowLabels.Add(rl.SourceName, rl.CustomName));
 
-            foreach (var v in Values)
+            foreach (var dataField in DataFields)
             {
-                var pivotValue = newPivotTable.Values.Add(v.SourceName, v.CustomName)
-                    .SetSummaryFormula(v.SummaryFormula)
-                    .SetCalculation(v.Calculation)
-                    .SetCalculationItem(v.CalculationItem)
-                    .SetBaseFieldName(v.BaseFieldName)
-                    .SetBaseItemValue(v.BaseItemValue);
+                var pivotValue = (XLPivotDataField)newPivotTable.Values.Add(dataField.SourceName, dataField.CustomName)
+                    .SetSummaryFormula(dataField.SummaryFormula)
+                    .SetCalculation(dataField.Calculation)
+                    .SetCalculationItem(dataField.CalculationItem)
+                    .SetBaseFieldName(dataField.BaseFieldName);
 
-                pivotValue.NumberFormat.NumberFormatId = v.NumberFormat.NumberFormatId;
-                pivotValue.NumberFormat.Format = v.NumberFormat.Format;
+                // A data field without a base field has no base item. The previous and next base items have no value.
+                if (dataField.HasBaseItemValue)
+                    pivotValue.SetBaseItemValue(dataField.BaseItemValue);
+
+                // The number format id is -1 for no format or a custom format. The id setter rejects -1.
+                pivotValue.NumberFormatValue = dataField.NumberFormatValue;
             }
 
             newPivotTable.Title = Title;

@@ -278,6 +278,73 @@ namespace ClosedXML.Tests
         }
 
         [Test]
+        [Issue("54")]
+        public void Copy_of_data_field_without_base_field_has_no_base_field()
+        {
+            using var wb = new XLWorkbook();
+            var pt = CreateNameCountPivotTable(wb);
+            pt.Values.Add("Count");
+
+            var copy = pt.CopyTo(pt.Worksheet.Cell("H1"));
+
+            var copiedValue = copy.Values.Single();
+            Assert.IsNull(copiedValue.BaseFieldName);
+            Assert.AreEqual(Blank.Value, copiedValue.BaseItemValue);
+            Assert.AreEqual(string.Empty, copiedValue.NumberFormat.Format);
+        }
+
+        [TestCase(XLPivotCalculationItem.Previous)]
+        [TestCase(XLPivotCalculationItem.Next)]
+        [Issue("54")]
+        public void Copy_keeps_previous_or_next_base_item(XLPivotCalculationItem calculationItem)
+        {
+            // The previous and next base items have no value. The copy must not add a blank item to the base field.
+            using var wb = new XLWorkbook();
+            var pt = CreateNameCountPivotTable(wb);
+            pt.Values.Add("Count")
+                .SetCalculation(XLPivotCalculation.DifferenceFrom)
+                .SetBaseFieldName("Name")
+                .SetCalculationItem(calculationItem);
+
+            var copy = (XLPivotTable)pt.CopyTo(pt.Worksheet.Cell("H1"));
+
+            var copiedValue = copy.Values.Single();
+            Assert.AreEqual("Name", copiedValue.BaseFieldName);
+            Assert.AreEqual(calculationItem, copiedValue.CalculationItem);
+            Assert.AreEqual(2, copy.PivotFields[0].Items.Count(item => item.ItemType == XLPivotItemType.Data));
+        }
+
+        [Test]
+        [Issue("54")]
+        public void Copy_keeps_base_item_value()
+        {
+            using var wb = new XLWorkbook();
+            var pt = CreateNameCountPivotTable(wb);
+            pt.Values.Add("Count")
+                .SetCalculation(XLPivotCalculation.DifferenceFrom)
+                .SetBaseFieldName("Name")
+                .SetBaseItemValue("Donut")
+                .NumberFormat.SetFormat("0.0");
+
+            var copy = pt.CopyTo(pt.Worksheet.Cell("H1"));
+
+            var copiedValue = copy.Values.Single();
+            Assert.AreEqual("Name", copiedValue.BaseFieldName);
+            Assert.AreEqual(XLPivotCalculationItem.Value, copiedValue.CalculationItem);
+            Assert.AreEqual((XLCellValue)"Donut", copiedValue.BaseItemValue);
+            Assert.AreEqual("0.0", copiedValue.NumberFormat.Format);
+        }
+
+        private static IXLPivotTable CreateNameCountPivotTable(XLWorkbook wb)
+        {
+            var ws = wb.AddWorksheet();
+            var data = ws.Cell("A1").InsertData(new object[] { ("Name", "Count"), ("Croissant", 5), ("Donut", 7) });
+            var pt = ws.PivotTables.Add("pvt", ws.Cell("D1"), data);
+            pt.RowLabels.Add("Name");
+            return pt;
+        }
+
+        [Test]
         public void Copy_keeps_custom_style_if_target_workbook_has_it()
         {
             // Another workbook can have no pivot style with the custom style name.
