@@ -399,5 +399,35 @@ namespace ClosedXML.Tests
                 }
             }
         }
+
+        [Test]
+        public void Column_without_filter_is_not_saved()
+        {
+            // The Column method adds a filter column with the type None. Such a column has no
+            // filter condition, so the saved autoFilter element has no filterColumn for it.
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                ws.Cell("A1").Value = "Header";
+                ws.Cell("A2").Value = 1;
+                ws.Cell("B1").Value = "Other";
+                ws.Cell("B2").Value = 2;
+                var autoFilter = ws.Range("A1:B2").SetAutoFilter();
+                Assert.AreEqual(XLFilterType.None, autoFilter.Column(1).FilterType);
+                autoFilter.Column(2).AddFilter(2);
+                wb.SaveAs(ms);
+            }
+
+            ms.Position = 0;
+            using (var wb = new XLWorkbook(ms))
+            {
+                var autoFilter = wb.Worksheets.Single().AutoFilter;
+                Assert.True(autoFilter.IsEnabled);
+                Assert.AreEqual("A1:B2", autoFilter.Range.RangeAddress.ToStringRelative());
+                Assert.AreEqual(XLFilterType.None, autoFilter.Column(1).FilterType);
+                Assert.AreEqual(XLFilterType.Regular, autoFilter.Column(2).FilterType);
+            }
+        }
     }
 }

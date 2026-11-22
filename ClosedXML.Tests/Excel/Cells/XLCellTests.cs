@@ -1224,6 +1224,20 @@ namespace ClosedXML.Tests
             Assert.AreEqual(expected, cell.FormulaR1C1);
         }
 
+        [TestCase("CONCAT(A1")]
+        [TestCase("1 + COT(")]
+        public void FormulaA1_keeps_unparsable_formula_with_future_function(string formula)
+        {
+            // A formula without a future function is not parsed when it is set. A formula with
+            // a future function must also be accepted when the parser cannot add the prefix.
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var cell = ws.Cell("A1");
+            cell.FormulaA1 = formula;
+
+            Assert.AreEqual(formula, cell.FormulaA1);
+        }
+
         [Test]
         public void FormulaA1_adds_prefix_to_all_future_functions()
         {
