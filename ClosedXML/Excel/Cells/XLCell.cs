@@ -6,8 +6,6 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
 using ClosedXML.Excel.CalcEngine.Visitors;
 using ClosedXML.Excel.Formatting;
 using ClosedXML.Excel.InsertData;
@@ -18,15 +16,8 @@ using ClosedXML.Parser;
 namespace ClosedXML.Excel
 {
     [DebuggerDisplay("{Address}")]
-    internal sealed partial class XLCell : IXLCell, IXLFormatContainer
+    internal sealed class XLCell : IXLCell, IXLFormatContainer
     {
-        /// <summary>
-        /// An escaped character, for example <c>_x000D_</c>. The hex digits start at index 2 and
-        /// have a length of 4.
-        /// </summary>
-        [GeneratedRegex(@"(?<!_x005F)_x(?!005F)([0-9A-F]{4})_")]
-        private static partial Regex UtfPattern { get; }
-
         private readonly XLCellsCollection _cellsCollection;
 
         private readonly int _rowNumber;
@@ -432,27 +423,9 @@ namespace ClosedXML.Excel
         {
             if (typeof(T) == typeof(String))
             {
-                var s = currentValue.ToString(CultureInfo.CurrentCulture);
-
-                // Most texts have no escaped character. The fast path does not run the regex.
-                if (!s.Contains("_x", StringComparison.Ordinal))
-                {
-                    value = (T)(object)s;
-                    return true;
-                }
-
-                StringBuilder? sb = null;
-                var lastIndex = 0;
-                foreach (var match in UtfPattern.EnumerateMatches(s))
-                {
-                    sb ??= new StringBuilder(s.Length);
-                    sb.Append(s, lastIndex, match.Index - lastIndex);
-                    sb.Append((char)int.Parse(s.AsSpan(match.Index + 2, 4), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture));
-                    lastIndex = match.Index + match.Length;
-                }
-
-                var unescaped = sb is null ? s : sb.Append(s, lastIndex, s.Length - lastIndex).ToString();
-                value = (T)(object)unescaped;
+                // The cell value holds the real text. A load decodes the escaped characters, for
+                // example _x000D_, before it sets the value.
+                value = (T)(object)currentValue.ToString(CultureInfo.CurrentCulture);
                 return true;
             }
             value = default;
