@@ -16,8 +16,7 @@ namespace ClosedXML.IO;
 /// </para>
 /// <para>
 /// A text with at most 19 significant digits uses 64-bit and 128-bit integer arithmetic without
-/// allocations. Only texts with more digits, and products that the 128-bit approximation
-/// cannot round, use <see cref="BigInteger"/>.
+/// allocations. Only texts with more digits use <see cref="BigInteger"/>.
 /// </para>
 /// </remarks>
 internal static class ExactNumberParser
@@ -319,12 +318,7 @@ internal static class ExactNumberParser
                 : (long)integer / ExactPowersOfTen[-exponent];
         }
 
-        if (TryMultiplyByPowerOfTen(integer, exponent, out var value))
-            return value;
-
-        return exponent >= 0
-            ? RatioToDouble(new BigInteger(integer) * BigPowersOfTen.Get(exponent), BigInteger.One)
-            : RatioToDouble(new BigInteger(integer), BigPowersOfTen.Get(-exponent));
+        return MultiplyByPowerOfTen(integer, exponent);
     }
 
     /// <summary>
@@ -332,17 +326,17 @@ internal static class ExactNumberParser
     /// with the Eisel-Lemire method. The method multiplies the integer by a 128-bit approximation of
     /// 5^<paramref name="exponent"/>. The fast_float library by Daniel Lemire uses the same calculation.
     /// </summary>
-    /// <returns>True, if the method found the nearest double. False, if the approximation cannot decide the rounding.</returns>
-    private static bool TryMultiplyByPowerOfTen(ulong integer, int exponent, out double value)
+    /// <remarks>
+    /// The integer has at most 19 digits. For such an integer, the 128-bit approximation always gives
+    /// the nearest double. Noble Mushtak and Daniel Lemire prove this in "Fast number parsing without fallback".
+    /// </remarks>
+    private static double MultiplyByPowerOfTen(ulong integer, int exponent)
     {
         // The integer is less than 2^64. Thus the value is less than half of the smallest subnormal value.
         if (exponent < MinPowerOfTen)
-        {
-            value = 0;
-            return true;
-        }
+            return 0;
 
-        var leadingZeros = 64 - GetBitLength(0, integer);
+        var leadingZeros = 64 - GetBitLength(integer);
         var normalizedInteger = integer << leadingZeros;
         var powers = PowersOfFive128.Values;
         var index = 2 * (exponent - MinPowerOfTen);
@@ -359,14 +353,6 @@ internal static class ExactNumberParser
                 high++;
         }
 
-        // The power of five is not exact for these exponents. If the low word is all ones,
-        // the exact product can be larger than the high word.
-        if (low == ulong.MaxValue && (exponent < -27 || exponent > 55))
-        {
-            value = 0;
-            return false;
-        }
-
         var upperBit = (int)(high >> 63);
         var shift = upperBit + 64 - MantissaBits - 3;
         var mantissa = high >> shift;
@@ -378,16 +364,12 @@ internal static class ExactNumberParser
         {
             // A subnormal value has fewer bits in the mantissa.
             if (-biasedExponent + 1 >= 64)
-            {
-                value = 0;
-                return true;
-            }
+                return 0;
 
             mantissa >>= -biasedExponent + 1;
             mantissa += mantissa & 1;
             mantissa >>= 1;
-            value = BitConverter.Int64BitsToDouble((long)mantissa);
-            return true;
+            return BitConverter.Int64BitsToDouble((long)mantissa);
         }
 
         // An exact tie has zero bits below the rounding bit. Only these exponents can give an exact tie.
@@ -404,13 +386,9 @@ internal static class ExactNumberParser
         }
 
         if (biasedExponent >= MaxBiasedExponent)
-        {
-            value = double.PositiveInfinity;
-            return true;
-        }
+            return double.PositiveInfinity;
 
-        value = BitConverter.Int64BitsToDouble(((long)biasedExponent << MantissaBits) | (long)(mantissa & ((1UL << MantissaBits) - 1)));
-        return true;
+        return BitConverter.Int64BitsToDouble(((long)biasedExponent << MantissaBits) | (long)(mantissa & ((1UL << MantissaBits) - 1)));
     }
 
     /// <summary>
@@ -427,7 +405,7 @@ internal static class ExactNumberParser
             : BigInteger.DivRem(numerator, denominator << -shift, out remainder);
         var quotient = (ulong)bigQuotient;
 
-        var droppedBits = GetBitLength(0, quotient) - (MantissaBits + 1);
+        var droppedBits = GetBitLength(quotient) - (MantissaBits + 1);
         var lowestBitExponent = droppedBits - shift;
         if (lowestBitExponent < MinBinaryExponent)
         {
@@ -484,49 +462,46 @@ internal static class ExactNumberParser
         high = (xHigh * yHigh) + (lowHigh >> 32) + (highLow >> 32) + (middle >> 32);
     }
 
-    private static int GetBitLength(ulong high, ulong low)
+    private static int GetBitLength(ulong value)
     {
-        if (high != 0)
-            return 64 + GetBitLength(0, high);
-
         var length = 0;
-        if (low >= 1UL << 32)
+        if (value >= 1UL << 32)
         {
-            low >>= 32;
+            value >>= 32;
             length += 32;
         }
 
-        if (low >= 1UL << 16)
+        if (value >= 1UL << 16)
         {
-            low >>= 16;
+            value >>= 16;
             length += 16;
         }
 
-        if (low >= 1UL << 8)
+        if (value >= 1UL << 8)
         {
-            low >>= 8;
+            value >>= 8;
             length += 8;
         }
 
-        if (low >= 1UL << 4)
+        if (value >= 1UL << 4)
         {
-            low >>= 4;
+            value >>= 4;
             length += 4;
         }
 
-        if (low >= 1UL << 2)
+        if (value >= 1UL << 2)
         {
-            low >>= 2;
+            value >>= 2;
             length += 2;
         }
 
-        if (low >= 1UL << 1)
+        if (value >= 1UL << 1)
         {
-            low >>= 1;
+            value >>= 1;
             length++;
         }
 
-        return length + (int)low;
+        return length + (int)value;
     }
 
     /// <summary>
@@ -616,7 +591,7 @@ internal static class ExactNumberParser
         {
             var bytes = value.ToByteArray();
             var highByte = bytes[bytes.Length - 1];
-            return (bytes.Length - 1) * 8 + ExactNumberParser.GetBitLength(0, highByte);
+            return (bytes.Length - 1) * 8 + ExactNumberParser.GetBitLength(highByte);
         }
     }
 }

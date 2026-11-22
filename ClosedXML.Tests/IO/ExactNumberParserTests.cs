@@ -101,7 +101,8 @@ internal class ExactNumberParserTests
     [TestCase("1.2345678901234567E+200", 0x6979CE4AE6F82488UL)]
     [TestCase("4.9406564584124654E-320", 0x0000000000002710UL)]
     [TestCase("1234567890123456789e-345", 0x0000000000000000UL)]
-    [TestCase("1e-342", 0x0000000000000000UL)]
+    [TestCase("9999999999999999999e-342", 0x0000000000000002UL)]
+    [TestCase("1e-330", 0x0000000000000000UL)]
     [TestCase("1e-323", 0x0000000000000002UL)]
     [Issue("47")]
     public void TryParseExact_reads_nearest_double_with_large_scale(string text, ulong expectedBits)
@@ -221,6 +222,7 @@ internal class ExactNumberParserTests
             Assert.AreEqual(BitConverter.DoubleToInt64Bits(expected), BitConverter.DoubleToInt64Bits(parsed), text);
         }
     }
+
     [Test]
     [Issue("47")]
     public void TryParseExact_does_not_allocate_for_text_with_large_scale()
