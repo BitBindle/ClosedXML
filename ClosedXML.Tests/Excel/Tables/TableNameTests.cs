@@ -49,8 +49,8 @@ namespace ClosedXML.Tests.Excel.Tables
         [Issue("56")]
         public void Save_keeps_valid_table_name(string name)
         {
-            // The first character can be a backslash. Letters of all languages are valid, also with a
-            // combining mark or outside the BMP.
+            // The first character can be a backslash. Letters of all languages are valid. This includes
+            // a letter with a combining mark and a letter that is a surrogate pair.
             using var wb = new XLWorkbook();
             CreateTable(wb.AddWorksheet()).Name = name;
             using var ms = new MemoryStream();

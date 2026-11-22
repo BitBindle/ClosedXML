@@ -239,7 +239,7 @@ namespace ClosedXML.Excel
 
         /// <summary>
         /// Excel accepts only letters, digits, periods and underscores after the first character.
-        /// A letter can have combining marks. A letter outside the BMP has two UTF-16 code units.
+        /// A letter can have combining marks. Some letters have two UTF-16 code units (a surrogate pair).
         /// </summary>
         private static Boolean HasValidNameCharacters(String name)
         {

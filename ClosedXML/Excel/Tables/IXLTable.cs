@@ -21,6 +21,9 @@ namespace ClosedXML.Excel
         /// <exception cref="ArgumentException">
         /// The new name breaks a name rule:
         /// <list type="bullet">
+        /// <item>The name is empty or has more than 255 characters.</item>
+        /// <item>The first character is not a letter, an underscore or a backslash.</item>
+        /// <item>The name is "C" or "R" in upper or lower case.</item>
         /// <item>The name is the name of another table in the sheet.</item>
         /// <item>The name contains whitespace.</item>
         /// <item>After the first character, the name has a character that is not a letter, a digit, a period or an underscore.</item>

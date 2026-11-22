@@ -181,16 +181,15 @@ namespace ClosedXML.Excel.IO
         {
             // The name rules of the setter make each new name valid. A name from a file stays as it is,
             // because the formulas and the pivot sources of the file use that name.
-            var tableName = originalTableName;
-            var name = tableName;
+            var name = originalTableName;
             if (context.TableNames.Contains(name))
             {
                 var i = 1;
-                name = tableName + i.ToInvariantString();
+                name = originalTableName + i.ToInvariantString();
                 while (context.TableNames.Contains(name))
                 {
                     i++;
-                    name = tableName + i.ToInvariantString();
+                    name = originalTableName + i.ToInvariantString();
                 }
             }
 
