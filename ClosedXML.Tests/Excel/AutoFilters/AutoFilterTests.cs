@@ -1,4 +1,6 @@
 using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
@@ -306,6 +308,40 @@ namespace ClosedXML.Tests
             finally
             {
                 Thread.CurrentThread.CurrentCulture = backupCulture;
+            }
+        }
+
+        [Test]
+        [Issue("35")]
+        public void Custom_filter_saves_number_operand_with_round_trip_text()
+        {
+            // The default number format of .NET Framework gives 15 significant digits.
+            // With that format, the file contains 0.3 and the filter shows the cell with 0.1 + 0.2.
+            var operand = 0.1 + 0.2;
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                ws.Cell("A1").Value = "Number";
+                ws.Cell("A2").Value = 0.3;
+                ws.Cell("A3").Value = operand;
+                ws.Cell("A4").Value = 0.31;
+                ws.Range("A1:A4").SetAutoFilter().Column(1).GreaterThan(operand);
+                wb.SaveAs(ms);
+            }
+
+            using (var document = SpreadsheetDocument.Open(ms, false))
+            {
+                var worksheet = document.WorkbookPart!.WorksheetParts.Single().Worksheet;
+                var customFilter = worksheet.Descendants<CustomFilter>().Single();
+                Assert.AreEqual("0.30000000000000004", customFilter.Val!.Value);
+            }
+
+            using (var wb = new XLWorkbook(ms))
+            {
+                var autoFilter = wb.Worksheet(1).AutoFilter;
+                autoFilter.Reapply();
+                Assert.AreEqual(new[] { 2, 3 }, autoFilter.HiddenRows.Select(r => r.RowNumber()).ToArray());
             }
         }
 
