@@ -33,6 +33,15 @@ namespace ClosedXML.Tests.Extensions
             Assert.AreEqual(expectedText, value.ToInvariantString());
         }
 
+        // .NET Framework formats these values with a different last digit.
+        [TestCase(-0.86136133483801225d, "-0.8613613348380122")]
+        [TestCase(562949953421312.25d, "562949953421312.2")]
+        [Issue("34")]
+        public void Double_text_is_the_same_on_each_runtime(double value, string expectedText)
+        {
+            Assert.AreEqual(expectedText, value.ToInvariantString());
+        }
+
         [TestCase(double.NaN, "NaN")]
         [TestCase(double.PositiveInfinity, "Infinity")]
         [TestCase(double.NegativeInfinity, "-Infinity")]
