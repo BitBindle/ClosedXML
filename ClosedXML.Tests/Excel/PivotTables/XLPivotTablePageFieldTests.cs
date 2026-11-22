@@ -1,6 +1,9 @@
 using System;
+using System.IO;
 using System.Linq;
 using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using NUnit.Framework;
 
 namespace ClosedXML.Tests.Excel.PivotTables;
@@ -107,6 +110,86 @@ internal class XLPivotTablePageFieldTests
     }
 
     [Test]
+    [Issue("31")]
+    public void SelectedValues_with_one_selected_value_contains_only_that_value()
+    {
+        using var wb = new XLWorkbook();
+        var pt = CreatePivotTable(wb);
+        var filter = pt.ReportFilters.Add("City");
+
+        filter.AddSelectedValue("Rome");
+
+        Assert.AreEqual(new XLCellValue[] { "Rome" }, filter.SelectedValues);
+    }
+
+    [Test]
+    [Issue("31")]
+    public void AddSelectedValue_after_one_selected_value_selects_both_values()
+    {
+        using var wb = new XLWorkbook();
+        var pt = CreatePivotTable(wb);
+        var filter = pt.ReportFilters.Add("City");
+        filter.AddSelectedValue("Rome");
+
+        filter.AddSelectedValue("Tokyo");
+
+        Assert.AreEqual(new XLCellValue[] { "Tokyo", "Rome" }, filter.SelectedValues);
+    }
+
+    [Test]
+    [Issue("31")]
+    public void One_selected_value_is_loaded_from_position_in_pivot_field_items()
+    {
+        // ECMA-376 defines pageField@item as an index into pivotField.items, not into the shared items.
+        // The field items are in reverse order, thus the item at position 0 has the value of shared item 3.
+        using var ms = CreateFileWithReversedCityItems(selectedItem: 0);
+
+        using var wb = new XLWorkbook(ms);
+        var filter = wb.Worksheet(1).PivotTable("pt").ReportFilters.Single();
+
+        Assert.AreEqual(new XLCellValue[] { "Oslo" }, filter.SelectedValues);
+    }
+
+    [Test]
+    [Issue("31")]
+    public void One_selected_value_is_saved_as_position_in_pivot_field_items()
+    {
+        // The field items are in reverse order, thus shared item 2 "Rome" is at position 1.
+        using var ms = CreateFileWithReversedCityItems(selectedItem: null);
+        using (var wb = new XLWorkbook(ms))
+        {
+            wb.Worksheet(1).PivotTable("pt").ReportFilters.Single().AddSelectedValue("Rome");
+            wb.Save();
+        }
+
+        using (var document = SpreadsheetDocument.Open(ms, false))
+        {
+            var definition = document.WorkbookPart!.WorksheetParts.Single().PivotTableParts.Single().PivotTableDefinition!;
+            var pageField = definition.PageFields!.Elements<PageField>().Single();
+            Assert.AreEqual(1, pageField.Item!.Value);
+        }
+
+        using (var wb = new XLWorkbook(ms))
+        {
+            var filter = wb.Worksheet(1).PivotTable("pt").ReportFilters.Single();
+            Assert.AreEqual(new XLCellValue[] { "Rome" }, filter.SelectedValues);
+        }
+    }
+
+    [Test]
+    [Issue("31")]
+    public void AddSelectedValue_after_one_loaded_selected_value_keeps_loaded_value()
+    {
+        using var ms = CreateFileWithReversedCityItems(selectedItem: 0);
+        using var wb = new XLWorkbook(ms);
+        var filter = wb.Worksheet(1).PivotTable("pt").ReportFilters.Single();
+
+        filter.AddSelectedValue("Tokyo");
+
+        CollectionAssert.AreEquivalent(new XLCellValue[] { "Oslo", "Tokyo" }, filter.SelectedValues);
+    }
+
+    [Test]
     public void Filter_field_is_only_in_filter_list()
     {
         using var wb = new XLWorkbook();
@@ -128,6 +211,40 @@ internal class XLPivotTablePageFieldTests
         var filter = pt.ReportFilters.Add("City");
 
         Assert.Throws<NotImplementedException>(() => _ = filter.StyleFormats);
+    }
+
+    /// <summary>
+    /// Creates a file with a City filter. The data items of the City field are in reverse order
+    /// of the shared items. Excel can save such an order, for example after a sort of the items.
+    /// </summary>
+    private static MemoryStream CreateFileWithReversedCityItems(uint? selectedItem)
+    {
+        var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var pt = CreatePivotTable(wb);
+            pt.ReportFilters.Add("City");
+            wb.SaveAs(ms);
+        }
+
+        using (var document = SpreadsheetDocument.Open(ms, true))
+        {
+            var definition = document.WorkbookPart!.WorksheetParts.Single().PivotTableParts.Single().PivotTableDefinition!;
+            var cityItems = definition.PivotFields!.Elements<PivotField>().ElementAt(1).Items!;
+            var dataItems = cityItems.Elements<Item>().Where(i => i.Index is not null).ToList();
+            foreach (var item in dataItems)
+                item.Remove();
+
+            dataItems.Reverse();
+            cityItems.InsertAt(dataItems[0], 0);
+            for (var i = 1; i < dataItems.Count; ++i)
+                cityItems.InsertAt(dataItems[i], i);
+
+            if (selectedItem is not null)
+                definition.PageFields!.Elements<PageField>().Single().Item = selectedItem.Value;
+        }
+
+        return ms;
     }
 
     private static IXLPivotTable CreatePivotTable(XLWorkbook wb)

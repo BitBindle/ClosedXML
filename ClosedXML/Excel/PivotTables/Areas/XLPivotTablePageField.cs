@@ -172,6 +172,14 @@ internal class XLPivotTablePageField : IXLPivotField
     {
         get
         {
+            // A single selected item is in the page field, and the items of the pivot field are not hidden.
+            if (TryGetSingleSelectedItem(out var singleItem))
+            {
+                var singleValue = singleItem.GetValue();
+                if (singleValue is not null)
+                    return new[] { singleValue.Value };
+            }
+
             var shownItems = GetField().Items.Where(i => !i.Hidden);
             var selectedValues = new List<XLCellValue>();
             foreach (var selectedItem in shownItems)
@@ -195,20 +203,24 @@ internal class XLPivotTablePageField : IXLPivotField
         if (nothingSelected)
         {
             var fieldItem = pivotField.GetOrAddItem(value);
-            _filterField.ItemIndex = fieldItem.ItemIndex;
+            _filterField.ItemIndex = pivotField.IndexOfItem(fieldItem);
             return this;
         }
 
         var oneItemSelected = _filterField.ItemIndex is not null && !pivotField.MultipleItemSelectionAllowed;
         if (oneItemSelected)
         {
+            // Get the single item before the switch, because the single item exists only without multiple selection.
+            var hasSelectedItem = TryGetSingleSelectedItem(out var selectedItem);
+
             // Switch to multiple
             pivotField.MultipleItemSelectionAllowed = true;
             foreach (var item in pivotField.Items.Where(x => x.ItemType == XLPivotItemType.Data))
                 item.Hidden = true;
 
-            var selectedItem = pivotField.Items.Single(i => i.ItemIndex == _filterField.ItemIndex);
-            selectedItem.Hidden = false;
+            if (hasSelectedItem)
+                selectedItem.Hidden = false;
+
             _filterField.ItemIndex = null;
             var fieldItem = pivotField.GetOrAddItem(value);
             fieldItem.Hidden = false;
@@ -240,5 +252,26 @@ internal class XLPivotTablePageField : IXLPivotField
     private XLPivotTableField GetField()
     {
         return _pivotTable.PivotFields[_filterField.Field];
+    }
+
+    /// <summary>
+    /// Gets the item of the page field, if the filter has exactly one selected item.
+    /// </summary>
+    /// <remarks>
+    /// ECMA-376 defines <c>pageField@item</c> as an index into the items of the pivot field.
+    /// It is not an index into the shared items of the cache field.
+    /// </remarks>
+    private bool TryGetSingleSelectedItem(out XLPivotFieldItem item)
+    {
+        var pivotField = GetField();
+        var itemIndex = _filterField.ItemIndex;
+        if (pivotField.MultipleItemSelectionAllowed || itemIndex is null || itemIndex < 0 || itemIndex >= pivotField.Items.Count)
+        {
+            item = null;
+            return false;
+        }
+
+        item = pivotField.Items[itemIndex.Value];
+        return true;
     }
 }
