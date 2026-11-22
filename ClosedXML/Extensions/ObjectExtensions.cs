@@ -40,16 +40,36 @@ namespace ClosedXML.Excel
         /// </summary>
         internal static string ToRoundTripString(double value)
         {
-            // The serializer calls this method for each number cell. Format into a stack buffer,
-            // so that only the text that the method returns is allocated.
-            // The longest text, for example "-1.7976931348623157E+308", has 24 characters.
-            Span<char> buffer = stackalloc char[32];
-            if (TryFormatRoundTrip(value, buffer, "G15", out var length) ||
-                TryFormatRoundTrip(value, buffer, "G16", out length))
-                return new string(buffer.Slice(0, length));
+            // Format into a stack buffer. The method then allocates only the text that it returns.
+            Span<char> buffer = stackalloc char[RoundTripLength];
+            var length = FormatRoundTrip(value, buffer);
+            return new string(buffer.Slice(0, length));
+        }
+
+        /// <summary>
+        /// The minimum length of a buffer for <see cref="FormatRoundTrip"/>. The longest text, for
+        /// example <c>-1.7976931348623157E+308</c>, has 24 characters.
+        /// </summary>
+        internal const int RoundTripLength = 32;
+
+        /// <summary>
+        /// Formats a number into a buffer with the same text as <see cref="ToRoundTripString(double)"/>.
+        /// The serializer calls this method for each number cell, so the method allocates no memory.
+        /// </summary>
+        /// <param name="value">The number to format.</param>
+        /// <param name="destination">The buffer. It has at least <see cref="RoundTripLength"/> characters.</param>
+        /// <returns>The number of characters in the buffer.</returns>
+        internal static int FormatRoundTrip(double value, Span<char> destination)
+        {
+            if (TryFormatRoundTrip(value, destination, "G15", out var length) ||
+                TryFormatRoundTrip(value, destination, "G16", out length))
+                return length;
 
             // 17 significant digits are sufficient for each double value.
-            return value.ToString("G17", CultureInfo.InvariantCulture);
+            if (!value.TryFormat(destination, out length, "G17", CultureInfo.InvariantCulture))
+                throw new ArgumentException("The buffer is too short.", nameof(destination));
+
+            return length;
 
             static bool TryFormatRoundTrip(double value, Span<char> buffer, string format, out int length)
             {

@@ -868,5 +868,37 @@ namespace ClosedXML.Tests
             Assert.IsNull(picture.BottomRightCell);
             Assert.Throws<InvalidOperationException>(() => picture.GetOffset(XLMarkerPosition.BottomRight));
         }
+
+        [Test]
+        [Issue("74")]
+        public void Each_save_writes_the_full_image_data()
+        {
+            // The image part reads the picture stream directly. A save must not close the stream,
+            // and each save sets the position to 0 before it reads the stream. The workbook reads
+            // the last saved stream on the next save, so the saved streams stay open.
+            using var resourceStream = Assembly.GetAssembly(typeof(ClosedXML.Examples.BasicTable)).GetManifestResourceStream("ClosedXML.Examples.Resources.SampleImage.jpg");
+            var expectedData = new byte[resourceStream.Length];
+            resourceStream.ReadExactly(expectedData);
+            resourceStream.Position = 0;
+
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.AddPicture(resourceStream, "Picture");
+
+            using var firstMs = new MemoryStream();
+            using var secondMs = new MemoryStream();
+            foreach (var ms in new[] { firstMs, secondMs })
+            {
+                wb.SaveAs(ms);
+                ms.Position = 0;
+
+                using var document = SpreadsheetDocument.Open(ms, false);
+                var imagePart = document.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.ImageParts.Single();
+                using var imageStream = imagePart.GetStream();
+                using var savedData = new MemoryStream();
+                imageStream.CopyTo(savedData);
+                CollectionAssert.AreEqual(expectedData, savedData.ToArray());
+            }
+        }
     }
 }
