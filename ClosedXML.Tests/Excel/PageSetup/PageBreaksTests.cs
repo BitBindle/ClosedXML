@@ -1,5 +1,9 @@
 using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using NUnit.Framework;
+using System.IO;
+using System.Linq;
 
 namespace ClosedXML.Tests.Excel
 {
@@ -72,6 +76,36 @@ namespace ClosedXML.Tests.Excel
             sheet.PageSetup.AddVerticalPageBreak(10);
             sheet.Column(15).InsertColumnsBefore(1);
             Assert.AreEqual(10, sheet.PageSetup.ColumnBreaks[0]);
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Load_skips_page_breaks_without_an_id()
+        {
+            using var stream = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet("Sheet1");
+                ws.PageSetup.AddHorizontalPageBreak(2);
+                ws.PageSetup.AddHorizontalPageBreak(5);
+                ws.PageSetup.AddVerticalPageBreak(3);
+                ws.PageSetup.AddVerticalPageBreak(7);
+                wb.SaveAs(stream);
+            }
+
+            using (var document = SpreadsheetDocument.Open(stream, true))
+            {
+                var worksheet = document.WorkbookPart.WorksheetParts.Single().Worksheet;
+                worksheet.GetFirstChild<RowBreaks>().Elements<Break>().First().Id = null;
+                worksheet.GetFirstChild<ColumnBreaks>().Elements<Break>().First().Id = null;
+            }
+
+            using (var wb = new XLWorkbook(stream))
+            {
+                var pageSetup = wb.Worksheet("Sheet1").PageSetup;
+                CollectionAssert.AreEqual(new[] { 5 }, pageSetup.RowBreaks);
+                CollectionAssert.AreEqual(new[] { 7 }, pageSetup.ColumnBreaks);
+            }
         }
     }
 }

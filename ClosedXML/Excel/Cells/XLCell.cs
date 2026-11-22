@@ -1764,6 +1764,7 @@ namespace ClosedXML.Excel
 
         #endregion XLCell Right
 
+        [MemberNotNullWhen(true, nameof(Formula))]
         public Boolean HasFormula => Formula is not null;
 
         public Boolean HasArrayFormula => Formula?.Type == FormulaType.Array;

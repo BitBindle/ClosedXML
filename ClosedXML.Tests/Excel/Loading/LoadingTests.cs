@@ -1,6 +1,9 @@
 using ClosedXML.Excel;
 using ClosedXML.Excel.Drawings;
+using ClosedXML.IO;
 using ClosedXML.Tests.Utils;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
@@ -9,6 +12,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using Point = System.Drawing.Point;
+using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
 namespace ClosedXML.Tests.Excel;
 
@@ -839,5 +843,81 @@ public class LoadingTests
             // "PRAVDA" - not a bool, thus treated as a missing. Thanks to the default true it is still bold.
             Assert.IsTrue(ws.Cell("A4").Style.Font.Bold);
         }, @"TryToLoad\Malformed\AttributesWithInvalidValues.xlsx", new LoadOptions { StrictAttributeParsing = false });
+    }
+
+    [Test]
+    [Issue("64")]
+    public void Load_of_a_sheet_without_a_name_throws_part_structure_exception()
+    {
+        using var stream = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            wb.AddWorksheet("Sheet1");
+            wb.SaveAs(stream);
+        }
+
+        using (var document = SpreadsheetDocument.Open(stream, true))
+            document.WorkbookPart!.Workbook!.Sheets!.Elements<Sheet>().Single().Name = null;
+
+        Assert.Throws<PartStructureException>(() => _ = new XLWorkbook(stream));
+    }
+
+    [Test]
+    [Issue("64")]
+    public void Load_of_a_two_cell_anchor_with_absolute_edit_and_without_an_offset_keeps_the_picture()
+    {
+        using var stream = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet("Sheet1");
+            using var image = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Images\ImageHandling.png"));
+            ws.AddPicture(image, "Picture").MoveTo(ws.Cell("B2"), ws.Cell("D4"));
+            wb.SaveAs(stream);
+        }
+
+        using (var document = SpreadsheetDocument.Open(stream, true))
+        {
+            var drawing = document.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing!;
+            var anchor = drawing.Elements<Xdr.TwoCellAnchor>().Single();
+            anchor.EditAs = Xdr.EditAsValues.Absolute;
+            anchor.Descendants<Xdr.ShapeProperties>().Single().Transform2D!.Offset = null;
+        }
+
+        using (var wb = new XLWorkbook(stream))
+        {
+            var picture = wb.Worksheet("Sheet1").Pictures.Single();
+            Assert.AreEqual("Picture", picture.Name);
+        }
+    }
+
+    [Test]
+    [Issue("64")]
+    public void Save_of_comments_with_a_vml_part_that_is_not_valid_xml_writes_the_comments()
+    {
+        using var stream = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            wb.AddWorksheet("Sheet1");
+            wb.SaveAs(stream);
+        }
+
+        using (var document = SpreadsheetDocument.Open(stream, true))
+        {
+            var worksheetPart = document.WorkbookPart!.WorksheetParts.Single();
+            var vmlPart = worksheetPart.AddNewPart<VmlDrawingPart>("rIdVml");
+            using (var vmlStream = vmlPart.GetStream(FileMode.Create))
+            using (var writer = new StreamWriter(vmlStream))
+                writer.Write("<xml><not closed");
+            worksheetPart.Worksheet!.Append(new LegacyDrawing { Id = "rIdVml" });
+        }
+
+        using (var wb = new XLWorkbook(stream))
+        {
+            wb.Worksheet("Sheet1").Cell("A1").CreateComment().AddText("Note");
+            wb.Save();
+        }
+
+        using (var wb = new XLWorkbook(stream))
+            Assert.AreEqual("Note", wb.Worksheet("Sheet1").Cell("A1").GetComment().Text);
     }
 }

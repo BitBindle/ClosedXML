@@ -320,7 +320,7 @@ internal partial class XLCellFormat
             }, styles);
             foreach (var (sheetName, area) in Areas)
             {
-                if (!_workbook.TryGetWorksheet(sheetName, out XLWorksheet worksheet))
+                if (!_workbook.TryGetWorksheet(sheetName, out XLWorksheet? worksheet))
                     continue;
 
                 ApplyToAll(area, setAll, worksheet);
@@ -353,7 +353,7 @@ internal partial class XLCellFormat
         var setBottom = GetModifyBorderFunc(border => border with { Bottom = modify(border.Bottom, value) }, styles);
         foreach (var area in Areas)
         {
-            if (!_workbook.TryGetWorksheet(area.Name, out XLWorksheet worksheet))
+            if (!_workbook.TryGetWorksheet(area.Name, out XLWorksheet? worksheet))
                 continue;
 
             var formatResolver = new FormatResolver(worksheet);
@@ -393,7 +393,7 @@ internal partial class XLCellFormat
         var setBottom = GetModifyBorderFunc(border => border with { Bottom = modify(border.Bottom, value) }, styles);
         foreach (var (sheetName, area) in Areas)
         {
-            if (!_workbook.TryGetWorksheet(sheetName, out XLWorksheet worksheet))
+            if (!_workbook.TryGetWorksheet(sheetName, out XLWorksheet? worksheet))
                 continue;
 
             var formatResolver = new FormatResolver(worksheet);
@@ -518,7 +518,7 @@ internal partial class XLCellFormat
     {
         foreach (var rowArea in rows)
         {
-            if (!_workbook.TryGetWorksheet(rowArea.Name, out XLWorksheet worksheet))
+            if (!_workbook.TryGetWorksheet(rowArea.Name, out XLWorksheet? worksheet))
                 continue;
 
             // Row style is used by non-materialized cells in a row...
@@ -597,7 +597,7 @@ internal partial class XLCellFormat
     {
         foreach (var columnArea in columns)
         {
-            if (!_workbook.TryGetWorksheet(columnArea.Name, out XLWorksheet worksheet))
+            if (!_workbook.TryGetWorksheet(columnArea.Name, out XLWorksheet? worksheet))
                 continue;
 
             // Column style is used by non-materialized cells in a column...
@@ -626,7 +626,7 @@ internal partial class XLCellFormat
 
         foreach (var sheetName in Worksheets)
         {
-            if (!_workbook.TryGetWorksheet(sheetName, out XLWorksheet worksheet))
+            if (!_workbook.TryGetWorksheet(sheetName, out XLWorksheet? worksheet))
                 continue;
 
             ApplyToWorksheet(worksheet, modifyFormat, styles);
@@ -634,7 +634,7 @@ internal partial class XLCellFormat
 
         foreach (var columnArea in Columns)
         {
-            if (!_workbook.TryGetWorksheet(columnArea.Name, out XLWorksheet worksheet))
+            if (!_workbook.TryGetWorksheet(columnArea.Name, out XLWorksheet? worksheet))
                 continue;
 
             var column = worksheet.Column(columnArea.ColumNumber);
@@ -643,7 +643,7 @@ internal partial class XLCellFormat
 
         foreach (var rowArea in Rows)
         {
-            if (!_workbook.TryGetWorksheet(rowArea.Name, out XLWorksheet worksheet))
+            if (!_workbook.TryGetWorksheet(rowArea.Name, out XLWorksheet? worksheet))
                 continue;
 
             var row = worksheet.Row(rowArea.RowNumber);
@@ -652,7 +652,7 @@ internal partial class XLCellFormat
 
         foreach (var (sheetName, area) in UsedAreas)
         {
-            if (!_workbook.TryGetWorksheet(sheetName, out XLWorksheet worksheet))
+            if (!_workbook.TryGetWorksheet(sheetName, out XLWorksheet? worksheet))
                 continue;
 
             ApplyToUsed(area, modifyFormat, worksheet);
@@ -660,7 +660,7 @@ internal partial class XLCellFormat
 
         foreach (var (sheetName, area) in Areas)
         {
-            if (!_workbook.TryGetWorksheet(sheetName, out XLWorksheet worksheet))
+            if (!_workbook.TryGetWorksheet(sheetName, out XLWorksheet? worksheet))
                 continue;
 
             ApplyToAll(area, modifyFormat, worksheet);
@@ -731,12 +731,12 @@ internal partial class XLCellFormat
 
         internal XLCellFormatValue Resolve()
         {
-            var isForWorkbook = _sheetName is null;
-            if (isForWorkbook)
+            // A hierarchy without a sheet name is for the workbook.
+            if (_sheetName is null)
                 return DefaultFormat;
 
             // First, make sure the sheet exists
-            if (!_workbook.TryGetWorksheet(_sheetName, out XLWorksheet sheet))
+            if (!_workbook.TryGetWorksheet(_sheetName, out XLWorksheet? sheet))
                 return DefaultFormat;
 
             if (_point is { } point)

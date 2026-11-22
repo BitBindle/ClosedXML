@@ -55,8 +55,13 @@ runtime. Some members now throw a specified exception where before they threw
 * ``IXLWorkbook.RangeFromFullAddress`` now returns ``IXLRange?`` and has the parameter
   ``out IXLWorksheet? ws``. Both are null when the address has no sheet or the worksheet does not
   exist.
+* ``XLWorkbook.CellFromFullAddress`` now returns ``IXLCell?`` and has the parameter
+  ``out IXLWorksheet? ws``. Both are null when the address has no sheet or the worksheet does not
+  exist.
 * ``IXLWorkbook.TryGetWorksheet`` now has the parameter
   ``[NotNullWhen(true)] out IXLWorksheet? worksheet``.
+* The setter of ``IXLWorkbook.Protection`` now throws ``ArgumentNullException`` for null. Before,
+  it threw ``NullReferenceException``.
 * ``IXLPicture.TopLeftCell`` and ``IXLPicture.BottomRightCell`` are now ``IXLCell?``. A picture
   that has no anchor at a position returns null. Before, they threw ``NullReferenceException``.
   ``IXLPicture.GetOffset`` for a position without an anchor now throws
@@ -195,3 +200,23 @@ These bugs are fixed:
   copy now does not include the sparkline.
 * ``IXLTable.AsDynamicEnumerable()`` and ``IXLTable.AsNativeDataTable()`` of a table without data
   rows threw ``NullReferenceException``. They now return no rows.
+* A load of a file without a required part, element or attribute threw
+  ``NullReferenceException``. It now throws ``PartStructureException``. A load of a file with a
+  reference that is not valid, for example the ``ref`` of an autofilter, a merged range, a table, a
+  comment or a pivot table location, the ``sqref`` of a conditional format, or the ``activeCell``
+  of a selection, also throws ``PartStructureException``.
+* A load of a file with an autofilter ``dynamicFilter`` without a ``val`` threw
+  ``NullReferenceException``. The ``DynamicValue`` of the filter column is now ``Double.NaN``. A
+  save does not write ``val`` for a ``DynamicValue`` that is ``Double.NaN``.
+* A save of a file with a count ``vt:variant`` in ``docProps/app.xml`` without a ``vt:i4`` child
+  threw ``NullReferenceException``. The save now adds the ``vt:i4`` element.
+* A load of a file with a row page break or a column page break without an ``id`` threw
+  ``NullReferenceException``. The load now skips the page break.
+* A load of a file with an autofilter ``filter`` or ``customFilter`` without a ``val`` threw
+  ``NullReferenceException``. The filter now compares with an empty text.
+* A load of a picture with a two-cell anchor, ``editAs="absolute"`` and shape properties without
+  an offset threw ``NullReferenceException``. The load now keeps the picture and does not move it.
+* A save of a worksheet with comments and a VML drawing part that is not valid XML threw
+  ``NullReferenceException``. The save now writes the comments without the old VML content.
+* A save after the delete of a worksheet with a pivot table threw
+  ``ArgumentOutOfRangeException``.

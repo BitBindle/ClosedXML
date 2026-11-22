@@ -520,5 +520,33 @@ namespace ClosedXML.Tests
 
             Assert.IsNull(copy.AutoFilter.Range);
         }
+
+        [Test]
+        [Issue("64")]
+        public void Load_of_a_regular_filter_without_a_value_gives_an_empty_text()
+        {
+            using var stream = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet("Sheet1");
+                ws.Cell("A1").Value = "Name";
+                ws.Cell("A2").Value = "x";
+                ws.Range("A1:A2").SetAutoFilter().Column(1).AddFilter("x");
+                wb.SaveAs(stream);
+            }
+
+            using (var document = SpreadsheetDocument.Open(stream, true))
+            {
+                var worksheet = document.WorkbookPart.WorksheetParts.Single().Worksheet;
+                worksheet.Descendants<Filter>().Single().Val = null;
+            }
+
+            using (var wb = new XLWorkbook(stream))
+            {
+                var filterColumn = (XLFilterColumn)wb.Worksheet("Sheet1").AutoFilter.Column(1);
+                Assert.AreEqual(XLFilterType.Regular, filterColumn.FilterType);
+                Assert.That(filterColumn.Select(f => f.Value), Is.EqualTo(new object[] { String.Empty }));
+            }
+        }
     }
 }

@@ -1,5 +1,3 @@
-#nullable disable
-
 using ClosedXML.Utils;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
@@ -184,8 +182,7 @@ namespace ClosedXML.Excel.IO
                 // So if there are any entries, it would be from previous pivot tables
                 // with an identical source range.
                 // When pivot sources get its refactoring, this will not be necessary
-                var cacheField = pivotCacheDefinition
-                    .CacheFields
+                var cacheField = cacheFields
                     .Elements<CacheField>()
                     .FirstOrDefault(f => f.Name == cacheFieldName);
 

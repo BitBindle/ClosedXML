@@ -1,7 +1,10 @@
-﻿using System;
+﻿using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using NUnit.Framework;
+using System;
+using System.IO;
 using System.Linq;
-using ClosedXML.Excel;
 
 namespace ClosedXML.Tests.Excel.AutoFilters
 {
@@ -65,6 +68,40 @@ namespace ClosedXML.Tests.Excel.AutoFilters
             new AutoFilterTester(f => f.AboveAverage())
                 .AddFalse(Blank.Value, true, false, "-100", "Text", XLError.NoValueAvailable)
                 .AssertVisibility();
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Load_of_a_dynamic_filter_without_a_value_gives_an_average_that_is_not_calculated()
+        {
+            using var stream = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet("Sheet1");
+                ws.Cell("A1").InsertData(new object[] { "Data", 1, 2, 6 }).SetAutoFilter().Column(1).AboveAverage();
+                wb.SaveAs(stream);
+            }
+
+            using (var document = SpreadsheetDocument.Open(stream, true))
+            {
+                var worksheet = document.WorkbookPart.WorksheetParts.Single().Worksheet;
+                worksheet.Descendants<DynamicFilter>().Single().Val = null;
+            }
+
+            using (var wb = new XLWorkbook(stream))
+            {
+                var ws = wb.Worksheet("Sheet1");
+                var filterColumn = ws.AutoFilter.Column(1);
+                Assert.AreEqual(XLFilterType.Dynamic, filterColumn.FilterType);
+                Assert.IsNaN(filterColumn.DynamicValue);
+                wb.Save();
+            }
+
+            using (var document = SpreadsheetDocument.Open(stream, false))
+            {
+                var worksheet = document.WorkbookPart.WorksheetParts.Single().Worksheet;
+                Assert.IsNull(worksheet.Descendants<DynamicFilter>().Single().Val);
+            }
         }
     }
 }

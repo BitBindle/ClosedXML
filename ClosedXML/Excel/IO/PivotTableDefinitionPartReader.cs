@@ -1,4 +1,3 @@
-#nullable disable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,7 +19,7 @@ internal class PivotTableDefinitionPartReader
     internal static void Load(WorkbookPart workbookPart, PivotTablePart pivotTablePart, WorksheetPart worksheetPart, XLWorksheet ws, LoadContext context)
     {
         var workbook = ws.Workbook;
-        var cache = pivotTablePart.PivotTableCacheDefinitionPart;
+        var cache = pivotTablePart.PivotTableCacheDefinitionPart ?? throw PartStructureException.RequiredElementIsMissing("pivotCacheDefinition");
         var cacheDefinitionRelId = workbookPart.GetIdOfPart(cache);
 
         var pivotSource = workbook.PivotCachesInternal
@@ -34,13 +33,14 @@ internal class PivotTableDefinitionPartReader
                     ps.Source.Equals(PivotTableCacheDefinitionPartReader.ParsePivotSourceReference(cacheSource)));
         }
 
-        var pivotTableDefinition = pivotTablePart.PivotTableDefinition;
+        var pivotTableDefinition = pivotTablePart.PivotTableDefinition ?? throw PartStructureException.RequiredElementIsMissing("pivotTableDefinition");
 
         var target = ws.FirstCell();
-        if (pivotTableDefinition?.Location?.Reference?.HasValue ?? false)
+        if (pivotTableDefinition.Location?.Reference?.Value is { } locationReference)
         {
-            ws.Range(pivotTableDefinition.Location.Reference.Value).Clear(XLClearOptions.All);
-            target = ws.Range(pivotTableDefinition.Location.Reference.Value).FirstCell();
+            var locationRange = ws.Range(locationReference) ?? throw PartStructureException.InvalidAttributeFormat("ref", locationReference);
+            locationRange.Clear(XLClearOptions.All);
+            target = locationRange.FirstCell();
         }
 
         if (target != null && pivotSource != null)
@@ -53,7 +53,6 @@ internal class PivotTableDefinitionPartReader
         }
     }
 
-#nullable enable
     private static XLPivotTable LoadPivotTableDefinition(PivotTableDefinition pivotTable, XLWorksheet sheet, XLPivotCache cache, LoadContext context)
     {
         var styles = sheet.Workbook.Styles;
