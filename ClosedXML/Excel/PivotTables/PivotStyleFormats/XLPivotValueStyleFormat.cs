@@ -38,8 +38,8 @@ internal class XLPivotValueStyleFormat : XLPivotStyleFormatBase, IXLPivotValueSt
         if (predicate is null)
             return AndWith(field);
 
-        // A reference of a pivot area without cacheIndex selects the items by their position in the
-        // items of the pivot field, not by their shared item index.
+        // A pivot area reference without cacheIndex selects an item by its position in the field items.
+        // It does not use the shared item index.
         var pivotField = PivotTable.PivotFields[fieldIndex];
         var filteredItems = new HashSet<XLPivotFieldItem>(pivotField.GetAllItems(predicate));
         var itemPositions = new List<uint>(filteredItems.Count);

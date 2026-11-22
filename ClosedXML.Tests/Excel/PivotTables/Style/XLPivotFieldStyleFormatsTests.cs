@@ -215,8 +215,8 @@ internal class XLPivotFieldStyleFormatsTests
     [Issue("51")]
     public void Style_format_references_item_by_position_in_field_items()
     {
-        // A pivot area reference selects an item by its position in the field items. The position
-        // is different from the shared item index, if the field items have a different order.
+        // A pivot area reference selects an item by its position in the field items. If the field
+        // items have a different order, the position is different from the shared item index.
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
         {
