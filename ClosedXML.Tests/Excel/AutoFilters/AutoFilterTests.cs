@@ -229,6 +229,7 @@ namespace ClosedXML.Tests
         }
 
         [Test]
+        [Issue("ClosedXML/ClosedXML#2811")]
         public void Reapply_does_nothing_when_autofilter_is_not_enabled()
         {
             using var wb = new XLWorkbook();
@@ -244,6 +245,7 @@ namespace ClosedXML.Tests
         }
 
         [Test]
+        [Issue("ClosedXML/ClosedXML#2811")]
         public void Clearing_filter_column_with_reapply_does_nothing_when_autofilter_is_not_enabled()
         {
             using var wb = new XLWorkbook();
@@ -401,6 +403,7 @@ namespace ClosedXML.Tests
         }
 
         [Test]
+        [Issue("ClosedXML/ClosedXML#2629")]
         public void Column_without_filter_is_not_saved()
         {
             // The Column method adds a filter column with the type None. Such a column has no

@@ -237,6 +237,7 @@ namespace ClosedXML.Tests.Excel.ConditionalFormats
         [TestCase("=$A$1")]
         [TestCase(" =SUM(A1:A5) ")]
         [TestCase("Say \"hi\"")]
+        [Issue("ClosedXML/ClosedXML#2637")]
         public void Text_formats_keep_the_text_as_a_value(string text)
         {
             // The text attribute of a text rule is a literal value, not a formula. ClosedXML does
