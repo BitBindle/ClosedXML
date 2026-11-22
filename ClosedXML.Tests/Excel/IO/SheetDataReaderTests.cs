@@ -410,6 +410,7 @@ internal class SheetDataReaderTests
             });
     }
 
+    [Issue("ClosedXML/ClosedXML#1378")]
     [TestCase("2006-02-03T09:30:00.000", "2006-02-03T09:30:00")]
     [TestCase("2006-02-03T09:30:15", "2006-02-03T09:30:15")]
     [TestCase("2006-02-03T09:30:15.5", "2006-02-03T09:30:15.5")]
@@ -429,6 +430,7 @@ internal class SheetDataReaderTests
             (ws, _) => Assert.AreEqual(DateTime.Parse(expectedIso), ws.Cell("A1").GetDateTime()));
     }
 
+    [Issue("ClosedXML/ClosedXML#1378")]
     [TestCase("38751.5", "2006-02-03T12:00:00")]
     [TestCase("38751", "2006-02-03T00:00:00")]
     public void Reads_serial_date_in_date_cell(string xmlValue, string expectedIso)
@@ -449,6 +451,7 @@ internal class SheetDataReaderTests
             });
     }
 
+    [Issue("ClosedXML/ClosedXML#1378")]
     [Test]
     public void Date_cell_without_date_or_number_throws()
     {
