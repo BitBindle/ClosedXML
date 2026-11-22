@@ -148,12 +148,9 @@ internal class ExactNumberParserTests
             // The midpoint above the double is (2 * mantissa + 1) * 2^(binaryExponent - 1).
             var numerator = new BigInteger(2 * mantissa + 1) << Math.Max(binaryExponent - 1, 0);
             var denominator = BigInteger.One << Math.Max(1 - binaryExponent, 0);
+            // The integer has about 19 digits. Each number of digits gives a valid test.
             var exponent = (int)Math.Floor(BigInteger.Log10(numerator) - BigInteger.Log10(denominator)) - 18;
             var integer = GetDecimalInteger(numerator, denominator, exponent);
-            if (integer >= BigInteger.Pow(10, 19))
-                integer = GetDecimalInteger(numerator, denominator, ++exponent);
-            else if (integer < BigInteger.Pow(10, 18))
-                integer = GetDecimalInteger(numerator, denominator, --exponent);
 
             for (var offset = -1; offset <= 2; offset++)
             {
