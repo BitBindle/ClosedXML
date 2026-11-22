@@ -205,7 +205,7 @@ namespace ClosedXML.Excel
                 if (dataField.HasBaseItemValue)
                     pivotValue.SetBaseItemValue(dataField.BaseItemValue);
 
-                // A data field without a number format has no number format id, and the id setter rejects -1.
+                // The number format id is -1 for no format or a custom format. The id setter rejects -1.
                 pivotValue.NumberFormatValue = dataField.NumberFormatValue;
             }
 
