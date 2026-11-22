@@ -945,5 +945,90 @@ namespace ClosedXML.Tests.Excel.Saving
                 @"Other\Shapes\sheet-with-form-controls-input.xlsx",
                 @"Other\Shapes\sheet-with-form-controls-output.xlsx");
         }
+
+        [Test]
+        [Issue("71")]
+        public void Save_of_a_new_workbook_to_a_write_only_stream_writes_the_workbook()
+        {
+            using var wb = new XLWorkbook();
+            wb.AddWorksheet("Sheet1").Cell("A1").Value = "new";
+            var target = new WriteOnlyStream();
+
+            wb.SaveAs(target);
+
+            AssertA1(target, "new");
+        }
+
+        [Test]
+        [Issue("71")]
+        public void Save_of_a_workbook_loaded_from_a_file_to_a_write_only_stream_writes_the_workbook()
+        {
+            using var file = new TemporaryFile();
+            using (var original = new XLWorkbook())
+            {
+                original.AddWorksheet("Sheet1").Cell("A1").Value = "old";
+                original.SaveAs(file.Path);
+            }
+
+            using var wb = new XLWorkbook(file.Path);
+            wb.Worksheet("Sheet1").Cell("A1").Value = "file";
+            var target = new WriteOnlyStream();
+
+            wb.SaveAs(target);
+
+            AssertA1(target, "file");
+        }
+
+        [Test]
+        [Issue("71")]
+        public void Save_of_a_workbook_loaded_from_a_stream_to_a_write_only_stream_writes_the_workbook()
+        {
+            using var source = new MemoryStream();
+            using (var original = new XLWorkbook())
+            {
+                original.AddWorksheet("Sheet1").Cell("A1").Value = "old";
+                original.SaveAs(source);
+            }
+
+            using var wb = new XLWorkbook(source);
+            wb.Worksheet("Sheet1").Cell("A1").Value = "stream";
+            var target = new WriteOnlyStream();
+
+            wb.SaveAs(target);
+
+            AssertA1(target, "stream");
+        }
+
+        [Test]
+        [Issue("71")]
+        public void Save_to_a_write_only_stream_keeps_the_source_of_the_workbook()
+        {
+            using var source = new MemoryStream();
+            using (var original = new XLWorkbook())
+            {
+                original.AddWorksheet("Sheet1").Cell("A1").Value = "old";
+                original.SaveAs(source);
+            }
+
+            using var wb = new XLWorkbook(source);
+            wb.Worksheet("Sheet1").Cell("A1").Value = "first";
+            wb.SaveAs(new WriteOnlyStream());
+
+            wb.Worksheet("Sheet1").Cell("A1").Value = "second";
+            var target = new WriteOnlyStream();
+            wb.SaveAs(target);
+            AssertA1(target, "second");
+
+            wb.Save();
+            using var saved = new XLWorkbook(source);
+            Assert.AreEqual("second", saved.Worksheet("Sheet1").Cell("A1").GetText());
+        }
+
+        private static void AssertA1(WriteOnlyStream target, string expected)
+        {
+            using var written = target.GetWrittenBytes();
+            using var wb = new XLWorkbook(written);
+            Assert.AreEqual(expected, wb.Worksheet("Sheet1").Cell("A1").GetText());
+        }
     }
 }

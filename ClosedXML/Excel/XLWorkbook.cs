@@ -594,7 +594,7 @@ namespace ClosedXML.Excel
 
                 using (var fileStream = File.Create(file))
                 {
-                    CopyStream(OriginalStream, fileStream);
+                    OriginalStream.CopyTo(fileStream);
                     CreatePackage(fileStream, false, _spreadsheetDocumentType, options);
                 }
             }
@@ -663,68 +663,58 @@ namespace ClosedXML.Excel
             });
         }
 
+        /// <inheritdoc/>
         public void SaveAs(Stream stream, SaveOptions options)
         {
             ThrowIfDisposed();
             checkForWorksheetsPresent();
-            if (_loadSource == XLLoadSource.New)
+            if (stream.CanRead && stream.CanSeek && stream.CanWrite)
             {
-                // dm 20130422, this method or better the method SpreadsheetDocument.Create which is called
-                // inside of 'CreatePackage' need a stream which CanSeek & CanRead
-                // and an ordinary Response stream of a webserver can't do this
-                // so we have to ask and provide a way around this
-                if (stream.CanRead && stream.CanSeek && stream.CanWrite)
-                {
-                    // all is fine the package can be created in a direct way
-                    CreatePackage(stream, true, _spreadsheetDocumentType, options);
-                }
-                else
-                {
-                    // the harder way
-                    using (var ms = new MemoryStream())
-                    {
-                        CreatePackage(ms, true, _spreadsheetDocumentType, options);
-                        // not really necessary, because I changed CopyStream too.
-                        // but for better understanding and if somebody in the future
-                        // provide an changed version of CopyStream
-                        ms.Position = 0;
-                        CopyStream(ms, stream);
-                    }
-                }
-            }
-            else if (_loadSource == XLLoadSource.File)
-            {
-                using (var fileStream = new FileStream(OriginalFile, FileMode.Open, FileAccess.Read))
-                {
-                    CopyStream(fileStream, stream);
-                }
-                CreatePackage(stream, false, _spreadsheetDocumentType, options);
-            }
-            else if (_loadSource == XLLoadSource.Stream)
-            {
-                OriginalStream.Position = 0;
-                if (OriginalStream != stream)
-                    CopyStream(OriginalStream, stream);
+                SavePackage(stream, options);
 
-                CreatePackage(stream, false, _spreadsheetDocumentType, options);
+                _loadSource = XLLoadSource.Stream;
+                _originalStream = stream;
+                _originalFile = null;
             }
-
-            _loadSource = XLLoadSource.Stream;
-            _originalStream = stream;
-            _originalFile = null;
+            else
+            {
+                using var ms = new MemoryStream();
+                SavePackage(ms, options);
+                ms.Position = 0;
+                ms.CopyTo(stream);
+                stream.Flush();
+            }
         }
 
-        internal static void CopyStream(Stream input, Stream output)
+        /// <summary>
+        /// Save the workbook to a stream that can read, seek and write. A loaded workbook first copies
+        /// its source to the <paramref name="stream"/>, because the save keeps the parts that ClosedXML
+        /// does not change.
+        /// </summary>
+        private void SavePackage(Stream stream, SaveOptions options)
         {
-            var buffer = new byte[8 * 1024];
-            int len;
-            // dm 20130422, it is always a good idea to rewind the input stream, or not?
-            if (input.CanSeek)
-                input.Seek(0, SeekOrigin.Begin);
-            while ((len = input.Read(buffer, 0, buffer.Length)) > 0)
-                output.Write(buffer, 0, len);
-            // dm 20130422, and flushing the output after write
-            output.Flush();
+            switch (_loadSource)
+            {
+                case XLLoadSource.New:
+                    CreatePackage(stream, true, _spreadsheetDocumentType, options);
+                    break;
+
+                case XLLoadSource.File:
+                    using (var fileStream = new FileStream(OriginalFile, FileMode.Open, FileAccess.Read))
+                    {
+                        fileStream.CopyTo(stream);
+                    }
+                    CreatePackage(stream, false, _spreadsheetDocumentType, options);
+                    break;
+
+                case XLLoadSource.Stream:
+                    OriginalStream.Position = 0;
+                    if (OriginalStream != stream)
+                        OriginalStream.CopyTo(stream);
+
+                    CreatePackage(stream, false, _spreadsheetDocumentType, options);
+                    break;
+            }
         }
 
         public IXLTable Table(string tableName, StringComparison comparisonType = StringComparison.OrdinalIgnoreCase)

@@ -20,7 +20,7 @@ namespace ClosedXML.Excel.IO
             using (var ms = new MemoryStream())
             using (var stream = vmlDrawingPart.GetStream(FileMode.OpenOrCreate))
             {
-                XLWorkbook.CopyStream(stream, ms);
+                stream.CopyTo(ms);
                 stream.Position = 0;
                 var writer = new XmlTextWriter(stream, Encoding.UTF8);
 
