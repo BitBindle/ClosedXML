@@ -67,6 +67,43 @@ internal class NumberTextLoadTests
 
     [Test]
     [Issue("46")]
+    public void Load_reads_infinite_pivot_cache_limits_with_parser_of_sdk()
+    {
+        // The exact parser rejects "INF". The parser of the SDK reads it as infinity.
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet();
+            var data = ws.Cell("A1").InsertData(new object[]
+            {
+                ("Name", "Value"),
+                ("Cake", 5),
+            });
+            var pt = ws.PivotTables.Add("pt", ws.Cell("D1"), data);
+            pt.RowLabels.Add("Name");
+            pt.Values.Add("Value");
+            wb.SaveAs(ms);
+        }
+
+        using (var document = SpreadsheetDocument.Open(ms, true))
+        {
+            var cachePart = document.WorkbookPart!.PivotTableCacheDefinitionParts.Single();
+            var sharedItems = cachePart.PivotCacheDefinition!.CacheFields!.Elements<CacheField>().ElementAt(1).SharedItems!;
+            sharedItems.MinValue = new DoubleValue { InnerText = "-INF" };
+            sharedItems.MaxValue = new DoubleValue { InnerText = "INF" };
+        }
+
+        using (var wb = new XLWorkbook(ms))
+        {
+            var cache = (XLPivotCache)wb.Worksheet(1).PivotTable("pt").PivotCache;
+            var stats = cache.GetFieldValues(1).Stats;
+            Assert.AreEqual(double.NegativeInfinity, stats.MinValue);
+            Assert.AreEqual(double.PositiveInfinity, stats.MaxValue);
+        }
+    }
+
+    [Test]
+    [Issue("46")]
     public void Load_reads_nearest_double_of_custom_property()
     {
         using var ms = new MemoryStream();
