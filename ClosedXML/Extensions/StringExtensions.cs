@@ -55,21 +55,8 @@ namespace ClosedXML.Excel
             if (value.Length == 0)
                 return value;
 
-            if (value.Length == 1)
-                return value.ToLower();
-
-            return value.Substring(0, 1).ToLower() + value.Substring(1);
-        }
-
-        internal static String ToProper(this String value)
-        {
-            if (value.Length == 0)
-                return value;
-
-            if (value.Length == 1)
-                return value.ToUpper();
-
-            return value.Substring(0, 1).ToUpper() + value.Substring(1);
+            var first = char.ToLowerInvariant(value[0]);
+            return string.Concat(new ReadOnlySpan<char>(in first), value.AsSpan(1));
         }
 
         internal static string UnescapeSheetName(this String sheetName)

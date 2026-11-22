@@ -401,11 +401,11 @@ namespace ClosedXML.Excel
                         var commentReference = c.Reference?.Value ?? throw PartStructureException.MissingAttribute("ref");
                         var cell = ws.Cell(commentReference) ?? throw PartStructureException.InvalidAttributeFormat("ref", commentReference);
 
-                        var shapeIdString = shape?.Attribute("id")?.Value;
-                        if (shapeIdString?.StartsWith("_x0000_s") ?? false)
-                            shapeIdString = shapeIdString.Substring(8);
+                        var shapeIdText = (shape?.Attribute("id")?.Value).AsSpan();
+                        if (shapeIdText.StartsWith("_x0000_s", StringComparison.Ordinal))
+                            shapeIdText = shapeIdText[8..];
 
-                        int? shapeId = int.TryParse(shapeIdString, out int sid) ? (int?)sid : null;
+                        int? shapeId = int.TryParse(shapeIdText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var sid) ? sid : null;
                         var xlComment = cell.CreateComment(shapeId);
 
                         var authorId = c.AuthorId?.Value ?? throw PartStructureException.MissingAttribute("authorId");
@@ -634,11 +634,7 @@ namespace ClosedXML.Excel
 
                     var shapes = root
                         .Elements(XName.Get("shape", "urn:schemas-microsoft-com:vml"))
-                        .Where(e => new[]
-                        {
-                            "#" + XLConstants.Comment.ShapeTypeId ,
-                            "#" + XLConstants.Comment.AlternateShapeTypeId
-                        }.Contains(e.Attribute("type")?.Value))
+                        .Where(e => e.Attribute("type")?.Value is { } type && IsCommentShapeType(type))
                         .ToList();
 
                     if (shapes != null)
@@ -647,6 +643,13 @@ namespace ClosedXML.Excel
             }
 
             throw new ArgumentException("Could not load comments file");
+
+            static bool IsCommentShapeType(string type)
+            {
+                return type.StartsWith('#') &&
+                       (type.AsSpan(1).SequenceEqual(XLConstants.Comment.ShapeTypeId) ||
+                        type.AsSpan(1).SequenceEqual(XLConstants.Comment.AlternateShapeTypeId));
+            }
         }
 
         #endregion Comment Helpers
@@ -676,12 +679,7 @@ namespace ClosedXML.Excel
                 var opacity = fill.Attribute("opacity");
                 if (opacity != null)
                 {
-                    String opacityVal = opacity.Value;
-                    if (opacityVal.EndsWith("f"))
-                        drawing.Style.ColorsAndLines.FillTransparency =
-                            Double.Parse(opacityVal.Substring(0, opacityVal.Length - 1), CultureInfo.InvariantCulture) / 65536.0;
-                    else
-                        drawing.Style.ColorsAndLines.FillTransparency = Double.Parse(opacityVal, CultureInfo.InvariantCulture);
+                    drawing.Style.ColorsAndLines.FillTransparency = ParseOpacity(opacity.Value);
                 }
             }
 
@@ -691,18 +689,13 @@ namespace ClosedXML.Excel
                 var opacity = stroke.Attribute("opacity");
                 if (opacity != null)
                 {
-                    String opacityVal = opacity.Value;
-                    if (opacityVal.EndsWith("f"))
-                        drawing.Style.ColorsAndLines.LineTransparency =
-                            Double.Parse(opacityVal.Substring(0, opacityVal.Length - 1), CultureInfo.InvariantCulture) / 65536.0;
-                    else
-                        drawing.Style.ColorsAndLines.LineTransparency = Double.Parse(opacityVal, CultureInfo.InvariantCulture);
+                    drawing.Style.ColorsAndLines.LineTransparency = ParseOpacity(opacity.Value);
                 }
 
                 var dashStyle = stroke.Attribute("dashstyle");
                 if (dashStyle != null)
                 {
-                    String dashStyleVal = dashStyle.Value.ToLower();
+                    var dashStyleVal = dashStyle.Value.ToLowerInvariant();
                     if (dashStyleVal == "1 1" || dashStyleVal == "shortdot")
                     {
                         var endCap = stroke.Attribute("endcap");
@@ -727,7 +720,7 @@ namespace ClosedXML.Excel
                 var lineStyle = stroke.Attribute("linestyle");
                 if (lineStyle != null)
                 {
-                    String lineStyleVal = lineStyle.Value.ToLower();
+                    var lineStyleVal = lineStyle.Value.ToLowerInvariant();
                     switch (lineStyleVal)
                     {
                         case "single": drawing.Style.ColorsAndLines.LineStyle = XLLineStyle.Single; break;
@@ -737,6 +730,15 @@ namespace ClosedXML.Excel
                         case "thinthin": drawing.Style.ColorsAndLines.LineStyle = XLLineStyle.ThinThin; break;
                     }
                 }
+            }
+
+            // An opacity with the suffix 'f' is a fixed-point number. The unit is 1/65536.
+            static double ParseOpacity(string opacity)
+            {
+                var span = opacity.AsSpan();
+                return span.EndsWith('f')
+                    ? double.Parse(span[..^1], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture) / 65536.0
+                    : double.Parse(span, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
             }
         }
 
@@ -751,11 +753,16 @@ namespace ClosedXML.Excel
 
         private void LoadTextBoxInset<T>(IXLDrawing<T> xlDrawing, XAttribute attInset)
         {
-            var split = attInset.Value.Split(',');
-            xlDrawing.Style.Margins.Left = GetInsetInInches(split[0], DpiX);
-            xlDrawing.Style.Margins.Top = GetInsetInInches(split[1], DpiY);
-            xlDrawing.Style.Margins.Right = GetInsetInInches(split[2], DpiX);
-            xlDrawing.Style.Margins.Bottom = GetInsetInInches(split[3], DpiY);
+            var inset = attInset.Value.AsSpan();
+            // The fifth range takes all the text after the fourth value.
+            Span<Range> split = stackalloc Range[5];
+            if (inset.Split(split, ',') < 4)
+                throw PartStructureException.InvalidAttributeFormat("inset", attInset.Value);
+
+            xlDrawing.Style.Margins.Left = GetInsetInInches(inset[split[0]], DpiX);
+            xlDrawing.Style.Margins.Top = GetInsetInInches(inset[split[1]], DpiY);
+            xlDrawing.Style.Margins.Right = GetInsetInInches(inset[split[2]], DpiX);
+            xlDrawing.Style.Margins.Bottom = GetInsetInInches(inset[split[3]], DpiY);
         }
 
         /// <summary>
@@ -784,12 +791,12 @@ namespace ClosedXML.Excel
             {"%", (_, _) => Emu.ZeroPt },
         };
 
-        private static double GetInsetInInches(string value, double dpi)
+        private static double GetInsetInInches(ReadOnlySpan<char> value, double dpi)
         {
             var unit = value.Trim();
             foreach (var (unitName, conversion) in VmlLengthUnits)
             {
-                if (unit.EndsWith(unitName) && Double.TryParse(unit[..^unitName.Length], NumberStyles.Float, CultureInfo.InvariantCulture, out var unitValue))
+                if (unit.EndsWith(unitName, StringComparison.Ordinal) && Double.TryParse(unit[..^unitName.Length], NumberStyles.Float, CultureInfo.InvariantCulture, out var unitValue))
                 {
                     var insetEmu = conversion(unitValue, dpi) ?? Emu.ZeroPt;
                     return insetEmu.To(AbsLengthUnit.Inch);
@@ -802,31 +809,56 @@ namespace ClosedXML.Excel
 
         private static void LoadTextBoxStyle<T>(IXLDrawing<T> xlDrawing, XAttribute attStyle)
         {
-            var style = attStyle.Value;
-            var attributes = style.Split(';');
-            foreach (String pair in attributes)
+            var style = attStyle.Value.AsSpan();
+            foreach (var pairRange in style.Split(';'))
             {
-                var split = pair.Split(':');
-                if (split.Length != 2) continue;
+                if (!TrySplitStyleProperty(style[pairRange], out var attribute, out var value))
+                    continue;
 
-                var attribute = split[0].Trim().ToLower();
-                var value = split[1].Trim();
-                Boolean isVertical = false;
-                switch (attribute)
+                var isVertical = false;
+                if (attribute.Equals("mso-fit-shape-to-text", StringComparison.OrdinalIgnoreCase))
                 {
-                    case "mso-fit-shape-to-text": xlDrawing.Style.Size.SetAutomaticSize(value.Equals("t")); break;
-                    case "mso-layout-flow-alt":
-                        if (value.Equals("bottom-to-top")) xlDrawing.Style.Alignment.SetOrientation(XLDrawingTextOrientation.BottomToTop);
-                        else if (value.Equals("top-to-bottom")) xlDrawing.Style.Alignment.SetOrientation(XLDrawingTextOrientation.Vertical);
-                        break;
-
-                    case "layout-flow": isVertical = value.Equals("vertical"); break;
-                    case "mso-direction-alt": if (value == "auto") xlDrawing.Style.Alignment.Direction = XLDrawingTextDirection.Context; break;
-                    case "direction": if (value == "RTL") xlDrawing.Style.Alignment.Direction = XLDrawingTextDirection.RightToLeft; break;
+                    xlDrawing.Style.Size.SetAutomaticSize(value is "t");
                 }
+                else if (attribute.Equals("mso-layout-flow-alt", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (value is "bottom-to-top") xlDrawing.Style.Alignment.SetOrientation(XLDrawingTextOrientation.BottomToTop);
+                    else if (value is "top-to-bottom") xlDrawing.Style.Alignment.SetOrientation(XLDrawingTextOrientation.Vertical);
+                }
+                else if (attribute.Equals("layout-flow", StringComparison.OrdinalIgnoreCase))
+                {
+                    isVertical = value is "vertical";
+                }
+                else if (attribute.Equals("mso-direction-alt", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (value is "auto") xlDrawing.Style.Alignment.Direction = XLDrawingTextDirection.Context;
+                }
+                else if (attribute.Equals("direction", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (value is "RTL") xlDrawing.Style.Alignment.Direction = XLDrawingTextDirection.RightToLeft;
+                }
+
                 if (isVertical && xlDrawing.Style.Alignment.Orientation == XLDrawingTextOrientation.LeftToRight)
                     xlDrawing.Style.Alignment.Orientation = XLDrawingTextOrientation.TopToBottom;
             }
+        }
+
+        /// <summary>
+        /// Split a property of a VML style, for example <c>width:108pt</c>. The property must have
+        /// exactly one colon.
+        /// </summary>
+        private static bool TrySplitStyleProperty(ReadOnlySpan<char> property, out ReadOnlySpan<char> name, out ReadOnlySpan<char> value)
+        {
+            var colonIndex = property.IndexOf(':');
+            if (colonIndex < 0 || property[(colonIndex + 1)..].Contains(':'))
+            {
+                name = value = default;
+                return false;
+            }
+
+            name = property[..colonIndex].Trim();
+            value = property[(colonIndex + 1)..].Trim();
+            return true;
         }
 
         private void LoadClientData<T>(IXLDrawing<T> drawing, XElement clientData)
@@ -850,22 +882,22 @@ namespace ClosedXML.Excel
         {
             var textHAlign = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "TextHAlign");
             if (textHAlign != null)
-                drawing.Style.Alignment.Horizontal = (XLDrawingHorizontalAlignment)Enum.Parse(typeof(XLDrawingHorizontalAlignment), textHAlign.Value.ToProper());
+                drawing.Style.Alignment.Horizontal = Enum.Parse<XLDrawingHorizontalAlignment>(textHAlign.Value, ignoreCase: true);
         }
 
         private void LoadDrawingVAlignment<T>(IXLDrawing<T> drawing, XElement clientData)
         {
             var textVAlign = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "TextVAlign");
             if (textVAlign != null)
-                drawing.Style.Alignment.Vertical = (XLDrawingVerticalAlignment)Enum.Parse(typeof(XLDrawingVerticalAlignment), textVAlign.Value.ToProper());
+                drawing.Style.Alignment.Vertical = Enum.Parse<XLDrawingVerticalAlignment>(textVAlign.Value, ignoreCase: true);
         }
 
         private void LoadDrawingProtection<T>(IXLDrawing<T> drawing, XElement clientData)
         {
             var lockedElement = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "Locked");
             var lockTextElement = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "LockText");
-            Boolean locked = lockedElement != null && lockedElement.Value.ToLower() == "true";
-            Boolean lockText = lockTextElement != null && lockTextElement.Value.ToLower() == "true";
+            var locked = string.Equals(lockedElement?.Value, "true", StringComparison.OrdinalIgnoreCase);
+            var lockText = string.Equals(lockTextElement?.Value, "true", StringComparison.OrdinalIgnoreCase);
             drawing.Style.Protection.Locked = locked;
             drawing.Style.Protection.LockText = lockText;
         }
@@ -874,8 +906,8 @@ namespace ClosedXML.Excel
         {
             var moveWithCellsElement = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "MoveWithCells");
             var sizeWithCellsElement = clientData.Elements().FirstOrDefault(e => e.Name.LocalName == "SizeWithCells");
-            Boolean moveWithCells = !(moveWithCellsElement != null && moveWithCellsElement.Value.ToLower() == "true");
-            Boolean sizeWithCells = !(sizeWithCellsElement != null && sizeWithCellsElement.Value.ToLower() == "true");
+            var moveWithCells = !string.Equals(moveWithCellsElement?.Value, "true", StringComparison.OrdinalIgnoreCase);
+            var sizeWithCells = !string.Equals(sizeWithCellsElement?.Value, "true", StringComparison.OrdinalIgnoreCase);
             if (moveWithCells && !sizeWithCells)
                 drawing.Style.Properties.Positioning = XLDrawingAnchor.MoveWithCells;
             else if (moveWithCells && sizeWithCells)
@@ -886,11 +918,15 @@ namespace ClosedXML.Excel
 
         private static void LoadClientDataAnchor<T>(IXLDrawing<T> drawing, XElement anchor)
         {
-            var location = anchor.Value.Split(',');
-            drawing.Position.Column = int.Parse(location[0]) + 1;
-            drawing.Position.ColumnOffset = Double.Parse(location[1], CultureInfo.InvariantCulture) / 7.5;
-            drawing.Position.Row = int.Parse(location[2]) + 1;
-            drawing.Position.RowOffset = Double.Parse(location[3], CultureInfo.InvariantCulture);
+            var anchorValue = anchor.Value.AsSpan();
+            Span<Range> location = stackalloc Range[5];
+            if (anchorValue.Split(location, ',') < 4)
+                throw PartStructureException.IncorrectElementFormat("Anchor");
+
+            drawing.Position.Column = int.Parse(anchorValue[location[0]], NumberStyles.Integer, CultureInfo.InvariantCulture) + 1;
+            drawing.Position.ColumnOffset = Double.Parse(anchorValue[location[1]], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture) / 7.5;
+            drawing.Position.Row = int.Parse(anchorValue[location[2]], NumberStyles.Integer, CultureInfo.InvariantCulture) + 1;
+            drawing.Position.RowOffset = Double.Parse(anchorValue[location[3]], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
         }
 
         private void LoadShapeProperties<T>(IXLDrawing<T> xlDrawing, XElement shape)
@@ -898,60 +934,61 @@ namespace ClosedXML.Excel
             if (shape.Attribute("style") is not { } style)
                 return;
 
-            foreach (var attributePair in style.Value.Split(';'))
+            var styleValue = style.Value.AsSpan();
+            foreach (var pairRange in styleValue.Split(';'))
             {
-                var split = attributePair.Split(':');
-                if (split.Length != 2) continue;
+                if (!TrySplitStyleProperty(styleValue[pairRange], out var attribute, out var value))
+                    continue;
 
-                var attribute = split[0].Trim().ToLower();
-                var value = split[1].Trim();
-
-                switch (attribute)
+                if (attribute.Equals("visibility", StringComparison.OrdinalIgnoreCase))
                 {
-                    case "visibility": xlDrawing.Visible = string.Equals("visible", value, StringComparison.OrdinalIgnoreCase); break;
-                    case "width":
-                        if (TryGetPtValue(value, out var ptWidth))
-                        {
-                            xlDrawing.Style.Size.Width = ptWidth / 7.5;
-                        }
-                        break;
-
-                    case "height":
-                        if (TryGetPtValue(value, out var ptHeight))
-                        {
-                            xlDrawing.Style.Size.Height = ptHeight;
-                        }
-                        break;
-
-                    case "z-index":
-                        if (Int32.TryParse(value, out var zOrder))
-                        {
-                            xlDrawing.ZOrder = zOrder;
-                        }
-                        break;
+                    xlDrawing.Visible = value.Equals("visible", StringComparison.OrdinalIgnoreCase);
+                }
+                else if (attribute.Equals("width", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (TryGetPtValue(value, out var ptWidth))
+                        xlDrawing.Style.Size.Width = ptWidth / 7.5;
+                }
+                else if (attribute.Equals("height", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (TryGetPtValue(value, out var ptHeight))
+                        xlDrawing.Style.Size.Height = ptHeight;
+                }
+                else if (attribute.Equals("z-index", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var zOrder))
+                        xlDrawing.ZOrder = zOrder;
                 }
             }
         }
 
-        private readonly Dictionary<string, double> knownUnits = new Dictionary<string, double>
+        private static readonly (string Unit, double PointsPerUnit)[] KnownPtUnits =
         {
-            {"pt", 1.0},
-            {"in", 72.0},
-            {"mm", 72.0/25.4}
+            ("pt", 1.0),
+            ("in", 72.0),
+            ("mm", 72.0 / 25.4),
         };
 
-        private bool TryGetPtValue(string value, out double result)
+        /// <summary>
+        /// Parse a VML length in points. A value without a known unit is a number of points.
+        /// </summary>
+        private static bool TryGetPtValue(ReadOnlySpan<char> value, out double result)
         {
-            var knownUnit = knownUnits.FirstOrDefault(ku => value.Contains(ku.Key));
-
-            if (knownUnit.Key == null)
-                return Double.TryParse(value, out result);
-
-            value = value.Replace(knownUnit.Key, String.Empty);
+            value = value.Trim();
+            var pointsPerUnit = 1.0;
+            foreach (var (unit, unitPoints) in KnownPtUnits)
+            {
+                if (value.EndsWith(unit, StringComparison.Ordinal))
+                {
+                    value = value[..^unit.Length];
+                    pointsPerUnit = unitPoints;
+                    break;
+                }
+            }
 
             if (Double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out result))
             {
-                result *= knownUnit.Value;
+                result *= pointsPerUnit;
                 return true;
             }
 

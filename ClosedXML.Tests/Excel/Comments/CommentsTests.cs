@@ -5,7 +5,9 @@ using System;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using ClosedXML.IO;
 using XDocument = System.Xml.Linq.XDocument;
+using XElement = System.Xml.Linq.XElement;
 using Point = System.Drawing.Point;
 
 namespace ClosedXML.Tests.Excel.Comments
@@ -232,6 +234,131 @@ namespace ClosedXML.Tests.Excel.Comments
             var cell = loaded.Worksheets.Single().Cell("A1");
             Assert.True(cell.HasComment);
             Assert.AreEqual("Note", cell.GetComment().Text);
+        }
+
+        [Test]
+        [SetCulture("de-DE")]
+        [Issue("77")]
+        public void Comment_length_without_unit_uses_invariant_decimal_point()
+        {
+            // The de-DE culture uses a comma as the decimal point and a point as the thousands separator.
+            using var ms = SaveCommentWithEditedShape(shape =>
+            {
+                shape.SetAttributeValue("strokeweight", "1.5");
+                shape.SetAttributeValue("style", "position:absolute;width:108pt;height:59.25;z-index:-1;visibility:hidden");
+            });
+
+            using var wb = new XLWorkbook(ms);
+            var comment = wb.Worksheets.Single().Cell("A1").GetComment();
+            Assert.AreEqual(1.5, comment.Style.ColorsAndLines.LineWeight);
+            Assert.AreEqual(59.25, comment.Style.Size.Height);
+            Assert.AreEqual(-1, comment.ZOrder);
+        }
+
+        [Test]
+        [SetCulture("tr-TR")]
+        [Issue("77")]
+        public void Comment_style_names_and_values_ignore_the_culture()
+        {
+            // In the tr-TR culture, the lowercase form of 'I' is a dotless 'ı'.
+            using var ms = SaveCommentWithEditedShape(shape =>
+            {
+                shape.Descendants().Single(e => e.Name.LocalName == "textbox")
+                    .SetAttributeValue("style", "MSO-FIT-SHAPE-TO-TEXT:t;LAYOUT-FLOW:vertical;DIRECTION:RTL;invalid:a:b;no-colon");
+                var clientData = shape.Elements().Single(e => e.Name.LocalName == "ClientData");
+                clientData.Elements().Single(e => e.Name.LocalName == "TextHAlign").Value = "DISTRIBUTED";
+                clientData.Elements().Single(e => e.Name.LocalName == "Locked").Value = "TRUE";
+                clientData.Elements().Single(e => e.Name.LocalName == "LockText").Value = "TRUE";
+            });
+
+            using var wb = new XLWorkbook(ms);
+            var style = wb.Worksheets.Single().Cell("A1").GetComment().Style;
+            Assert.IsTrue(style.Size.AutomaticSize);
+            Assert.AreEqual(XLDrawingTextOrientation.TopToBottom, style.Alignment.Orientation);
+            Assert.AreEqual(XLDrawingTextDirection.RightToLeft, style.Alignment.Direction);
+            Assert.AreEqual(XLDrawingHorizontalAlignment.Distributed, style.Alignment.Horizontal);
+            Assert.IsTrue(style.Protection.Locked);
+            Assert.IsTrue(style.Protection.LockText);
+        }
+
+        [Test]
+        [SetCulture("tr-TR")]
+        [Issue("77")]
+        public void Comment_alignment_round_trip_ignores_the_culture()
+        {
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var comment = wb.AddWorksheet().Cell("A1").CreateComment();
+                comment.AddText("Note");
+                comment.Style.Alignment.Horizontal = XLDrawingHorizontalAlignment.Justify;
+                wb.SaveAs(ms);
+            }
+
+            using var loaded = new XLWorkbook(ms);
+            Assert.AreEqual(XLDrawingHorizontalAlignment.Justify, loaded.Worksheets.Single().Cell("A1").GetComment().Style.Alignment.Horizontal);
+        }
+
+        [Test]
+        [Issue("77")]
+        public void Comment_inset_ignores_lengths_after_the_fourth()
+        {
+            using var ms = SaveCommentWithEditedShape(shape =>
+                shape.Descendants().Single(e => e.Name.LocalName == "textbox").SetAttributeValue("inset", "1in,2in,3in,4in,5in"));
+
+            using var wb = new XLWorkbook(ms);
+            var margins = wb.Worksheets.Single().Cell("A1").GetComment().Style.Margins;
+            Assert.AreEqual(1, margins.Left);
+            Assert.AreEqual(2, margins.Top);
+            Assert.AreEqual(3, margins.Right);
+            Assert.AreEqual(4, margins.Bottom);
+        }
+
+        [TestCase("1,2,3")]
+        [TestCase("")]
+        [Issue("77")]
+        public void Comment_inset_must_have_four_lengths(string inset)
+        {
+            using var ms = SaveCommentWithEditedShape(shape =>
+                shape.Descendants().Single(e => e.Name.LocalName == "textbox").SetAttributeValue("inset", inset));
+
+            Assert.Throws<PartStructureException>(() => _ = new XLWorkbook(ms));
+        }
+
+        [Test]
+        [Issue("77")]
+        public void Comment_anchor_must_have_four_values()
+        {
+            using var ms = SaveCommentWithEditedShape(shape =>
+                shape.Descendants().Single(e => e.Name.LocalName == "Anchor").Value = "1, 15, 0");
+
+            Assert.Throws<PartStructureException>(() => _ = new XLWorkbook(ms));
+        }
+
+        private static MemoryStream SaveCommentWithEditedShape(Action<XElement> editShape)
+        {
+            var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                wb.AddWorksheet().Cell("A1").CreateComment().AddText("Note");
+                wb.SaveAs(ms);
+            }
+
+            using (var package = SpreadsheetDocument.Open(ms, true))
+            {
+                var vmlPart = package.WorkbookPart!.WorksheetParts.Single().VmlDrawingParts.Single();
+                XDocument vml;
+                using (var vmlStream = vmlPart.GetStream())
+                    vml = XDocument.Load(vmlStream);
+
+                editShape(vml.Descendants().Single(e => e.Name.LocalName == "shape"));
+
+                using var outStream = vmlPart.GetStream(FileMode.Create);
+                vml.Save(outStream);
+            }
+
+            ms.Position = 0;
+            return ms;
         }
     }
 }
