@@ -1461,7 +1461,7 @@ namespace ClosedXML.Excel.IO
                             if (text.PreserveSpaces())
                                 w.WritePreserveSpaceAttr();
 
-                            w.WriteString(text);
+                            w.WriteString(XmlEncoder.EncodeString(text));
                             w.WriteEndElement();
                         }
 
@@ -1502,7 +1502,7 @@ namespace ClosedXML.Excel.IO
             static void WriteStringValue(XmlWriter w, String text)
             {
                 w.WriteStartElement("v", Main2006SsNs);
-                w.WriteString(text);
+                w.WriteString(XmlEncoder.EncodeString(text));
                 w.WriteEndElement();
             }
 

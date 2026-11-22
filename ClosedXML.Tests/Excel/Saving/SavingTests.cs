@@ -1353,5 +1353,100 @@ namespace ClosedXML.Tests.Excel.Saving
             Assert.AreEqual("D8:D9 F8:F9", conditionalFormatting.SequenceOfReferences!.InnerText);
             Assert.AreEqual("H8:H9 J8:J8", dataValidation.SequenceOfReferences!.InnerText);
         }
+
+        [TestCase("a\rb")]
+        [TestCase("a_x0041_")]
+        [TestCase("b_x005F_x000D_")]
+        [TestCase("_x0041__x0042_")]
+        [TestCase("_x0041\r")]
+        [TestCase("\u0001x")]
+        [TestCase("x\uFFFEy")]
+        [Issue("96")]
+        public void Save_and_load_keep_the_cell_text(string text)
+        {
+            var loaded = SaveAndLoad(wb =>
+            {
+                var ws = wb.AddWorksheet("Sheet1");
+                ws.Cell("A1").Value = text;
+
+                ws.Cell("A2").Value = text;
+                ws.Cell("A2").ShareString = false;
+
+                ws.Cell("A3").CreateRichText().AddText(text).SetBold().AddText(text);
+                ws.Cell("A3").ShareString = false;
+
+                ws.Cell("A4").CreateRichText().AddText(text).SetBold().AddText(text);
+
+                ws.Cell("A5").Value = text;
+                ws.Cell("A5").GetRichText().Phonetics.Add(text, 0, 1);
+                ws.Cell("A5").ShareString = false;
+
+                ws.Cell("A6").FormulaA1 = "B6";
+                ws.Cell("B6").Value = text;
+            }, new SaveOptions { EvaluateFormulasBeforeSaving = true });
+
+            using (loaded)
+            {
+                var ws = loaded.Worksheet("Sheet1");
+                Assert.AreEqual(text, ws.Cell("A1").GetText());
+                Assert.AreEqual(text, ws.Cell("A2").GetText());
+                Assert.AreEqual(text + text, ws.Cell("A3").GetText());
+                Assert.AreEqual(text + text, ws.Cell("A4").GetText());
+                Assert.AreEqual(text, ws.Cell("A5").GetRichText().Phonetics.Single().Text);
+                Assert.AreEqual(text, ws.Cell("A6").CachedValue.GetText());
+            }
+        }
+
+        [TestCase("a\rb")]
+        [TestCase("a_x0041_")]
+        [TestCase("b_x005F_x000D_")]
+        [TestCase("_x0041\r")]
+        [TestCase("\u0001x")]
+        [TestCase("x\uFFFEy")]
+        [Issue("96")]
+        public void Save_and_load_keep_the_comment_text(string text)
+        {
+            var loaded = SaveAndLoad(wb => wb.AddWorksheet("Sheet1").Cell("A1").CreateComment().AddText(text), new SaveOptions());
+
+            using (loaded)
+            {
+                Assert.AreEqual(text, loaded.Worksheet("Sheet1").Cell("A1").GetComment().Text);
+            }
+        }
+
+        [Test]
+        [Issue("96")]
+        public void Load_decodes_the_escaped_characters_of_a_comment()
+        {
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                wb.AddWorksheet("Sheet1").Cell("A1").CreateComment().AddText("x");
+                wb.SaveAs(ms);
+            }
+
+            // Write the text that Excel writes for a carriage return.
+            using (var document = SpreadsheetDocument.Open(ms, true))
+            {
+                var commentsPart = document.WorkbookPart!.WorksheetParts.Single().WorksheetCommentsPart!;
+                var text = commentsPart.Comments!.Descendants<DocumentFormat.OpenXml.Spreadsheet.Text>().Single();
+                text.Text = "a_x000D_b";
+            }
+
+            using var loaded = new XLWorkbook(ms);
+            Assert.AreEqual("a\rb", loaded.Worksheet("Sheet1").Cell("A1").GetComment().Text);
+        }
+
+        private static XLWorkbook SaveAndLoad(Action<XLWorkbook> fill, SaveOptions options)
+        {
+            var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                fill(wb);
+                wb.SaveAs(ms, options);
+            }
+
+            return new XLWorkbook(ms);
+        }
     }
 }

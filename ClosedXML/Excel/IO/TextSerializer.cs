@@ -2,6 +2,7 @@ using System;
 using System.Xml;
 using ClosedXML.Excel.Formatting;
 using ClosedXML.Extensions;
+using ClosedXML.Utils;
 using static ClosedXML.Excel.XLWorkbook;
 using static ClosedXML.Excel.IO.OpenXmlConst;
 
@@ -33,7 +34,7 @@ namespace ClosedXML.Excel.IO
                     if (p.Text.PreserveSpaces())
                         w.WritePreserveSpaceAttr();
 
-                    w.WriteString(p.Text);
+                    w.WriteString(XmlEncoder.EncodeString(p.Text));
                     w.WriteEndElement(); // t
                     w.WriteEndElement(); // rPh
                 }
@@ -105,7 +106,7 @@ namespace ClosedXML.Excel.IO
             if (text.PreserveSpaces())
                 w.WritePreserveSpaceAttr();
 
-            w.WriteString(text);
+            w.WriteString(XmlEncoder.EncodeString(text));
 
             w.WriteEndElement(); // t
             w.WriteEndElement(); // r
