@@ -168,7 +168,7 @@ namespace ClosedXML.Excel
         /// The data bar has a gradient fill. If the value is <c>false</c>, the data bar has a solid fill.
         /// Only a data bar uses this value. The default value is <c>true</c>.
         /// </summary>
-        Boolean Gradient { get; }
+        Boolean Gradient { get; set; }
 
         Boolean StopIfTrue { get; }
 

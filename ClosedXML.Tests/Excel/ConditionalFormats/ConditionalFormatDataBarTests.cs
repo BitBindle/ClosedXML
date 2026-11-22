@@ -56,6 +56,24 @@ internal class ConditionalFormatDataBarTests
     [Test]
     [Issue("ClosedXML/ClosedXML#386")]
     [Issue("ClosedXML/ClosedXML#1686")]
+    public void Fill_of_data_bar_from_file_can_change()
+    {
+        // The fluent SetGradient is available only when a new data bar is made.
+        using var input = CreateFileWithDataBar(gradient: null);
+        using var output = new MemoryStream();
+
+        using (var wb = new XLWorkbook(input))
+        {
+            wb.Worksheets.Single().ConditionalFormats.Single().Gradient = false;
+            wb.SaveAs(output);
+        }
+
+        CollectionAssert.AreEqual(new bool?[] { false }, ReadGradientAttributes(output));
+    }
+
+    [Test]
+    [Issue("ClosedXML/ClosedXML#386")]
+    [Issue("ClosedXML/ClosedXML#1686")]
     public void Load_reads_extension_of_data_bar_with_uppercase_id()
     {
         // Excel writes the id of a rule in uppercase. ClosedXML writes it in lowercase.
@@ -125,6 +143,8 @@ internal class ConditionalFormatDataBarTests
     /// <summary>
     /// Create a file with a data bar that has the id in uppercase and the <paramref name="gradient"/> attribute of the extension.
     /// </summary>
+    /// <param name="gradient">The gradient attribute of the extension. A null value removes the attribute.</param>
+    /// <param name="removeNegativeFillColor">If <c>true</c>, the extension has no negative fill color.</param>
     private static MemoryStream CreateFileWithDataBar(bool? gradient, bool removeNegativeFillColor = false)
     {
         var ms = new MemoryStream();

@@ -186,7 +186,7 @@ Data bar fill
 **************
 
 A data bar has a solid fill or a gradient fill. The new ``IXLConditionalFormat.Gradient`` property
-gives the fill. The default value is ``true``, the gradient fill of Excel. Before, the save always
+gets or sets the fill. The default value is ``true``, the gradient fill of Excel. Before, the save always
 wrote a gradient fill, also for a solid data bar from a file.
 
 The ``IXLCFDataBarMax`` methods ``Maximum`` and ``HighestValue`` now return the new

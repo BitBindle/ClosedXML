@@ -692,7 +692,8 @@ internal class PivotTableDefinitionPartReader
             else
             {
                 // A custom style of the workbook has a name that is not a built-in theme.
-                // A style without a name has no theme, and a null name does not change the theme.
+                // The CustomStyleName setter does not change the theme for a null name.
+                // Thus a style without a name must set the theme to None here.
                 xlPivotTable.Theme = XLPivotTableTheme.None;
                 xlPivotTable.CustomStyleName = styleName;
             }
