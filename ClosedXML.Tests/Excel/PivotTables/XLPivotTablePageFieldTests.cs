@@ -236,8 +236,7 @@ internal class XLPivotTablePageFieldTests
                 item.Remove();
 
             dataItems.Reverse();
-            cityItems.InsertAt(dataItems[0], 0);
-            for (var i = 1; i < dataItems.Count; ++i)
+            for (var i = 0; i < dataItems.Count; ++i)
                 cityItems.InsertAt(dataItems[i], i);
 
             if (selectedItem is not null)
