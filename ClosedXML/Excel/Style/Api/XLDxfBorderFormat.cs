@@ -115,14 +115,14 @@ internal class XLDxfBorderFormat : IXLBorder
 
     bool IXLBorder.DiagonalUp
     {
-        get => throw new NotImplementedException();
-        set => throw new NotImplementedException();
+        get => Resolve(static border => (bool?)border.DiagonalUp, false);
+        set => Modify(static (border, diagonalUp) => border with { DiagonalUp = diagonalUp }, value);
     }
 
     bool IXLBorder.DiagonalDown
     {
-        get => throw new NotImplementedException();
-        set => throw new NotImplementedException();
+        get => Resolve(static border => (bool?)border.DiagonalDown, false);
+        set => Modify(static (border, diagonalDown) => border with { DiagonalDown = diagonalDown }, value);
     }
 
     XLBorderStyleValues IXLBorder.DiagonalBorder

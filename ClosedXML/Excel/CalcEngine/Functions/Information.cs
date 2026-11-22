@@ -119,7 +119,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
                 return array.Apply(static v => ToNumber(v), ctx);
 
             var area = reference.Areas.First();
-            var referenceValue = ctx.GetCellValue(area.Worksheet, area.FirstAddress.RowNumber, area.FirstAddress.RowNumber);
+            var referenceValue = ctx.GetCellValue(area.Worksheet, area.FirstAddress.RowNumber, area.FirstAddress.ColumnNumber);
             return ToNumber(referenceValue).ToAnyValue();
 
             static ScalarValue ToNumber(ScalarValue scalar)

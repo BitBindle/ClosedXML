@@ -564,6 +564,21 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(5, actual);
         }
 
+        [TestCase("B3")]
+        [TestCase("B3:C4")]
+        [TestCase("(B3, A1)")]
+        public void N_Reference_TakesCellFromRowAndColumnOfFirstCell(string reference)
+        {
+            // If N uses the row number of B3 as the column number, N reads C3 and not B3.
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("B3").Value = 5;
+            ws.Cell("C3").Value = 10;
+
+            var actual = ws.Evaluate($"SUM(N({reference}))");
+            Assert.AreEqual(5, actual);
+        }
+
         #endregion N Tests
 
         [TestCase("IF(TRUE,,)", 1)]
