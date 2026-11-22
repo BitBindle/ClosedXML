@@ -54,6 +54,8 @@ internal class ConditionalFormatDataBarTests
     }
 
     [Test]
+    [Issue("ClosedXML/ClosedXML#386")]
+    [Issue("ClosedXML/ClosedXML#1686")]
     public void Load_reads_extension_of_data_bar_with_uppercase_id()
     {
         // Excel writes the id of a rule in uppercase. ClosedXML writes it in lowercase.
@@ -64,6 +66,20 @@ internal class ConditionalFormatDataBarTests
 
         Assert.AreEqual(XLColor.Blue, cf.Colors[2]);
         Assert.IsTrue(cf.Gradient);
+    }
+
+    [Test]
+    public void Load_accepts_data_bar_without_negative_fill_color()
+    {
+        // The schema makes the negative fill color optional.
+        using var ms = CreateFileWithDataBar(gradient: false, removeNegativeFillColor: true);
+
+        using var wb = new XLWorkbook(ms);
+        var cf = wb.Worksheets.Single().ConditionalFormats.Single();
+
+        Assert.AreEqual(1, cf.Colors.Count);
+        Assert.AreEqual(XLColor.Red, cf.Colors[1]);
+        Assert.IsFalse(cf.Gradient);
     }
 
     [Test]
@@ -109,7 +125,7 @@ internal class ConditionalFormatDataBarTests
     /// <summary>
     /// Create a file with a data bar that has the id in uppercase and the <paramref name="gradient"/> attribute of the extension.
     /// </summary>
-    private static MemoryStream CreateFileWithDataBar(bool? gradient)
+    private static MemoryStream CreateFileWithDataBar(bool? gradient, bool removeNegativeFillColor = false)
     {
         var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
@@ -128,6 +144,11 @@ internal class ConditionalFormatDataBarTests
                 rule.Id = rule.Id!.Value!.ToUpperInvariant();
             foreach (var dataBar in worksheet.Descendants<X14.DataBar>())
                 dataBar.Gradient = gradient;
+            if (removeNegativeFillColor)
+            {
+                foreach (var color in worksheet.Descendants<X14.NegativeFillColor>().ToList())
+                    color.Remove();
+            }
             worksheet.Save();
         }
 

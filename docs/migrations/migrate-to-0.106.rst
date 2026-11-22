@@ -200,6 +200,7 @@ The ``IXLCFDataBarMax`` methods ``Maximum`` and ``HighestValue`` now return the 
        .HighestValue()
        .SetGradient(false);
 
-Source code that calls these methods compiles as before. A compiled assembly that calls them must be
+A direct call of these methods compiles as before. Code that uses one of them as a method group for
+an ``Action`` delegate does not compile. A compiled assembly that calls them must be
 compiled again. A class that implements ``IXLCFDataBarMax`` or ``IXLConditionalFormat`` must
 implement the changed and new members.
