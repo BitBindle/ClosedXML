@@ -168,8 +168,40 @@ namespace ClosedXML.Tests
             ws.FirstCell().InsertData(table);
 
             Assert.AreEqual(25, ws.Cell("A1").Value);
-            Assert.AreEqual("", ws.Cell("C4").Value);
-            Assert.AreEqual("", ws.Cell("D5").Value);
+            Assert.AreEqual(Blank.Value, ws.Cell("C4").Value);
+            Assert.AreEqual(Blank.Value, ws.Cell("D5").Value);
+        }
+
+        [Test]
+        public void InsertData_writes_blank_cell_for_DBNull_in_data_reader()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+
+            var table = new DataTable();
+            table.Columns.Add("Name", typeof(string));
+            table.Columns.Add("Count", typeof(int));
+            table.Rows.Add("First", DBNull.Value);
+            table.Rows.Add(DBNull.Value, 7);
+
+            ws.FirstCell().InsertData(table.CreateDataReader().Cast<IDataRecord>());
+
+            Assert.That(ws.Cell("A1").Value, Is.EqualTo((XLCellValue)"First"));
+            Assert.That(ws.Cell("B1").Value, Is.EqualTo(Blank.Value));
+            Assert.That(ws.Cell("A2").Value, Is.EqualTo(Blank.Value));
+            Assert.That(ws.Cell("B2").Value, Is.EqualTo((XLCellValue)7));
+        }
+
+        [Test]
+        public void InsertData_writes_blank_cell_for_DBNull_in_object_array()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+
+            ws.FirstCell().InsertData(new[] { new object[] { "Text", DBNull.Value } });
+
+            Assert.That(ws.Cell("A1").Value, Is.EqualTo((XLCellValue)"Text"));
+            Assert.That(ws.Cell("B1").Value, Is.EqualTo(Blank.Value));
         }
 
         [Test]

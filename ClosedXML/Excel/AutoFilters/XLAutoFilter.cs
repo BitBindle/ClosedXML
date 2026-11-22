@@ -46,6 +46,10 @@ namespace ClosedXML.Excel
 
         public IXLAutoFilter Reapply()
         {
+            // A disabled autofilter has no range to filter.
+            if (!IsEnabled)
+                return this;
+
             // Recalculate shown / hidden rows
             var rows = Range.Rows(2, Range.RowCount());
             rows.ForEach(row =>
