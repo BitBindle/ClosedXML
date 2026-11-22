@@ -15,8 +15,8 @@ namespace ClosedXML.IO;
 /// number texts of a file with this class, so that it reads the same values on each runtime.
 /// </para>
 /// <para>
-/// The usual texts use 64-bit and 128-bit integer arithmetic without allocations. Only very
-/// small, very large and very long values use <see cref="BigInteger"/>.
+/// A text with at most 19 significant digits uses 64-bit and 128-bit integer arithmetic without
+/// allocations. Only texts with more digits use <see cref="BigInteger"/>.
 /// </para>
 /// </remarks>
 internal static class ExactNumberParser
@@ -43,6 +43,17 @@ internal static class ExactNumberParser
     private const int MaxSignificantDigits = 800;
 
     /// <summary>
+    /// The smallest decimal exponent of <see cref="PowersOfFive128"/>. 10^-343 * 2^64 is less than half
+    /// of the smallest subnormal value.
+    /// </summary>
+    private const int MinPowerOfTen = -342;
+
+    /// <summary>
+    /// The largest decimal exponent of <see cref="PowersOfFive128"/>. 10^309 is too large for a <see cref="double"/>.
+    /// </summary>
+    private const int MaxPowerOfTen = 308;
+
+    /// <summary>
     /// The number format of <see cref="TryParse"/>: a sign, a decimal point, an exponent and white space.
     /// </summary>
     private const NumberStyles NumberStyle = NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign |
@@ -57,21 +68,6 @@ internal static class ExactNumberParser
         1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11,
         1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
     };
-
-    /// <summary>
-    /// The nearest doubles of the powers of ten that have a power of five in <see cref="PowersOfFive"/>.
-    /// The 128-bit calculation uses them only for its first estimate.
-    /// </summary>
-    private static readonly double[] ApproximatePowersOfTen =
-    {
-        1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13,
-        1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22, 1e23, 1e24, 1e25, 1e26, 1e27,
-    };
-
-    /// <summary>
-    /// The powers of five that an unsigned long keeps. 5^27 is the largest.
-    /// </summary>
-    private static readonly ulong[] PowersOfFive = CreatePowers(5, 27);
 
     /// <summary>
     /// Parses a decimal text with an optional sign, decimal point and exponent. White space
@@ -310,7 +306,7 @@ internal static class ExactNumberParser
     /// Gets the nearest <see cref="double"/> of <paramref name="integer"/> * 10^<paramref name="exponent"/>.
     /// </summary>
     /// <param name="integer">A positive integer.</param>
-    /// <param name="exponent">The decimal exponent.</param>
+    /// <param name="exponent">The decimal exponent. It is at most <see cref="MaxPowerOfTen"/>.</param>
     private static double ToDouble(ulong integer, int exponent)
     {
         if (integer <= MaxExactInteger && Math.Abs(exponent) < ExactPowersOfTen.Length)
@@ -322,111 +318,77 @@ internal static class ExactNumberParser
                 : (long)integer / ExactPowersOfTen[-exponent];
         }
 
-        if (Math.Abs(exponent) < PowersOfFive.Length)
-            return MultiplyByPowerOfTen(integer, exponent);
-
-        return exponent >= 0
-            ? RatioToDouble(new BigInteger(integer) * BigPowersOfTen.Get(exponent), BigInteger.One)
-            : RatioToDouble(new BigInteger(integer), BigPowersOfTen.Get(-exponent));
+        return MultiplyByPowerOfTen(integer, exponent);
     }
 
     /// <summary>
     /// Gets the nearest <see cref="double"/> of <paramref name="integer"/> * 10^<paramref name="exponent"/>
-    /// with 128-bit integer arithmetic. The absolute value of the exponent is at most 27.
-    /// </summary>
-    private static double MultiplyByPowerOfTen(ulong integer, int exponent)
-    {
-        // The estimate is at most a few units in the last place from the result.
-        // The loop moves it to the nearest double. A tie selects the even mantissa.
-        var candidate = integer < 1UL << 63 ? (long)integer : (long)(integer >> 1) * 2.0;
-        candidate = exponent >= 0
-            ? candidate * ApproximatePowersOfTen[exponent]
-            : candidate / ApproximatePowersOfTen[-exponent];
-        while (true)
-        {
-            var comparison = CompareWithMidpointAbove(integer, exponent, candidate);
-            if (comparison > 0 || (comparison == 0 && HasOddMantissa(candidate)))
-            {
-                candidate = BitConverter.Int64BitsToDouble(BitConverter.DoubleToInt64Bits(candidate) + 1);
-                continue;
-            }
-
-            var below = BitConverter.Int64BitsToDouble(BitConverter.DoubleToInt64Bits(candidate) - 1);
-            comparison = CompareWithMidpointAbove(integer, exponent, below);
-            if (comparison < 0 || (comparison == 0 && !HasOddMantissa(below)))
-            {
-                candidate = below;
-                continue;
-            }
-
-            return candidate;
-        }
-    }
-
-    private static bool HasOddMantissa(double value)
-    {
-        return (BitConverter.DoubleToInt64Bits(value) & 1) != 0;
-    }
-
-    /// <summary>
-    /// Compares <paramref name="integer"/> * 10^<paramref name="exponent"/> with the midpoint between
-    /// <paramref name="candidate"/> and the next larger double.
-    /// </summary>
-    private static int CompareWithMidpointAbove(ulong integer, int exponent, double candidate)
-    {
-        // The candidate is m * 2^e, the next double is (m + 1) * 2^e and the midpoint is (2m + 1) * 2^(e - 1).
-        // A power of ten is 5^n * 2^n. Each side of the comparison gets the power of five that it needs.
-        GetBinary(candidate, out var mantissa, out var binaryExponent);
-        var midpointMantissa = (mantissa << 1) | 1;
-        ulong valueHigh, valueLow, midpointHigh, midpointLow;
-        if (exponent >= 0)
-        {
-            Multiply(integer, PowersOfFive[exponent], out valueHigh, out valueLow);
-            midpointHigh = 0;
-            midpointLow = midpointMantissa;
-        }
-        else
-        {
-            valueHigh = 0;
-            valueLow = integer;
-            Multiply(midpointMantissa, PowersOfFive[-exponent], out midpointHigh, out midpointLow);
-        }
-
-        return CompareScaled(valueHigh, valueLow, exponent, midpointHigh, midpointLow, binaryExponent - 1);
-    }
-
-    /// <summary>
-    /// Compares x * 2^<paramref name="xExponent"/> with y * 2^<paramref name="yExponent"/>.
-    /// x and y are positive 128-bit integers.
-    /// </summary>
-    private static int CompareScaled(ulong xHigh, ulong xLow, int xExponent, ulong yHigh, ulong yLow, int yExponent)
-    {
-        var xLength = GetBitLength(xHigh, xLow) + xExponent;
-        var yLength = GetBitLength(yHigh, yLow) + yExponent;
-        if (xLength != yLength)
-            return xLength.CompareTo(yLength);
-
-        // Both values have the same bit length, so each shift keeps the value in 128 bits.
-        if (xExponent > yExponent)
-            ShiftLeft(ref xHigh, ref xLow, xExponent - yExponent);
-        else
-            ShiftLeft(ref yHigh, ref yLow, yExponent - xExponent);
-
-        return Compare(xHigh, xLow, yHigh, yLow);
-    }
-
-    /// <summary>
-    /// Gets a positive normal value as <paramref name="mantissa"/> * 2^<paramref name="binaryExponent"/>.
+    /// with the Eisel-Lemire method. The method multiplies the integer by a 128-bit approximation of
+    /// 5^<paramref name="exponent"/>. The fast_float library by Daniel Lemire uses the same calculation.
     /// </summary>
     /// <remarks>
-    /// The candidates of <see cref="MultiplyByPowerOfTen"/> are between 1e-27 and 1e47, so they are never subnormal.
+    /// The integer has at most 19 digits. For such an integer, the 128-bit approximation always gives
+    /// the nearest double. Noble Mushtak and Daniel Lemire prove this in "Fast number parsing without fallback".
     /// </remarks>
-    private static void GetBinary(double absValue, out ulong mantissa, out int binaryExponent)
+    private static double MultiplyByPowerOfTen(ulong integer, int exponent)
     {
-        var bits = (ulong)BitConverter.DoubleToInt64Bits(absValue);
-        var biasedExponent = (int)(bits >> MantissaBits);
-        mantissa = (bits & ((1UL << MantissaBits) - 1)) | (1UL << MantissaBits);
-        binaryExponent = biasedExponent - ExponentBias;
+        // The integer is less than 2^64. Thus the value is less than half of the smallest subnormal value.
+        if (exponent < MinPowerOfTen)
+            return 0;
+
+        var leadingZeros = 64 - GetBitLength(integer);
+        var normalizedInteger = integer << leadingZeros;
+        var powers = PowersOfFive128.Values;
+        var index = 2 * (exponent - MinPowerOfTen);
+        Multiply(normalizedInteger, powers[index], out var high, out var low);
+
+        // The result uses the 55 high bits of the product. If the other bits of the high word are all
+        // ones, the low word of the power can change these bits.
+        const ulong precisionMask = ulong.MaxValue >> (MantissaBits + 3);
+        if ((high & precisionMask) == precisionMask)
+        {
+            Multiply(normalizedInteger, powers[index + 1], out var secondHigh, out _);
+            low += secondHigh;
+            if (secondHigh > low)
+                high++;
+        }
+
+        var upperBit = (int)(high >> 63);
+        var shift = upperBit + 64 - MantissaBits - 3;
+        var mantissa = high >> shift;
+
+        // The binary exponent of 10^exponent is floor(exponent * log2(10)).
+        var binaryExponent = ((217706 * exponent) >> 16) + 63;
+        var biasedExponent = binaryExponent + upperBit - leadingZeros + 1023;
+        if (biasedExponent <= 0)
+        {
+            // A subnormal value has fewer bits in the mantissa.
+            if (-biasedExponent + 1 >= 64)
+                return 0;
+
+            mantissa >>= -biasedExponent + 1;
+            mantissa += mantissa & 1;
+            mantissa >>= 1;
+            return BitConverter.Int64BitsToDouble((long)mantissa);
+        }
+
+        // An exact tie has zero bits below the rounding bit. Only these exponents can give an exact tie.
+        // The tie selects the even mantissa.
+        if (low <= 1 && exponent >= -4 && exponent <= 23 && (mantissa & 3) == 1 && mantissa << shift == high)
+            mantissa &= ~1UL;
+
+        mantissa += mantissa & 1;
+        mantissa >>= 1;
+        if (mantissa >= 2UL << MantissaBits)
+        {
+            mantissa >>= 1;
+            biasedExponent++;
+        }
+
+        if (biasedExponent >= MaxBiasedExponent)
+            return double.PositiveInfinity;
+
+        return BitConverter.Int64BitsToDouble(((long)biasedExponent << MantissaBits) | (long)(mantissa & ((1UL << MantissaBits) - 1)));
     }
 
     /// <summary>
@@ -443,7 +405,7 @@ internal static class ExactNumberParser
             : BigInteger.DivRem(numerator, denominator << -shift, out remainder);
         var quotient = (ulong)bigQuotient;
 
-        var droppedBits = GetBitLength(0, quotient) - (MantissaBits + 1);
+        var droppedBits = GetBitLength(quotient) - (MantissaBits + 1);
         var lowestBitExponent = droppedBits - shift;
         if (lowestBitExponent < MinBinaryExponent)
         {
@@ -500,81 +462,46 @@ internal static class ExactNumberParser
         high = (xHigh * yHigh) + (lowHigh >> 32) + (highLow >> 32) + (middle >> 32);
     }
 
-    private static void ShiftLeft(ref ulong high, ref ulong low, int count)
+    private static int GetBitLength(ulong value)
     {
-        if (count == 0)
-            return;
-
-        if (count >= 64)
-        {
-            high = low << (count - 64);
-            low = 0;
-        }
-        else
-        {
-            high = (high << count) | (low >> (64 - count));
-            low <<= count;
-        }
-    }
-
-    private static int Compare(ulong xHigh, ulong xLow, ulong yHigh, ulong yLow)
-    {
-        return xHigh != yHigh ? xHigh.CompareTo(yHigh) : xLow.CompareTo(yLow);
-    }
-
-    private static int GetBitLength(ulong high, ulong low)
-    {
-        if (high != 0)
-            return 64 + GetBitLength(0, high);
-
         var length = 0;
-        if (low >= 1UL << 32)
+        if (value >= 1UL << 32)
         {
-            low >>= 32;
+            value >>= 32;
             length += 32;
         }
 
-        if (low >= 1UL << 16)
+        if (value >= 1UL << 16)
         {
-            low >>= 16;
+            value >>= 16;
             length += 16;
         }
 
-        if (low >= 1UL << 8)
+        if (value >= 1UL << 8)
         {
-            low >>= 8;
+            value >>= 8;
             length += 8;
         }
 
-        if (low >= 1UL << 4)
+        if (value >= 1UL << 4)
         {
-            low >>= 4;
+            value >>= 4;
             length += 4;
         }
 
-        if (low >= 1UL << 2)
+        if (value >= 1UL << 2)
         {
-            low >>= 2;
+            value >>= 2;
             length += 2;
         }
 
-        if (low >= 1UL << 1)
+        if (value >= 1UL << 1)
         {
-            low >>= 1;
+            value >>= 1;
             length++;
         }
 
-        return length + (int)low;
-    }
-
-    private static ulong[] CreatePowers(ulong radix, int maxExponent)
-    {
-        var powers = new ulong[maxExponent + 1];
-        powers[0] = 1;
-        for (var i = 1; i < powers.Length; i++)
-            powers[i] = powers[i - 1] * radix;
-
-        return powers;
+        return length + (int)value;
     }
 
     /// <summary>
@@ -605,6 +532,66 @@ internal static class ExactNumberParser
                 powers[i] = powers[i - 1] * 10;
 
             return powers;
+        }
+    }
+
+    /// <summary>
+    /// The 128-bit approximations of the powers of five from 5^<see cref="MinPowerOfTen"/> to
+    /// 5^<see cref="MaxPowerOfTen"/>. Each power has two items: the high word and the low word.
+    /// The runtime creates the table only when a value needs it.
+    /// </summary>
+    /// <remarks>
+    /// Each approximation has 128 bits, and its highest bit is set. The table has the same values
+    /// as the table of the fast_float library, because the error limits of the method use them.
+    /// </remarks>
+    internal static class PowersOfFive128
+    {
+        internal static readonly ulong[] Values = Create();
+
+        /// <summary>
+        /// A static constructor stops the runtime from creating the table before the first use.
+        /// </summary>
+        static PowersOfFive128()
+        {
+        }
+
+        private static ulong[] Create()
+        {
+            var values = new ulong[2 * (MaxPowerOfTen - MinPowerOfTen + 1)];
+            var power = BigInteger.Pow(5, -MinPowerOfTen);
+            for (var exponent = MinPowerOfTen; exponent <= MaxPowerOfTen; exponent++)
+            {
+                BigInteger approximation;
+                if (exponent < 0)
+                {
+                    // A negative exponent uses the reciprocal 2^scale / 5^-exponent, rounded up.
+                    var bitLength = GetBitLength(power);
+                    var scale = exponent >= -27 ? bitLength + 127 : 2 * bitLength + 128;
+                    approximation = (BigInteger.One << scale) / power + 1;
+                    power /= 5;
+                }
+                else
+                {
+                    approximation = power;
+                    power *= 5;
+                }
+
+                // Truncate the approximation to 128 bits, or move its highest bit to bit 127.
+                var shift = GetBitLength(approximation) - 128;
+                approximation = shift >= 0 ? approximation >> shift : approximation << -shift;
+                var index = 2 * (exponent - MinPowerOfTen);
+                values[index] = (ulong)(approximation >> 64);
+                values[index + 1] = (ulong)(approximation & ulong.MaxValue);
+            }
+
+            return values;
+        }
+
+        private static int GetBitLength(BigInteger value)
+        {
+            var bytes = value.ToByteArray();
+            var highByte = bytes[bytes.Length - 1];
+            return (bytes.Length - 1) * 8 + ExactNumberParser.GetBitLength(highByte);
         }
     }
 }
