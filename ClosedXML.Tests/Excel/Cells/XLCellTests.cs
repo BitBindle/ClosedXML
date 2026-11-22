@@ -630,7 +630,8 @@ namespace ClosedXML.Tests
         }
 
         [Test]
-        public void TryGetValue_Unicode_String()
+        [Issue("92")]
+        public void TryGetValue_of_text_keeps_the_escape_text()
         {
             IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
 
@@ -641,7 +642,7 @@ namespace ClosedXML.Tests
                 .SetValue("Site_x0020_Column_x0020_Test")
                 .TryGetValue(out outValue);
             Assert.IsTrue(success);
-            Assert.AreEqual("Site Column Test", outValue);
+            Assert.AreEqual("Site_x0020_Column_x0020_Test", outValue);
 
             success = ws.Cell("A1")
                 .SetValue("Site_x005F_x0020_Column_x005F_x0020_Test")
@@ -1306,19 +1307,40 @@ namespace ClosedXML.Tests
             Assert.IsFalse(ws.Cell("B1").HasSparkline);
         }
 
-        [TestCase("Plain text", "Plain text")]
-        [TestCase("a_x000D_b", "a\rb")]
-        [TestCase("_x0041__x0042_C", "ABC")]
-        [TestCase("a_x000D_", "a\r")]
-        [TestCase("a_xZZZZ_b", "a_xZZZZ_b")]
-        [TestCase("a_x00", "a_x00")]
-        [Issue("77")]
-        public void GetValue_of_text_unescapes_characters(string text, string expected)
+        [TestCase("Plain text")]
+        [TestCase("a_x000D_b")]
+        [TestCase("_x0041__x0042_C")]
+        [TestCase("a_x005F_x000D_")]
+        [TestCase("a_xZZZZ_b")]
+        [TestCase("a_x00")]
+        [Issue("92")]
+        public void GetValue_of_text_is_the_same_as_the_text_of_the_value(string text)
         {
             using var wb = new XLWorkbook();
             var cell = wb.AddWorksheet().Cell("A1");
             cell.Value = text;
-            Assert.AreEqual(expected, cell.GetValue<string>());
+
+            Assert.AreEqual(text, cell.GetValue<string>());
+            Assert.AreEqual(text, cell.GetText());
+        }
+
+        [Test]
+        [Issue("92")]
+        public void GetValue_of_text_after_a_load_is_the_saved_text()
+        {
+            const string text = "a_x0041_ b";
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                wb.AddWorksheet().Cell("A1").Value = text;
+                wb.SaveAs(ms);
+            }
+
+            using var loaded = new XLWorkbook(ms);
+            var cell = loaded.Worksheets.First().Cell("A1");
+
+            Assert.AreEqual(text, cell.GetValue<string>());
+            Assert.AreEqual(text, cell.GetText());
         }
     }
 }

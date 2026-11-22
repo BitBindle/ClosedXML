@@ -44,6 +44,16 @@ after ``EnableBuffering``. Copy such a stream to a ``MemoryStream`` first.
 The work on the package stays synchronous, because the OpenXML SDK has no asynchronous API. The
 methods are not on ``IXLWorkbook``, so other implementations of the interface do not break.
 
+**********************
+Text from GetValue
+**********************
+
+``IXLCell.GetValue<String>()`` and ``IXLCell.TryGetValue<String>()`` now return the text of the
+cell without a change. Before, they replaced each escaped character, for example ``_x0041_``, with
+the character that it encodes. A load already decodes these escaped characters. The second decode
+changed the text. For example, a cell with the text ``a_x0041_`` gave ``aA``. It now gives
+``a_x0041_``, the same text as ``IXLCell.GetText()``.
+
 *****************
 Equality methods
 *****************
