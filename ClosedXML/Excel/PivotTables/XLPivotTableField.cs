@@ -287,13 +287,15 @@ internal class XLPivotTableField
         var fieldIndex = _pivotTable.GetFieldIndex(this);
         var sharedItems = _pivotTable.PivotCache.GetFieldSharedItems(fieldIndex);
 
+        // GetOrAddItem uses the first item for a shared item, thus keep the first item also.
         var pivotFieldItems = new Dictionary<uint, XLPivotFieldItem>();
         foreach (var fieldItem in _items)
         {
-            if (fieldItem.ItemIndex is { } itemIndex)
-                pivotFieldItems[(uint)itemIndex] = fieldItem;
+            if (fieldItem.ItemIndex is { } itemIndex && !pivotFieldItems.ContainsKey((uint)itemIndex))
+                pivotFieldItems.Add((uint)itemIndex, fieldItem);
         }
 
+        var insertIndex = GetDataItemInsertIndex();
         var filteredItems = new List<XLPivotFieldItem>();
         for (uint sharedItemIndex = 0; sharedItemIndex < sharedItems.Count; ++sharedItemIndex)
         {
@@ -310,7 +312,7 @@ internal class XLPivotTableField
             else
             {
                 var addedItem = new XLPivotFieldItem(this, (int)sharedItemIndex);
-                InsertDataItem(addedItem);
+                _items.Insert(insertIndex++, addedItem);
                 filteredItems.Add(addedItem);
             }
         }
@@ -323,8 +325,16 @@ internal class XLPivotTableField
     /// </summary>
     private void InsertDataItem(XLPivotFieldItem item)
     {
+        _items.Insert(GetDataItemInsertIndex(), item);
+    }
+
+    /// <summary>
+    /// Get the position of the first subtotal item, or the end of the items if the field has no subtotal item.
+    /// </summary>
+    private int GetDataItemInsertIndex()
+    {
         var index = _items.FindIndex(static x => x.ItemType != XLPivotItemType.Data);
-        _items.Insert(index >= 0 ? index : _items.Count, item);
+        return index >= 0 ? index : _items.Count;
     }
 
     private static XLPivotItemType GetItemTypeForSubtotal(XLSubtotalFunction value)

@@ -154,13 +154,13 @@ internal class XLPivotDataField : IXLPivotValue
         }
         set
         {
-            if (_baseField == BaseItemDefaultValue)
+            if (_baseField == BaseFieldDefaultValue)
                 throw new InvalidOperationException("Base field not specified for the field.");
 
+            // The base item is a position in the items of the base field, not a shared item index.
             var pivotField = _pivotTable.PivotFields[_baseField];
             var fieldItem = pivotField.GetOrAddItem(value);
-            var itemIndex = fieldItem.ItemIndex ?? BaseFieldDefaultValue;
-            _baseItem = checked((uint)itemIndex);
+            _baseItem = checked((uint)pivotField.IndexOfItem(fieldItem));
         }
     }
 
