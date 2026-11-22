@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 
 namespace ClosedXML.Excel
 {
@@ -84,6 +85,11 @@ namespace ClosedXML.Excel
         private readonly int _columnNumber;
 
         private string? _trimmedAddress;
+
+        /// <summary>
+        /// The length of the longest A1 text of a valid address, <c>$XFD$1048576</c>.
+        /// </summary>
+        internal const int MaxA1Length = 12;
 
         #endregion Private fields
 
@@ -207,17 +213,7 @@ namespace ClosedXML.Excel
             if (!IsValid)
                 return "#REF!";
 
-            String retVal = ColumnLetter;
-            if (_fixedColumn)
-            {
-                retVal = "$" + retVal;
-            }
-            if (_fixedRow)
-            {
-                retVal += "$";
-            }
-            retVal += _rowNumber.ToInvariantString();
-            return retVal;
+            return CreateA1Text(_fixedColumn, _fixedRow);
         }
 
         public string ToString(XLReferenceStyle referenceStyle)
@@ -234,7 +230,7 @@ namespace ClosedXML.Excel
                 address = GetTrimmedAddress();
             else if (referenceStyle == XLReferenceStyle.R1C1
                      || HasWorksheet && Worksheet.Workbook.ReferenceStyle == XLReferenceStyle.R1C1)
-                address = "R" + _rowNumber.ToInvariantString() + "C" + ColumnNumber.ToInvariantString();
+                address = CreateR1C1Text();
             else
                 address = GetTrimmedAddress();
 
@@ -253,7 +249,45 @@ namespace ClosedXML.Excel
 
         public string GetTrimmedAddress()
         {
-            return _trimmedAddress ?? (_trimmedAddress = ColumnLetter + _rowNumber.ToInvariantString());
+            return _trimmedAddress ??= CreateA1Text(fixedColumn: false, fixedRow: false);
+        }
+
+        /// <summary>
+        /// Write the A1 text of an address with a valid column to the span.
+        /// </summary>
+        /// <param name="output">The span. It must have space for <see cref="MaxA1Length"/> characters.</param>
+        /// <param name="fixedColumn">Write a <c>$</c> before the column letters.</param>
+        /// <param name="fixedRow">Write a <c>$</c> before the row number.</param>
+        /// <returns>The number of characters that the method writes.</returns>
+        internal int FormatA1(Span<char> output, bool fixedColumn, bool fixedRow)
+        {
+            var length = 0;
+            if (fixedColumn)
+                output[length++] = '$';
+
+            var columnLetter = ColumnLetter;
+            columnLetter.CopyTo(output[length..]);
+            length += columnLetter.Length;
+
+            if (fixedRow)
+                output[length++] = '$';
+
+            var isWritten = _rowNumber.TryFormat(output[length..], out var rowLength, provider: CultureInfo.InvariantCulture);
+            Debug.Assert(isWritten, "The span is too short for the row number.");
+            return length + rowLength;
+        }
+
+        private string CreateA1Text(bool fixedColumn, bool fixedRow)
+        {
+            // The row number of an address that is not valid can have more digits.
+            Span<char> text = stackalloc char[MaxA1Length + 4];
+            var length = FormatA1(text, fixedColumn, fixedRow);
+            return text[..length].ToString();
+        }
+
+        private string CreateR1C1Text()
+        {
+            return string.Create(CultureInfo.InvariantCulture, $"R{_rowNumber}C{_columnNumber}");
         }
 
         #endregion Methods
@@ -429,11 +463,11 @@ namespace ClosedXML.Excel
                 switch (referenceStyle)
                 {
                     case XLReferenceStyle.A1:
-                        address = String.Concat('$', ColumnLetter, '$', _rowNumber.ToInvariantString());
+                        address = CreateA1Text(fixedColumn: true, fixedRow: true);
                         break;
 
                     case XLReferenceStyle.R1C1:
-                        address = String.Concat('R', _rowNumber.ToInvariantString(), 'C', ColumnNumber);
+                        address = CreateR1C1Text();
                         break;
 
                     default:

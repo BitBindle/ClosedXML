@@ -1,12 +1,21 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 
 namespace ClosedXML.Excel
 {
     internal readonly struct XLRangeAddress : IXLRangeAddress, IEquatable<XLRangeAddress>
     {
         #region Static members
+
+        /// <summary>
+        /// The space for the longest text of a range without a sheet name. The longest text is
+        /// <c>#REF!$XFD$1048576:$XFD$1048576</c>.
+        /// </summary>
+        internal const int MaxTextLength = 5 + 2 * XLAddress.MaxA1Length + 1;
+
+        private static readonly string EntireSheetText = $"1:{XLHelper.MaxRowNumber}";
 
         public static XLRangeAddress EntireColumn(XLWorksheet worksheet, int column)
         {
@@ -273,27 +282,15 @@ namespace ClosedXML.Excel
 
         public String ToStringRelative(Boolean includeSheet)
         {
-            string address;
-            if (!IsValid)
-                address = "#REF!";
-            else
-            {
-                if (IsEntireSheet())
-                    address = $"1:{XLHelper.MaxRowNumber}";
-                else if (IsEntireRow())
-                    address = String.Concat(FirstAddress.RowNumber.ToString(), ":", LastAddress.RowNumber.ToString());
-                else if (IsEntireColumn())
-                    address = String.Concat(FirstAddress.ColumnLetter, ":", LastAddress.ColumnLetter);
-                else
-                    address = String.Concat(FirstAddress.ToStringRelative(), ":", LastAddress.ToStringRelative());
-            }
+            Span<char> address = stackalloc char[MaxTextLength];
+            var length = FormatRelative(address);
 
             if (includeSheet || WorksheetIsDeleted)
                 return String.Concat(
                     WorksheetIsDeleted ? "#REF" : Worksheet!.Name.EscapeSheetName(),
-                    "!", address);
+                    "!", address[..length]);
 
-            return address;
+            return address[..length].ToString();
         }
 
         public String ToStringFixed(XLReferenceStyle referenceStyle)
@@ -328,40 +325,94 @@ namespace ClosedXML.Excel
 
         public override string ToString()
         {
+            Span<char> address = stackalloc char[MaxTextLength];
+            var length = Format(address);
+            return address[..length].ToString();
+        }
+
+        /// <summary>
+        /// Write the text of <see cref="ToString()"/> to the span.
+        /// </summary>
+        /// <param name="output">The span. It must have space for <see cref="MaxTextLength"/> characters.</param>
+        /// <returns>The number of characters that the method writes.</returns>
+        internal int Format(Span<char> output)
+        {
             if (!IsValid || WorksheetIsDeleted)
             {
-                var worksheet = WorksheetIsDeleted ? "#REF!" : "";
-
-                var address = (!FirstAddress.IsValid || !LastAddress.IsValid) ? "#REF!" : String.Concat(FirstAddress.ToString(), ":", LastAddress.ToString());
-                return String.Concat(worksheet, address);
+                var length = WorksheetIsDeleted ? Write(output, XLHelper.RefError) : 0;
+                return length + (IsValid ? FormatCells(output[length..]) : Write(output[length..], XLHelper.RefError));
             }
 
+            return FormatValid(output, fixedReference: true);
+        }
+
+        /// <summary>
+        /// Write the text of <see cref="ToStringRelative(bool)"/> without a sheet to the span.
+        /// </summary>
+        /// <param name="output">The span. It must have space for <see cref="MaxTextLength"/> characters.</param>
+        /// <returns>The number of characters that the method writes.</returns>
+        internal int FormatRelative(Span<char> output)
+        {
+            if (!IsValid)
+                return Write(output, XLHelper.RefError);
+
+            return FormatValid(output, fixedReference: false);
+        }
+
+        /// <summary>
+        /// Write the first cell, a colon and the last cell to the span. A cell that is not valid
+        /// is <c>#REF!</c>. The text has a <c>$</c> before a fixed row or column.
+        /// </summary>
+        /// <param name="output">The span. It must have space for <see cref="MaxTextLength"/> characters.</param>
+        /// <returns>The number of characters that the method writes.</returns>
+        internal int FormatCells(Span<char> output)
+        {
+            var length = FormatCell(output, FirstAddress, fixedReference: true);
+            output[length++] = ':';
+            return length + FormatCell(output[length..], LastAddress, fixedReference: true);
+        }
+
+        private int FormatValid(Span<char> output, bool fixedReference)
+        {
             if (IsEntireSheet())
-            {
-                var worksheet = WorksheetIsDeleted ? "#REF!" : "";
-                var address = $"1:{XLHelper.MaxRowNumber}";
-                return String.Concat(worksheet, address);
-            }
-            else if (IsEntireRow())
-            {
-                var worksheet = WorksheetIsDeleted ? "#REF!" : "";
-                var firstAddress = FirstAddress.IsValid ? FirstAddress.RowNumber.ToString() : "#REF!";
-                var lastAddress = LastAddress.IsValid ? LastAddress.RowNumber.ToString() : "#REF!";
+                return Write(output, EntireSheetText);
 
-                return String.Concat(worksheet, firstAddress, ':', lastAddress);
-            }
-            else if (IsEntireColumn())
+            int length;
+            if (IsEntireRow())
             {
-                var worksheet = WorksheetIsDeleted ? "#REF!" : "";
-                var firstAddress = FirstAddress.IsValid ? FirstAddress.ColumnLetter : "#REF!";
-                var lastAddress = LastAddress.IsValid ? LastAddress.ColumnLetter : "#REF!";
+                var isFirstWritten = FirstAddress.RowNumber.TryFormat(output, out length, provider: CultureInfo.InvariantCulture);
+                output[length++] = ':';
+                var isLastWritten = LastAddress.RowNumber.TryFormat(output[length..], out var lastLength, provider: CultureInfo.InvariantCulture);
+                Debug.Assert(isFirstWritten && isLastWritten, "The span is too short for the row numbers.");
+                return length + lastLength;
+            }
 
-                return String.Concat(worksheet, firstAddress, ':', lastAddress);
-            }
-            else
+            if (IsEntireColumn())
             {
-                return String.Concat(FirstAddress.ToString(), ":", LastAddress.ToString());
+                length = Write(output, FirstAddress.ColumnLetter);
+                output[length++] = ':';
+                return length + Write(output[length..], LastAddress.ColumnLetter);
             }
+
+            length = FormatCell(output, FirstAddress, fixedReference);
+            output[length++] = ':';
+            return length + FormatCell(output[length..], LastAddress, fixedReference);
+        }
+
+        private static int FormatCell(Span<char> output, XLAddress address, bool fixedReference)
+        {
+            if (!address.IsValid)
+                return Write(output, XLHelper.RefError);
+
+            return fixedReference
+                ? address.FormatA1(output, address.FixedColumn, address.FixedRow)
+                : address.FormatA1(output, fixedColumn: false, fixedRow: false);
+        }
+
+        private static int Write(Span<char> output, string text)
+        {
+            text.CopyTo(output);
+            return text.Length;
         }
 
         public string ToString(XLReferenceStyle referenceStyle)
