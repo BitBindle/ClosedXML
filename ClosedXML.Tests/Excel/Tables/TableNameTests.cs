@@ -24,6 +24,56 @@ namespace ClosedXML.Tests.Excel.Tables
             Assert.AreEqual("Table1", table.Name);
         }
 
+        [TestCase("Sales-2024")]
+        [TestCase("Sales(1)")]
+        [TestCase("A&B")]
+        [TestCase(@"Sales\2024")]
+        [TestCase("Sales\uD840")]
+        [Issue("56")]
+        public void Name_with_character_that_Excel_rejects_is_rejected(string name)
+        {
+            // Excel accepts only letters, digits, periods and underscores after the first character.
+            using var wb = new XLWorkbook();
+            var table = CreateTable(wb.AddWorksheet());
+
+            var ex = Assert.Throws<ArgumentException>(() => table.Name = name);
+            StringAssert.Contains("not a letter, a digit, a period or an underscore", ex!.Message);
+            Assert.AreEqual("Table1", table.Name);
+        }
+
+        [TestCase(@"\Sales")]
+        [TestCase("_Sales.2024")]
+        [TestCase("Ventes_Été")]
+        [TestCase("Ventes_E\u0301te\u0301")]
+        [TestCase("Name\uD840\uDC0B")]
+        [Issue("56")]
+        public void Save_keeps_valid_table_name(string name)
+        {
+            // The first character can be a backslash. Letters of all languages are valid. This includes
+            // a letter with a combining mark and a letter that is a surrogate pair.
+            using var wb = new XLWorkbook();
+            CreateTable(wb.AddWorksheet()).Name = name;
+            using var ms = new MemoryStream();
+            wb.SaveAs(ms);
+
+            AssertSavedTableName(ms, name);
+        }
+
+        [Test]
+        [Issue("56")]
+        public void Save_keeps_loaded_table_name_with_a_space()
+        {
+            // The formulas and the pivot sources of the file use the name from the file.
+            using var ms = CreateFileWithTableName("My sales");
+            using var savedMs = new MemoryStream();
+            using (var wb = new XLWorkbook(ms))
+            {
+                wb.SaveAs(savedMs);
+            }
+
+            AssertSavedTableName(savedMs, "My sales");
+        }
+
         [TestCase("A1")]
         [TestCase("xfd1048576")]
         [TestCase("May2019")]
@@ -161,6 +211,14 @@ namespace ClosedXML.Tests.Excel.Tables
 
             ms.Position = 0;
             return ms;
+        }
+
+        private static void AssertSavedTableName(Stream stream, string expectedName)
+        {
+            using var package = SpreadsheetDocument.Open(stream, false);
+            var table = package.WorkbookPart!.WorksheetParts.Single().TableDefinitionParts.Single().Table!;
+            Assert.AreEqual(expectedName, table.Name!.Value);
+            Assert.AreEqual(expectedName, table.DisplayName!.Value);
         }
 
         private static IXLTable CreateTable(IXLWorksheet ws)

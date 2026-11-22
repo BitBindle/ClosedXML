@@ -18,19 +18,6 @@ namespace ClosedXML.Excel
             return instance.Length - instance.Replace(c.ToString(), "").Length;
         }
 
-        public static String RemoveSpecialCharacters(this String str)
-        {
-            StringBuilder sb = new StringBuilder();
-            foreach (char c in str)
-            {
-                if (Char.IsLetterOrDigit(c) || c == '.' || c == '_')
-                {
-                    sb.Append(c);
-                }
-            }
-            return sb.ToString();
-        }
-
         internal static string EscapeSheetName(this String sheetName)
         {
             if (String.IsNullOrEmpty(sheetName)) return sheetName;

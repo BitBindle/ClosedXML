@@ -143,20 +143,22 @@ The setter ``IXLTable.Name`` now throws an ``ArgumentException`` for a name that
 accept:
 
 * The name contains whitespace, for example ``My table``.
+* The name has a character other than a letter, a digit, a period or an underscore after the first
+  character, for example ``Sales-2024``.
 * The name is a cell reference, for example ``A1``, ``May2019`` or ``R1C2``.
 * The name is the name of a defined name in the workbook or in one of its worksheets. The compare
   ignores case.
 
-Before, ClosedXML kept such a name in memory, but the save removed the whitespace. Structured
-references and pivot sources that used the name then pointed to a table that did not exist. A file
-with a cell reference or a defined name as a table name needed a repair in Excel.
+Before, ClosedXML kept such a name in memory, but the save removed the whitespace and the other
+characters. Structured references and pivot sources that used the name then pointed to a table that
+did not exist. A file with a cell reference or a defined name as a table name needed a repair in
+Excel.
 
 The ``CreateTable(name)``, ``AsTable(name)`` and ``InsertTable(data, name)`` methods use the same
 rules. For a name that is a cell reference, the ``InsertTable`` overload for a ``DataTable`` throws
 an ``InvalidOperationException``, as before.
 
-The load and a copy of a table keep a table name from a file as it is. The save still removes the
-whitespace from such a name.
+The load, a copy and the save keep a table name from a file as it is.
 
 *******************************************
 Where, Skip and Take on rows and columns
