@@ -174,11 +174,11 @@ namespace ClosedXML.Tests.Excel.Styles
 
         private static IEnumerable<FormatTestCase<IXLAlignment>> AlignmentApiSetters()
         {
-            var hAlignValues = EnumPolyfill.GetValues<XLAlignmentHorizontalValues>();
+            var hAlignValues = Enum.GetValues<XLAlignmentHorizontalValues>();
             yield return FormatTestCase<IXLAlignment>.ForAlignment(align => align.Horizontal, (align, value) => align.Horizontal = value, hAlignValues);
             yield return FormatTestCase<IXLAlignment>.ForAlignment(align => align.Horizontal, (align, value) => align.SetHorizontal(value), hAlignValues);
 
-            var vAlignValues = EnumPolyfill.GetValues<XLAlignmentVerticalValues>();
+            var vAlignValues = Enum.GetValues<XLAlignmentVerticalValues>();
             yield return FormatTestCase<IXLAlignment>.ForAlignment(align => align.Vertical, (align, value) => align.Vertical = value, vAlignValues);
             yield return FormatTestCase<IXLAlignment>.ForAlignment(align => align.Vertical, (align, value) => align.SetVertical(value), vAlignValues);
 
@@ -189,7 +189,7 @@ namespace ClosedXML.Tests.Excel.Styles
             yield return FormatTestCase<IXLAlignment>.ForAlignment(align => align.JustifyLastLine, (align, value) => align.JustifyLastLine = value, false, true);
             yield return FormatTestCase<IXLAlignment>.ForAlignment(align => align.JustifyLastLine, (align, value) => align.SetJustifyLastLine(value), false, true);
 
-            var readingOrderValues = EnumPolyfill.GetValues<XLAlignmentReadingOrderValues>();
+            var readingOrderValues = Enum.GetValues<XLAlignmentReadingOrderValues>();
             yield return FormatTestCase<IXLAlignment>.ForAlignment(align => align.ReadingOrder, (align, value) => align.ReadingOrder = value, readingOrderValues);
             yield return FormatTestCase<IXLAlignment>.ForAlignment(align => align.ReadingOrder, (align, value) => align.SetReadingOrder(value), readingOrderValues);
 

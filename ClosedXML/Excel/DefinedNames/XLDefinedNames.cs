@@ -42,7 +42,7 @@ namespace ClosedXML.Excel
 
         internal XLDefinedName DefinedName(String name)
         {
-            if (_namedRanges.TryGetValue(name, out XLDefinedName range))
+            if (_namedRanges.TryGetValue(name, out var range))
                 return range;
 
             throw new KeyNotFoundException($"Name {name} not found.");
@@ -104,11 +104,12 @@ namespace ClosedXML.Excel
                                 "The range address '{0}' for the named range '{1}' is not a valid range.", rangeAddress,
                                 name));
 
-                        if (Scope == XLNamedRangeScope.Workbook || !XLHelper.NamedRangeReferenceRegex.Match(range.ToString()).Success)
+                        var rangeText = range.ToString()!;
+                        if (Scope == XLNamedRangeScope.Workbook || !XLHelper.NamedRangeReferenceRegex.Match(rangeText).Success)
                             throw new ArgumentException(
                                 "For named ranges in the workbook scope, specify the sheet name in the reference.");
 
-                        rangeAddress = range.ToString();
+                        rangeAddress = rangeText;
                     }
                 }
             }

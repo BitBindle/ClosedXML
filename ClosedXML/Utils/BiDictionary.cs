@@ -55,7 +55,7 @@ internal class BiDictionary<TKey, TValue> : IReadOnlyBiDictionary<TKey, TValue>
         return _keyToValue.GetEnumerator();
     }
 
-    public bool TryGetValue(TKey key, out TValue value)
+    public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value)
     {
         return _keyToValue.TryGetValue(key, out value);
     }

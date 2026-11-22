@@ -34,11 +34,10 @@ jobs:
         run: dotnet build ClosedXML.slnx --configuration Release --no-restore
 
       - name: Test
-        # The test-net462 job runs the net462 tests, because that framework can't run on Linux.
         # The OLEDB tests need the Access OLEDB driver, which exists only on Windows.
         run: >
           dotnet test ClosedXML.Tests/ClosedXML.Tests.csproj
-          --configuration Release --no-build --framework net10.0
+          --configuration Release --no-build
           --filter "TestCategory!=OLEDB"
           --collect "Code Coverage;Format=cobertura"
           --logger "trx;LogFileName=test-results.trx" --results-directory test-results
@@ -65,75 +64,3 @@ jobs:
         with:
           name: coverage-report
           path: coverage-report
-
-  test-netstandard20:
-    # .NET Framework applications use the netstandard2.0 build. The test job uses the netstandard2.1 build.
-    name: Test the netstandard2.0 build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Build
-        # ClosedXMLTargetFramework is in Directory.Build.targets. It selects the build of ClosedXML and ClosedXML.IO.
-        run: >
-          dotnet build ClosedXML.Tests/ClosedXML.Tests.csproj
-          --configuration Release --framework net10.0
-          -p:ClosedXMLTargetFramework=netstandard2.0
-
-      - name: Test
-        run: >
-          dotnet test ClosedXML.Tests/ClosedXML.Tests.csproj
-          --configuration Release --no-build --framework net10.0
-          -p:ClosedXMLTargetFramework=netstandard2.0
-          --filter "TestCategory!=OLEDB"
-          --logger "trx;LogFileName=test-results.trx" --results-directory test-results
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-netstandard20
-          path: test-results
-          if-no-files-found: ignore
-
-  test-net462:
-    # This job runs the netstandard2.0 build on the .NET Framework runtime.
-    name: Test on .NET Framework
-    runs-on: windows-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
-
-      - name: Build
-        run: >
-          dotnet build ClosedXML.Tests/ClosedXML.Tests.csproj
-          --configuration Release --framework net462
-
-      - name: Test
-        # The GitHub Windows runner doesn't have the Access OLEDB driver.
-        run: >
-          dotnet test ClosedXML.Tests/ClosedXML.Tests.csproj
-          --configuration Release --no-build --framework net462
-          --filter "TestCategory!=OLEDB"
-          --logger "trx;LogFileName=test-results.trx" --results-directory test-results
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-net462
-          path: test-results
-          if-no-files-found: ignore

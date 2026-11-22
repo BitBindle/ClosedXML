@@ -10,7 +10,7 @@
        Remove VersionSuffix to release a stable version. A stable package can't have a prerelease
        dependency (NU5104). Before you remove VersionSuffix, make sure that each dependency is a stable version. -->
   <PropertyGroup>
-    <VersionMajorMinor>0.106</VersionMajorMinor>
+    <VersionMajorMinor>0.107</VersionMajorMinor>
     <VersionPrefix Condition="'$(VersionPrefix)' == ''">$(VersionMajorMinor).0</VersionPrefix>
     <VersionSuffix>preview</VersionSuffix>
     <Version Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</Version>
@@ -41,8 +41,8 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <!-- Nuget won't accept dll in nuget and pdb in snupkg because they have different checksum.
          That is likely causes by Fody https://github.com/jbevain/cecil/issues/610. In the meantime,
-         just include pdb directly to nuget. Pdb also has to embed untracked sources (likely sources
-         for Polyfill package, because they are not a stored in repository). -->
+         just include pdb directly to nuget. Pdb also has to embed untracked sources, for example
+         the sources that the SDK generates in the obj directory. -->
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
 
@@ -53,9 +53,6 @@
 
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>$(SourceRoot)/ClosedXML.snk</AssemblyOriginatorKeyFile>
-
-    <!-- The netstandard2.0 build of ClosedXML uses this package. Directory.Build.targets also uses this version. -->
-    <MicrosoftBclHashCodeVersion>6.0.0</MicrosoftBclHashCodeVersion>
   </PropertyGroup>
 
   <!-- Make deterministic build (same binary is produced regardless of the machine building it) for CI -->

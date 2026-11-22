@@ -429,4 +429,15 @@ internal class DxfFormatTests
         Assert.AreEqual(expectedColor, border.TopBorderColor);
         Assert.AreEqual(expectedColor, border.BottomBorderColor);
     }
+
+    [Test]
+    [Issue("60")]
+    public void Dxf_number_format_and_protection_are_not_equal_to_null()
+    {
+        using var wb = new XLWorkbook();
+        var cf = wb.AddWorksheet().Range("A1").AddConditionalFormat();
+
+        Assert.That(((IEquatable<IXLNumberFormatBase>)cf.Style.NumberFormat).Equals(null), Is.False);
+        Assert.That(((IEquatable<IXLProtection>)cf.Style.Protection).Equals(null), Is.False);
+    }
 }

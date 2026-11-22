@@ -2,12 +2,8 @@
 
   <PropertyGroup>
     <LangVersion>14.0</LangVersion>
-    <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
-    <!-- netstandard 2.0 doesn't contain nullable annotations for BCL, so we want to export
-         annotations for our consumers, but no warnings for our code. Warnings will be
-         emitted by netstandard2.1 target -->
-    <Nullable Condition="'$(TargetFramework)' == 'netstandard2.0'">annotations</Nullable>
-    <Nullable Condition="'$(TargetFramework)' == 'netstandard2.1'">enable</Nullable>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
@@ -16,8 +12,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <!-- PolyfillTargetsForNuget recommends more target frameworks. The target frameworks are a separate decision. -->
-    <NoWarn>$(NoWarn);NU1605;CS1591;PolyfillTargetsForNuget</NoWarn>
+    <NoWarn>$(NoWarn);NU1605;CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -35,27 +30,12 @@
   <ItemGroup>
     <PackageReference Include="DocumentFormat.OpenXml" Version="[3.5.1,4.0.0)" />
     <PackageReference Include="ExcelNumberFormat" Version="1.2.0" />
-    <PackageReference Include="Polyfill" Version="11.4.5">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
     <PackageReference Include="RBush.Signed" Version="4.0.0" />
     <PackageReference Include="SixLabors.Fonts" Version="1.0.0" />
     <PackageReference Include="ClosedXML.Parser" Version="2.0.0" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
-    <PackageReference Include="System.Buffers" Version="4.6.1" />
-    <PackageReference Include="System.Memory" Version="4.6.3" />
-    <PackageReference Include="Microsoft.Bcl.HashCode" Version="$(MicrosoftBclHashCodeVersion)" />
-  </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\ClosedXML.IO\ClosedXML.IO.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- ClosedXML.IO and ClosedXML both read number texts. Each assembly has an internal copy of the parser. -->
-    <Compile Include="..\ClosedXML.IO\ExactNumberParser.cs" Link="Utils\ExactNumberParser.cs" />
   </ItemGroup>
 </Project>

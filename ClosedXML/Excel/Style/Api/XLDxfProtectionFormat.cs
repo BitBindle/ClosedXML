@@ -63,9 +63,9 @@ internal class XLDxfProtectionFormat : IXLProtection
         return _parent;
     }
 
-    bool IEquatable<IXLProtection>.Equals(IXLProtection other)
+    bool IEquatable<IXLProtection>.Equals(IXLProtection? other)
     {
-        return Locked == other.Locked && Hidden == other.Hidden;
+        return other is not null && Locked == other.Locked && Hidden == other.Hidden;
     }
 
     internal void SetValue(IXLProtection value)

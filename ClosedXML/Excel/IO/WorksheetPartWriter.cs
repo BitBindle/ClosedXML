@@ -229,7 +229,7 @@ namespace ClosedXML.Excel.IO
                 split = PaneValues.TopRight;
             else if (ySplit != 0 && hSplit == 0)
                 split = PaneValues.BottomLeft;
-            else if (ySplit != 0 && hSplit != 0)
+            else
                 split = PaneValues.BottomRight;
 
             pane.ActivePane = split;
@@ -1515,7 +1515,7 @@ namespace ClosedXML.Excel.IO
                         foreach (var xlFilter in xlFilterColumn)
                         {
                             // Since OOXML allows only string, the operand for custom filter must be serialized.
-                            // A number gets the round-trip text, because the default format gives different digits on .NET Framework.
+                            // A number gets the round-trip text with the fewest significant digits from 15 to 17.
                             var customValue = xlFilter.CustomValue;
                             var filterValue = customValue.IsNumber
                                 ? ObjectExtensions.ToRoundTripString(customValue.GetNumber())

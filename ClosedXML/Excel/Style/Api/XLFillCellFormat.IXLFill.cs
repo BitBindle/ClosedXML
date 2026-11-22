@@ -40,8 +40,11 @@ internal sealed partial class XLFillCellFormat : IXLFill
         return _parent;
     }
 
-    bool IEquatable<IXLFill>.Equals(IXLFill other)
+    bool IEquatable<IXLFill>.Equals(IXLFill? other)
     {
+        if (other is null)
+            return false;
+
         // This is a "business" equality, i.e. will both fills look the same.
         // This is gradient fill, other can only represent pattern, regardless of what it actually is.
         var isPatternFill = _parent.Resolve(static x => x.Fill.Pattern) is not null;

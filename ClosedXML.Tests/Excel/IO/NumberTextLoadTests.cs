@@ -10,9 +10,8 @@ using NUnit.Framework;
 namespace ClosedXML.Tests.Excel.IO;
 
 /// <summary>
-/// The load reads each number text of a file as the nearest double on each runtime. The parser of
-/// .NET Framework reads <c>9007199254740991.5</c> as <c>0x433FFFFFFFFFFFFF</c>, not as the nearest
-/// double <c>0x4340000000000000</c>. The tests run on .NET Framework in the CI.
+/// The load reads each number text of a file as the nearest double. The text <c>9007199254740991.5</c>
+/// is at the midpoint between two doubles. The nearest double with the even mantissa is <c>0x4340000000000000</c>.
 /// </summary>
 [TestFixture]
 internal class NumberTextLoadTests
@@ -67,9 +66,9 @@ internal class NumberTextLoadTests
 
     [Test]
     [Issue("46")]
-    public void Load_reads_infinite_pivot_cache_limits_with_parser_of_sdk()
+    public void Load_reads_infinite_pivot_cache_limits()
     {
-        // The exact parser rejects "INF". The parser of the SDK reads it as infinity.
+        // The type xsd:double has the texts "INF" and "-INF" for infinity.
         using var ms = new MemoryStream();
         using (var wb = new XLWorkbook())
         {

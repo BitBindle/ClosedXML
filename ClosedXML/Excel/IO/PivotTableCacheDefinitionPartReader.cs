@@ -274,12 +274,6 @@ namespace ClosedXML.Excel.IO
             if (attribute is null)
                 return null;
 
-#if !NETSTANDARD2_1_OR_GREATER
-            // The SDK parses with the parser of .NET Framework. That parser can give a
-            // different double than .NET for the same text.
-            if (attribute.InnerText is { } text && ExactNumberParser.TryParseExact(text, out var number))
-                return number;
-#endif
             return attribute.Value;
         }
 

@@ -185,7 +185,9 @@ internal class SheetDataReaderTests
             (ws, _) => Assert.AreEqual(expectedBits, (ulong)BitConverter.DoubleToInt64Bits(ws.Cell("A1").GetDouble())));
     }
 
+    [TestCase("0.84551240822557", 0x3FEB0E7009B61CDFUL)]
     [TestCase("0.84551240822557006", 0x3FEB0E7009B61CE0UL)]
+    [TestCase("0.1", 0x3FB999999999999AUL)]
     [TestCase("1e23", 0x44B52D02C7E14AF6UL)]
     [TestCase("123456789012345678901234567890", 0x45F8EE90FF6C373EUL)]
     [TestCase("9007199254740993", 0x4340000000000000UL)]
@@ -199,10 +201,22 @@ internal class SheetDataReaderTests
     [TestCase("1234567890123456789e27", 0x494BAE1279C66306UL)]
     [TestCase("9999999999999999999e-27", 0x3E45798EE2308C3AUL)]
     [TestCase("1.7976931348623157E+308", 0x7FEFFFFFFFFFFFFFUL)]
+    [TestCase("8.9884656743115794E+307", 0x7FE0000000000000UL)]
+    [TestCase("9007199254740991.9999999999999999999", 0x4340000000000000UL)]
+    [TestCase("1.1102230246251565E-16", 0x3CA0000000000000UL)]
+    [TestCase("2.2250738585072014E-308", 0x0010000000000000UL)]
     [TestCase("2.2250738585072011E-308", 0x000FFFFFFFFFFFFFUL)]
     [TestCase("4.9406564584124654E-324", 0x0000000000000001UL)]
     [TestCase("2.4703282292062328E-324", 0x0000000000000001UL)]
     [TestCase("2.4703282292062327E-324", 0x0000000000000000UL)]
+    [TestCase("1e-400", 0x0000000000000000UL)]
+    [TestCase("1e-999999", 0x0000000000000000UL)]
+    [TestCase("-0", 0x8000000000000000UL)]
+    [TestCase("0.000", 0x0000000000000000UL)]
+    [TestCase(".5", 0x3FE0000000000000UL)]
+    [TestCase("5.", 0x4014000000000000UL)]
+    [TestCase("-00012.50e-1", 0xBFF4000000000000UL)]
+    [TestCase(" \t+1.5E+3 ", 0x4097700000000000UL)]
     [Issue("38")]
     public void Reads_number_text_at_or_near_midpoint_as_nearest_double(string text, ulong expectedBits)
     {
@@ -218,11 +232,59 @@ internal class SheetDataReaderTests
             (ws, _) => Assert.AreEqual(expectedBits, (ulong)BitConverter.DoubleToInt64Bits(ws.Cell("A1").GetDouble())));
     }
 
+    [TestCase("2.7755575615628914E-17", 0x3C80000000000000UL)]
+    [TestCase("1.2345678901234567E+200", 0x6979CE4AE6F82488UL)]
+    [TestCase("4.9406564584124654E-320", 0x0000000000002710UL)]
+    [TestCase("1234567890123456789e-345", 0x0000000000000000UL)]
+    [TestCase("9999999999999999999e-342", 0x0000000000000002UL)]
+    [TestCase("1e-330", 0x0000000000000000UL)]
+    [TestCase("1e-323", 0x0000000000000002UL)]
+    [Issue("47")]
+    public void Reads_number_text_with_large_decimal_scale_as_nearest_double(string text, ulong expectedBits)
+    {
+        // Excel writes such texts for the rounding errors of formulas. Some of the values are subnormal.
+        AssertSheetData(
+            $"""
+            <sheetData>
+              <row r="1">
+                <c r="A1"><v>{text}</v></c>
+              </row>
+            </sheetData>
+            """,
+            (ws, _) => Assert.AreEqual(expectedBits, (ulong)BitConverter.DoubleToInt64Bits(ws.Cell("A1").GetDouble())));
+    }
+
+    [Test]
+    [Issue("38")]
+    public void Reads_long_number_text_with_all_digits()
+    {
+        // A non-zero digit after many zeros decides the rounding of a text at the midpoint between two doubles.
+        var tie = "9007199254740993." + new string('0', 900);
+        var aboveTie = tie + "1";
+        var longInteger = new string('1', 850) + "e-845";
+        AssertSheetData(
+            $"""
+            <sheetData>
+              <row r="1">
+                <c r="A1"><v>{tie}</v></c>
+                <c r="B1"><v>{aboveTie}</v></c>
+                <c r="C1"><v>{longInteger}</v></c>
+              </row>
+            </sheetData>
+            """,
+            (ws, _) =>
+            {
+                Assert.AreEqual(9007199254740992d, ws.Cell("A1").GetDouble());
+                Assert.AreEqual(9007199254740994d, ws.Cell("B1").GetDouble());
+                Assert.AreEqual(0x40C5B38E38E38E39UL, (ulong)BitConverter.DoubleToInt64Bits(ws.Cell("C1").GetDouble()));
+            });
+    }
+
     [Test]
     [Issue("38")]
     public void Reads_17_digit_text_of_random_numbers_as_same_number()
     {
-        // .NET Framework can parse a text with more than 15 significant digits to a neighbor of the nearest double.
+        // A text with 17 significant digits identifies one double.
         var random = new Random(12345);
         var values = new double[20000];
         var bytes = new byte[8];

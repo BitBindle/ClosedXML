@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using ClosedXML.IO;
 using ClosedXML.Utils;
 
@@ -32,7 +33,7 @@ internal sealed class XmlToEnumMapper : IEnumMapper
         return enumMap.KeyToValue.TryGetValue(text, out enumValue);
     }
 
-    public bool TryGetText<TEnum>(TEnum enumValue, out string text)
+    public bool TryGetText<TEnum>(TEnum enumValue, [MaybeNullWhen(false)] out string text)
         where TEnum : struct, Enum
     {
         var enumMap = GetEnumMap<TEnum>();

@@ -1,7 +1,6 @@
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Globalization;
-using ClosedXML.Utils;
 
 namespace ClosedXML.Excel
 {
@@ -30,7 +29,7 @@ namespace ClosedXML.Excel
                 TimeSpan ts => ts.ToString("c", CultureInfo.InvariantCulture),
                 DateTime d => d.ToString(CultureInfo.InvariantCulture),
                 bool b => b.ToString().ToLowerInvariant(),
-                _ => value.ToString(),
+                _ => value.ToString()!,
             };
         }
 
@@ -39,14 +38,8 @@ namespace ClosedXML.Excel
         /// The text has 15 significant digits if they are sufficient, which is the precision that
         /// Excel shows. Otherwise the text has 16 or 17 significant digits.
         /// </summary>
-        /// <remarks>
-        /// The <c>R</c> format is not used, because .NET Framework can give text that does not
-        /// parse back to the same value. On <c>netstandard2.0</c>, <see cref="RoundTripNumberFormatter"/>
-        /// calculates the text, so that the text is the same as on .NET Core.
-        /// </remarks>
         internal static string ToRoundTripString(double value)
         {
-#if NETSTANDARD2_1_OR_GREATER
             // The serializer calls this method for each number cell. Format into a stack buffer,
             // so that only the text that the method returns is allocated.
             // The longest text, for example "-1.7976931348623157E+308", has 24 characters.
@@ -64,10 +57,6 @@ namespace ClosedXML.Excel
                        double.TryParse(buffer.Slice(0, length), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) &&
                        parsed.Equals(value);
             }
-#else
-            // .NET Framework can give different digits from .NET Core, thus calculate the digits exactly.
-            return RoundTripNumberFormatter.Format(value);
-#endif
         }
 
         /// <summary>
@@ -77,7 +66,6 @@ namespace ClosedXML.Excel
         /// </summary>
         internal static string ToRoundTripString(float value)
         {
-#if NETSTANDARD2_1_OR_GREATER
             var text = value.ToString("G7", CultureInfo.InvariantCulture);
             if (IsRoundTrip(text, value))
                 return text;
@@ -94,10 +82,6 @@ namespace ClosedXML.Excel
                 return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) &&
                        parsed.Equals(value);
             }
-#else
-            // .NET Framework can give different digits from .NET Core, thus calculate the digits exactly.
-            return RoundTripNumberFormatter.Format(value);
-#endif
         }
     }
 }

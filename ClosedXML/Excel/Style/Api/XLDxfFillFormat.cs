@@ -72,7 +72,7 @@ internal class XLDxfFillFormat : IXLFill
         return _parent;
     }
 
-    bool IEquatable<IXLFill>.Equals(IXLFill other)
+    bool IEquatable<IXLFill>.Equals(IXLFill? other)
     {
         throw new NotSupportedException();
     }

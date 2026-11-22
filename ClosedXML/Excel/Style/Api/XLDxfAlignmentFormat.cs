@@ -73,7 +73,7 @@ internal class XLDxfAlignmentFormat : IXLAlignment
         set => Modify(static (alignment, topToBottom) => alignment with { TextRotation = topToBottom ? TextRotation.VerticalText : TextRotation.None }, value);
     }
 
-    bool IEquatable<IXLAlignment>.Equals(IXLAlignment other)
+    bool IEquatable<IXLAlignment>.Equals(IXLAlignment? other)
     {
         throw new NotSupportedException();
     }
