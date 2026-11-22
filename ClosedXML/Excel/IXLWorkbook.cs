@@ -294,6 +294,15 @@ namespace ClosedXML.Excel
         /// </summary>
         void SaveAs(Stream stream, Boolean validate, Boolean evaluateFormulae = false);
 
+        /// <summary>
+        /// Saves the current workbook to a stream.
+        /// </summary>
+        /// <remarks>
+        /// The package code must read and seek the stream. If the <paramref name="stream"/> cannot do one
+        /// of these operations (read, seek or write), for example the response body of a web server, the
+        /// method makes the package in memory and then copies it to the <paramref name="stream"/>. Such a stream does not become the
+        /// source of the workbook, because a later save cannot read it.
+        /// </remarks>
         void SaveAs(Stream stream, SaveOptions options);
 
         /// <summary>

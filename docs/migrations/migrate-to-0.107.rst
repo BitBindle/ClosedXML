@@ -10,6 +10,19 @@ ClosedXML now targets only ``net10.0``. This version does not have the ``netstan
 ``netstandard2.1`` builds. .NET Framework, Mono and Unity applications can't use this version.
 These applications can stay on version 0.106.
 
+*************
+Save a stream
+*************
+
+``IXLWorkbook.SaveAs(Stream)`` of a workbook that you loaded from a file or a stream now works with
+a stream that cannot read or seek, for example the response body of a web server. Before, it threw
+``OpenXmlPackageException``. The method makes the package in memory and then copies it to the
+stream. A new workbook already did this.
+
+A stream that cannot do one of these operations (read, seek or write) does not become the source
+of the workbook. A later ``Save()`` or ``SaveAs(Stream)`` uses the source from before. Before, the
+stream became the source, and a later save threw an exception.
+
 *****************
 Equality methods
 *****************
