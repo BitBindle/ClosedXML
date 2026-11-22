@@ -185,6 +185,39 @@ internal class SheetDataReaderTests
             (ws, _) => Assert.AreEqual(expectedBits, (ulong)BitConverter.DoubleToInt64Bits(ws.Cell("A1").GetDouble())));
     }
 
+    [TestCase("0.84551240822557006", 0x3FEB0E7009B61CE0UL)]
+    [TestCase("1e23", 0x44B52D02C7E14AF6UL)]
+    [TestCase("123456789012345678901234567890", 0x45F8EE90FF6C373EUL)]
+    [TestCase("9007199254740993", 0x4340000000000000UL)]
+    [TestCase("9007199254740993.0000000000000000001", 0x4340000000000001UL)]
+    [TestCase("9007199254740991.5", 0x4340000000000000UL)]
+    [TestCase("9007199254740995", 0x4340000000000002UL)]
+    [TestCase("4503599627370496.5", 0x4330000000000000UL)]
+    [TestCase("4503599627370497.5", 0x4330000000000002UL)]
+    [TestCase("9007199254740993e5", 0x44486A0000000001UL)]
+    [TestCase("1234567890123456789e-27", 0x3E1535AFDF5AE86EUL)]
+    [TestCase("1234567890123456789e27", 0x494BAE1279C66306UL)]
+    [TestCase("9999999999999999999e-27", 0x3E45798EE2308C3AUL)]
+    [TestCase("1.7976931348623157E+308", 0x7FEFFFFFFFFFFFFFUL)]
+    [TestCase("2.2250738585072011E-308", 0x000FFFFFFFFFFFFFUL)]
+    [TestCase("4.9406564584124654E-324", 0x0000000000000001UL)]
+    [TestCase("2.4703282292062328E-324", 0x0000000000000001UL)]
+    [TestCase("2.4703282292062327E-324", 0x0000000000000000UL)]
+    [Issue("38")]
+    public void Reads_number_text_at_or_near_midpoint_as_nearest_double(string text, ulong expectedBits)
+    {
+        // A text at the midpoint between two doubles, or with more digits than a double keeps, needs exact rounding.
+        AssertSheetData(
+            $"""
+            <sheetData>
+              <row r="1">
+                <c r="A1"><v>{text}</v></c>
+              </row>
+            </sheetData>
+            """,
+            (ws, _) => Assert.AreEqual(expectedBits, (ulong)BitConverter.DoubleToInt64Bits(ws.Cell("A1").GetDouble())));
+    }
+
     [Test]
     [Issue("38")]
     public void Reads_17_digit_text_of_random_numbers_as_same_number()
