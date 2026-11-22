@@ -581,6 +581,23 @@ namespace ClosedXML.Tests
             Assert.AreEqual(new[] { "Picture 2", "Picture 1" }, names);
         }
 
+        [Test]
+        public void Generated_picture_name_differs_from_names_with_other_case()
+        {
+            // Picture names are case-insensitive, so "Picture 3" is not available when "picture 3" exists.
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            using var imageStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ClosedXML.Tests.Resource.Images.ImageHandling.png");
+            ws.AddPicture(imageStream, "First");
+            imageStream.Position = 0;
+            ws.AddPicture(imageStream, "picture 3");
+            imageStream.Position = 0;
+
+            var picture = ws.AddPicture(imageStream);
+
+            Assert.AreEqual("Picture 4", picture.Name);
+        }
+
         private static void AssertPictureNameAllowed(string testedName)
         {
             TestHelper.CreateSaveLoadAssert(
