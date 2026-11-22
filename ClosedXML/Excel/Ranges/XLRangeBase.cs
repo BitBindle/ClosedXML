@@ -1279,10 +1279,11 @@ namespace ClosedXML.Excel
         /// </summary>
         private void ShiftFormulaReferences(CopyVisitor refMod)
         {
+            var shiftedSharedFormulas = new HashSet<XLCellFormula>(ReferenceEqualityComparer.Instance);
             foreach (var sheet in Worksheet.Workbook.WorksheetsInternal)
             {
                 foreach (var cell in sheet.Internals.CellsCollection.GetCells(c => c.Formula is not null))
-                    cell.ShiftFormulaReferences(refMod);
+                    cell.ShiftFormulaReferences(refMod, shiftedSharedFormulas);
             }
         }
 

@@ -70,6 +70,27 @@ the character that it encodes. A load already decodes these escaped characters. 
 changed the text. For example, a cell with the text ``a_x0041_`` gave ``aA``. It now gives
 ``a_x0041_``, the same text as ``IXLCell.GetText()``.
 
+*******************************************
+Array formulas after an insert or a delete
+*******************************************
+
+An insert or a delete of rows, columns or cells now keeps an array formula as an array formula.
+The range of the array formula moves with its cells, and the references in the formula change.
+Before, each cell of the array formula got a normal formula.
+
+An insert or a delete now also changes the input cells of a data table. If you delete an input
+cell, the data table gets ``#REF!`` for that input.
+
+Excel does not allow an insert or a delete that changes only part of an array formula. ClosedXML
+does not stop these operations yet (issue #102):
+
+* An insert of rows or columns inside the range makes the range larger, but the new cells get no
+  formula.
+* A delete of rows or columns inside the range makes the range smaller.
+* An insert or a delete of cells that moves only some cells of the range breaks the array formula.
+  Some cells in the range have no formula, and some cells outside the range have the formula. A
+  save can lose the array formula.
+
 *****************
 Equality methods
 *****************
