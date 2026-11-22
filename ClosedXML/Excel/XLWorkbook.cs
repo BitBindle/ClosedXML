@@ -611,28 +611,24 @@ namespace ClosedXML.Excel
 
         private static SpreadsheetDocumentType GetSpreadsheetDocumentType(string filePath)
         {
-            var extension = Path.GetExtension(filePath);
+            var extension = Path.GetExtension(filePath.AsSpan());
 
-            if (string.IsNullOrEmpty(extension)) throw new ArgumentException("Empty extension is not supported.");
-            extension = extension.Substring(1).ToLowerInvariant();
+            if (extension.IsEmpty) throw new ArgumentException("Empty extension is not supported.");
+            extension = extension[1..];
 
-            switch (extension)
-            {
-                case "xlsm":
-                    return SpreadsheetDocumentType.MacroEnabledWorkbook;
+            if (extension.Equals("xlsm", StringComparison.OrdinalIgnoreCase))
+                return SpreadsheetDocumentType.MacroEnabledWorkbook;
 
-                case "xltm":
-                    return SpreadsheetDocumentType.MacroEnabledTemplate;
+            if (extension.Equals("xltm", StringComparison.OrdinalIgnoreCase))
+                return SpreadsheetDocumentType.MacroEnabledTemplate;
 
-                case "xlsx":
-                    return SpreadsheetDocumentType.Workbook;
+            if (extension.Equals("xlsx", StringComparison.OrdinalIgnoreCase))
+                return SpreadsheetDocumentType.Workbook;
 
-                case "xltx":
-                    return SpreadsheetDocumentType.Template;
+            if (extension.Equals("xltx", StringComparison.OrdinalIgnoreCase))
+                return SpreadsheetDocumentType.Template;
 
-                default:
-                    throw new ArgumentException(String.Format("Extension '{0}' is not supported. Supported extensions are '.xlsx', '.xlsm', '.xltx' and '.xltm'.", extension));
-            }
+            throw new ArgumentException($"Extension '{extension.ToString().ToLowerInvariant()}' is not supported. Supported extensions are '.xlsx', '.xlsm', '.xltx' and '.xltm'.");
         }
 
         private void checkForWorksheetsPresent()

@@ -1305,5 +1305,21 @@ namespace ClosedXML.Tests
             Assert.IsTrue(ws.Cell("A1").HasSparkline);
             Assert.IsFalse(ws.Cell("B1").HasSparkline);
         }
+
+        [TestCase("Plain text", "Plain text")]
+        [TestCase("a_x000D_b", "a\rb")]
+        [TestCase("_x0041__x0042_C", "ABC")]
+        [TestCase("a_x000D_", "a\r")]
+        [TestCase("_x005F_x000D_", "_x005F_x000D_")]
+        [TestCase("a_xZZZZ_b", "a_xZZZZ_b")]
+        [TestCase("a_x00", "a_x00")]
+        [Issue("77")]
+        public void GetValue_of_text_unescapes_characters(string text, string expected)
+        {
+            using var wb = new XLWorkbook();
+            var cell = wb.AddWorksheet().Cell("A1");
+            cell.Value = text;
+            Assert.AreEqual(expected, cell.GetValue<string>());
+        }
     }
 }

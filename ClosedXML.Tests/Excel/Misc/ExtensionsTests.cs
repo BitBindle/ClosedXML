@@ -15,6 +15,16 @@ namespace ClosedXML.Tests.Excel
             Assert.AreEqual("\r\n".FixNewLines(), Environment.NewLine);
             Assert.AreEqual("\rS\n".FixNewLines(), "\rS" + Environment.NewLine);
             Assert.AreEqual("\r\n\n".FixNewLines(), Environment.NewLine + Environment.NewLine);
+            Assert.AreEqual("a\r\r\nb".FixNewLines(), "a\r" + Environment.NewLine + "b");
+            Assert.AreEqual("a\nb\r\nc".FixNewLines(), "a" + Environment.NewLine + "b" + Environment.NewLine + "c");
+        }
+
+        [Test]
+        [Issue("77")]
+        public void FixNewLines_returns_the_same_text_without_a_line_feed()
+        {
+            var text = "a\rb";
+            Assert.AreSame(text, text.FixNewLines());
         }
 
         [Test]

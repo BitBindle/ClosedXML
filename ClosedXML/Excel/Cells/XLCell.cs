@@ -18,10 +18,14 @@ using ClosedXML.Parser;
 namespace ClosedXML.Excel
 {
     [DebuggerDisplay("{Address}")]
-    internal sealed class XLCell : IXLCell, IXLFormatContainer
+    internal sealed partial class XLCell : IXLCell, IXLFormatContainer
     {
-        private static readonly Regex utfPattern = new Regex(@"(?<!_x005F)_x(?!005F)([0-9A-F]{4})_", RegexOptions.Compiled);
-
+        /// <summary>
+        /// An escaped character, for example <c>_x000D_</c>. The hex digits start at index 2 and
+        /// have a length of 4.
+        /// </summary>
+        [GeneratedRegex(@"(?<!_x005F)_x(?!005F)([0-9A-F]{4})_")]
+        private static partial Regex UtfPattern { get; }
 
         private readonly XLCellsCollection _cellsCollection;
 
@@ -429,32 +433,25 @@ namespace ClosedXML.Excel
             if (typeof(T) == typeof(String))
             {
                 var s = currentValue.ToString(CultureInfo.CurrentCulture);
-                var matches = utfPattern.Matches(s);
 
-                if (matches.Count == 0)
+                // Most texts have no escaped character. The fast path does not run the regex.
+                if (!s.Contains("_x", StringComparison.Ordinal))
                 {
-                    value = (T)(Convert.ChangeType(s, typeof(T)) ?? throw new InvalidCastException());
+                    value = (T)(object)s;
                     return true;
                 }
 
-                var sb = new StringBuilder();
+                var sb = new StringBuilder(s.Length);
                 var lastIndex = 0;
-
-                foreach (var match in matches.Cast<Match>())
+                foreach (var match in UtfPattern.EnumerateMatches(s))
                 {
-                    var matchString = match.Value;
-                    var matchIndex = match.Index;
-                    sb.Append(s.Substring(lastIndex, matchIndex - lastIndex));
-
-                    sb.Append((char)int.Parse(match.Groups[1].Value, NumberStyles.AllowHexSpecifier));
-
-                    lastIndex = matchIndex + matchString.Length;
+                    sb.Append(s, lastIndex, match.Index - lastIndex);
+                    sb.Append((char)int.Parse(s.AsSpan(match.Index + 2, 4), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture));
+                    lastIndex = match.Index + match.Length;
                 }
 
-                if (lastIndex < s.Length)
-                    sb.Append(s.Substring(lastIndex));
-
-                value = (T)(Convert.ChangeType(sb.ToString(), typeof(T)) ?? throw new InvalidCastException());
+                var unescaped = lastIndex == 0 ? s : sb.Append(s, lastIndex, s.Length - lastIndex).ToString();
+                value = (T)(object)unescaped;
                 return true;
             }
             value = default;

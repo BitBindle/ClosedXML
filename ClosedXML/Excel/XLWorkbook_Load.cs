@@ -1016,7 +1016,8 @@ namespace ClosedXML.Excel
             }
         }
 
-        private static Regex definedNameRegex = new Regex(@"\A('?).*\1!.*\z", RegexOptions.Compiled);
+        [GeneratedRegex(@"\A('?).*\1!.*\z")]
+        private static partial Regex DefinedNameRegex { get; }
 
         private IEnumerable<String> validateDefinedNames(IEnumerable<String> definedNames)
         {
@@ -1028,7 +1029,7 @@ namespace ClosedXML.Excel
 
                 sb.Append(testName);
 
-                Match matchedValidPattern = definedNameRegex.Match(sb.ToString());
+                Match matchedValidPattern = DefinedNameRegex.Match(sb.ToString());
                 if (matchedValidPattern.Success)
                 {
                     yield return sb.ToString();
