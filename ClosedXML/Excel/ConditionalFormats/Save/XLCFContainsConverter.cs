@@ -12,7 +12,7 @@ namespace ClosedXML.Excel
             conditionalFormattingRule.Operator = ConditionalFormattingOperatorValues.ContainsText;
             conditionalFormattingRule.Text = val;
 
-            var formula = new Formula { Text = "NOT(ISERROR(SEARCH(\"" + val + "\"," + cf.Range.RangeAddress.FirstAddress.ToStringRelative(false) + ")))" };
+            var formula = new Formula { Text = "NOT(ISERROR(SEARCH(\"" + val.Replace("\"", "\"\"") + "\"," + cf.Range.RangeAddress.FirstAddress.ToStringRelative(false) + ")))" };
 
             conditionalFormattingRule.Append(formula);
 

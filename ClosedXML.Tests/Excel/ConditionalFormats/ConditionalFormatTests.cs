@@ -1,5 +1,7 @@
 using System;
 using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using NUnit.Framework;
 using System.Globalization;
 using System.IO;
@@ -228,6 +230,72 @@ namespace ClosedXML.Tests.Excel.ConditionalFormats
                 Assert.AreEqual(text, cf.Values[1].Value);
                 Assert.IsFalse(cf.Values[1].IsFormula);
             }
+        }
+
+        [TestCase("Number 5")]
+        [TestCase("=Number 5")]
+        [TestCase("=$A$1")]
+        [TestCase(" =SUM(A1:A5) ")]
+        [TestCase("Say \"hi\"")]
+        public void Text_formats_keep_the_text_as_a_value(string text)
+        {
+            // The text attribute of a text rule is a literal value, not a formula. ClosedXML does
+            // not support the x14 rules that refer to a cell.
+            TestHelper.CreateSaveLoadAssert(
+                (_, ws) =>
+                {
+                    ws.Cell("A1").Value = "Number 5";
+                    ws.Range("A1:A5").AddConditionalFormat().WhenContains(text).Fill.SetBackgroundColor(XLColor.Red);
+                    ws.Range("B1:B5").AddConditionalFormat().WhenNotContains(text).Fill.SetBackgroundColor(XLColor.Red);
+                    ws.Range("C1:C5").AddConditionalFormat().WhenStartsWith(text).Fill.SetBackgroundColor(XLColor.Red);
+                    ws.Range("D1:D5").AddConditionalFormat().WhenEndsWith(text).Fill.SetBackgroundColor(XLColor.Red);
+
+                    // A row insert shifts the formulas of conditional formats.
+                    ws.Row(1).InsertRowsAbove(1);
+                    AssertTextValues(ws, text);
+                },
+                (_, ws) => AssertTextValues(ws, text));
+
+            static void AssertTextValues(IXLWorksheet ws, string text)
+            {
+                Assert.AreEqual(4, ws.ConditionalFormats.Count());
+                foreach (var cf in ws.ConditionalFormats)
+                {
+                    Assert.AreEqual(1, cf.Values.Count);
+                    Assert.AreEqual(text, cf.Values[1].Value);
+                    Assert.IsFalse(cf.Values[1].IsFormula);
+                }
+            }
+        }
+
+        [Test]
+        public void Text_formats_escape_quotes_in_saved_formula()
+        {
+            // A string constant in a formula writes each quote two times.
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                ws.Range("A1:A5").AddConditionalFormat().WhenContains("a\"b").Fill.SetBackgroundColor(XLColor.Red);
+                ws.Range("B1:B5").AddConditionalFormat().WhenNotContains("a\"b").Fill.SetBackgroundColor(XLColor.Red);
+                ws.Range("C1:C5").AddConditionalFormat().WhenStartsWith("a\"b").Fill.SetBackgroundColor(XLColor.Red);
+                ws.Range("D1:D5").AddConditionalFormat().WhenEndsWith("a\"b").Fill.SetBackgroundColor(XLColor.Red);
+                wb.SaveAs(ms);
+            }
+
+            using var package = SpreadsheetDocument.Open(ms, false);
+            var formulas = package.WorkbookPart!.WorksheetParts.Single().Worksheet
+                .Descendants<ConditionalFormattingRule>()
+                .Select(r => r.GetFirstChild<Formula>()!.Text)
+                .OrderBy(f => f)
+                .ToArray();
+            Assert.AreEqual(new[]
+            {
+                "ISERROR(SEARCH(\"a\"\"b\",B1))",
+                "LEFT(C1,3)=\"a\"\"b\"",
+                "NOT(ISERROR(SEARCH(\"a\"\"b\",A1)))",
+                "RIGHT(D1,3)=\"a\"\"b\"",
+            }, formulas);
         }
     }
 }
