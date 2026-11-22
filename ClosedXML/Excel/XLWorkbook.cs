@@ -9,6 +9,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using static ClosedXML.Excel.XLProtectionAlgorithm;
 
 namespace ClosedXML.Excel
@@ -524,6 +525,9 @@ namespace ClosedXML.Excel
 
             if (_loadSource == XLLoadSource.Stream)
             {
+                if (_originalStreamIsCopy)
+                    throw new InvalidOperationException("The source of the workbook is a copy of a stream that cannot seek. Please use one of the 'SaveAs' methods.");
+
                 CreatePackage(OriginalStream, false, _spreadsheetDocumentType, options);
             }
             else
@@ -602,6 +606,7 @@ namespace ClosedXML.Excel
             _loadSource = XLLoadSource.File;
             _originalFile = file;
             _originalStream = null;
+            _originalStreamIsCopy = false;
         }
 
         private static SpreadsheetDocumentType GetSpreadsheetDocumentType(string filePath)
@@ -674,16 +679,71 @@ namespace ClosedXML.Excel
 
                 _loadSource = XLLoadSource.Stream;
                 _originalStream = stream;
+                _originalStreamIsCopy = false;
                 _originalFile = null;
             }
             else
             {
-                using var ms = new MemoryStream();
-                SavePackage(ms, options);
-                ms.Position = 0;
+                using var ms = SaveToMemory(options);
                 ms.CopyTo(stream);
                 stream.Flush();
             }
+        }
+
+        /// <summary>
+        /// Saves the current workbook to a stream. The copy to the stream uses asynchronous calls.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The work on the package is synchronous, because the OpenXML SDK has no asynchronous API.
+        /// Only the copy to the <paramref name="stream"/> is asynchronous.
+        /// </para>
+        /// <para>
+        /// If the <paramref name="stream"/> can read, seek and write, the method calls
+        /// <see cref="SaveAs(Stream, SaveOptions)"/>. Then the method writes to the
+        /// <paramref name="stream"/> synchronously. The <paramref name="stream"/> becomes the source
+        /// of the workbook.
+        /// </para>
+        /// <para>
+        /// A stream can fail to do one of these operations. An example is the response body of a web
+        /// server that does not allow synchronous writes. For such a stream, the method makes the
+        /// package in memory. Then it copies the package to the <paramref name="stream"/> and flushes
+        /// the <paramref name="stream"/> with asynchronous calls. The method keeps the full package in
+        /// memory before the copy.
+        /// </para>
+        /// </remarks>
+        /// <param name="stream">The stream to save to.</param>
+        /// <param name="options">The options of the save. Null uses the default options.</param>
+        /// <param name="cancellationToken">A token that cancels the copy to the <paramref name="stream"/>.</param>
+        public async Task SaveAsAsync(Stream stream, SaveOptions? options = null, CancellationToken cancellationToken = default)
+        {
+            ThrowIfDisposed();
+            if (stream is null)
+                throw new ArgumentNullException(nameof(stream));
+
+            cancellationToken.ThrowIfCancellationRequested();
+            options ??= new SaveOptions();
+            if (stream.CanRead && stream.CanSeek && stream.CanWrite)
+            {
+                SaveAs(stream, options);
+                return;
+            }
+
+            checkForWorksheetsPresent();
+            using var ms = SaveToMemory(options);
+            await ms.CopyToAsync(stream, cancellationToken).ConfigureAwait(false);
+            await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Save the workbook to a new memory stream. The position of the returned stream is 0.
+        /// </summary>
+        private MemoryStream SaveToMemory(SaveOptions options)
+        {
+            var ms = new MemoryStream();
+            SavePackage(ms, options);
+            ms.Position = 0;
+            return ms;
         }
 
         /// <summary>
@@ -845,6 +905,13 @@ namespace ClosedXML.Excel
         private XLLoadSource _loadSource = XLLoadSource.New;
         private String? _originalFile;
         private Stream? _originalStream;
+
+        /// <summary>
+        /// True when <see cref="_originalStream"/> is a memory copy of a stream that cannot seek.
+        /// <see cref="Save(SaveOptions)"/> cannot write back to such a stream.
+        /// </summary>
+        private Boolean _originalStreamIsCopy;
+
         private XLWorkbookProtection _workbookProtection;
 
         private String OriginalFile => _originalFile ?? throw new InvalidOperationException("The workbook does not have an original file.");
@@ -911,6 +978,51 @@ namespace ClosedXML.Excel
 
             if (loadOptions.RecalculateAllFormulas)
                 this.RecalculateAllFormulas();
+        }
+
+        /// <summary>
+        /// Opens an existing workbook from a stream. The copy of a stream that cannot seek uses
+        /// asynchronous calls.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The work on the package is synchronous, because the OpenXML SDK has no asynchronous API.
+        /// </para>
+        /// <para>
+        /// If the <paramref name="stream"/> can seek, the method calls
+        /// <see cref="XLWorkbook(Stream, LoadOptions)"/>. Then the method reads the
+        /// <paramref name="stream"/> synchronously. The <paramref name="stream"/> becomes the source
+        /// of the workbook. A stream that can seek, but does not allow synchronous reads, causes an
+        /// exception. An example is an ASP.NET Core request body after <c>EnableBuffering</c>. Copy
+        /// such a stream to a <see cref="MemoryStream"/> first.
+        /// </para>
+        /// <para>
+        /// If the <paramref name="stream"/> cannot seek, for example a network stream, the method
+        /// first copies it to memory with asynchronous calls. Then it reads the copy. The copy is
+        /// the source of the workbook. Because of this, <see cref="Save()"/> throws
+        /// <see cref="InvalidOperationException"/>. Use one of the <c>SaveAs</c> methods.
+        /// </para>
+        /// </remarks>
+        /// <param name="stream">The stream to open.</param>
+        /// <param name="loadOptions">The options of the load. Null uses the default options.</param>
+        /// <param name="cancellationToken">A token that cancels the copy of the <paramref name="stream"/>.</param>
+        public static async Task<XLWorkbook> LoadAsync(Stream stream, LoadOptions? loadOptions = null, CancellationToken cancellationToken = default)
+        {
+            if (stream is null)
+                throw new ArgumentNullException(nameof(stream));
+
+            cancellationToken.ThrowIfCancellationRequested();
+            loadOptions ??= new LoadOptions();
+            if (stream.CanSeek)
+                return new XLWorkbook(stream, loadOptions);
+
+            var ms = new MemoryStream();
+            await stream.CopyToAsync(ms, cancellationToken).ConfigureAwait(false);
+            ms.Position = 0;
+            return new XLWorkbook(ms, loadOptions)
+            {
+                _originalStreamIsCopy = true
+            };
         }
 
         public XLWorkbook(LoadOptions loadOptions)

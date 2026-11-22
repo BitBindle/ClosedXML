@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ClosedXML.Tests.Utils
 {
@@ -10,6 +12,12 @@ namespace ClosedXML.Tests.Utils
     internal sealed class WriteOnlyStream : Stream
     {
         private readonly MemoryStream _written = new();
+
+        /// <summary>
+        /// When false, a synchronous write or flush throws, as in a web server that does not allow
+        /// synchronous I/O.
+        /// </summary>
+        public bool AllowSynchronousIO { get; init; } = true;
 
         public override bool CanRead => false;
 
@@ -30,9 +38,9 @@ namespace ClosedXML.Tests.Utils
         /// </summary>
         public MemoryStream GetWrittenBytes() => new(_written.ToArray());
 
-        public override void Flush()
-        {
-        }
+        public override void Flush() => ThrowIfSynchronousIONotAllowed();
+
+        public override Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
         public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 
@@ -40,6 +48,22 @@ namespace ClosedXML.Tests.Utils
 
         public override void SetLength(long value) => throw new NotSupportedException();
 
-        public override void Write(byte[] buffer, int offset, int count) => _written.Write(buffer, offset, count);
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            ThrowIfSynchronousIONotAllowed();
+            _written.Write(buffer, offset, count);
+        }
+
+        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            _written.Write(buffer, offset, count);
+            return Task.CompletedTask;
+        }
+
+        private void ThrowIfSynchronousIONotAllowed()
+        {
+            if (!AllowSynchronousIO)
+                throw new InvalidOperationException("Synchronous operations are not allowed.");
+        }
     }
 }

@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Xml.Linq;
 using ClosedXML.Excel;
 using ClosedXML.Excel.Drawings;
@@ -1029,6 +1030,77 @@ namespace ClosedXML.Tests.Excel.Saving
             using var written = target.GetWrittenBytes();
             using var wb = new XLWorkbook(written);
             Assert.AreEqual(expected, wb.Worksheet("Sheet1").Cell("A1").GetText());
+        }
+
+        [Test]
+        [Issue("72")]
+        public async Task SaveAsAsync_of_a_new_workbook_to_a_stream_without_synchronous_writes_writes_the_workbook()
+        {
+            using var wb = new XLWorkbook();
+            wb.AddWorksheet("Sheet1").Cell("A1").Value = "new";
+            var target = new WriteOnlyStream { AllowSynchronousIO = false };
+
+            await wb.SaveAsAsync(target);
+
+            AssertA1(target, "new");
+        }
+
+        [Test]
+        [Issue("72")]
+        public async Task SaveAsAsync_of_a_loaded_workbook_to_a_stream_without_synchronous_writes_writes_the_workbook()
+        {
+            using var source = new MemoryStream();
+            using (var original = new XLWorkbook())
+            {
+                original.AddWorksheet("Sheet1").Cell("A1").Value = "old";
+                original.SaveAs(source);
+            }
+
+            using var wb = new XLWorkbook(source);
+            wb.Worksheet("Sheet1").Cell("A1").Value = "stream";
+            var target = new WriteOnlyStream { AllowSynchronousIO = false };
+
+            await wb.SaveAsAsync(target, new SaveOptions { ValidatePackage = true });
+
+            AssertA1(target, "stream");
+        }
+
+        [Test]
+        [Issue("72")]
+        public async Task SaveAsAsync_to_a_seekable_stream_makes_the_stream_the_source_of_the_workbook()
+        {
+            using var target = new MemoryStream();
+            using var wb = new XLWorkbook();
+            wb.AddWorksheet("Sheet1").Cell("A1").Value = "first";
+
+            await wb.SaveAsAsync(target);
+            wb.Worksheet("Sheet1").Cell("A1").Value = "second";
+            wb.Save();
+
+            using var saved = new XLWorkbook(target);
+            Assert.AreEqual("second", saved.Worksheet("Sheet1").Cell("A1").GetText());
+        }
+
+        [Test]
+        [Issue("72")]
+        public async Task SaveAsAsync_with_a_canceled_token_writes_nothing()
+        {
+            using var wb = new XLWorkbook();
+            wb.AddWorksheet("Sheet1");
+            var target = new WriteOnlyStream { AllowSynchronousIO = false };
+
+            await Assert.ThatAsync(() => wb.SaveAsAsync(target, cancellationToken: new CancellationToken(true)), Throws.InstanceOf<OperationCanceledException>());
+            Assert.AreEqual(0, target.GetWrittenBytes().Length);
+        }
+
+        [Test]
+        [Issue("72")]
+        public async Task SaveAsAsync_to_null_throws()
+        {
+            using var wb = new XLWorkbook();
+            wb.AddWorksheet("Sheet1");
+
+            await Assert.ThatAsync(() => wb.SaveAsAsync(null!), Throws.ArgumentNullException);
         }
     }
 }
