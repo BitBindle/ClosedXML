@@ -229,6 +229,32 @@ namespace ClosedXML.Tests
         }
 
         [Test]
+        public void Reapply_does_nothing_when_autofilter_is_not_enabled()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = "Header";
+            ws.Cell("A2").Value = "Value";
+
+            IXLAutoFilter result = null;
+            Assert.DoesNotThrow(() => result = ws.AutoFilter.Reapply());
+
+            Assert.That(result, Is.SameAs(ws.AutoFilter));
+            Assert.That(ws.AutoFilter.IsEnabled, Is.False);
+        }
+
+        [Test]
+        public void Clearing_filter_column_with_reapply_does_nothing_when_autofilter_is_not_enabled()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+
+            var column = ((XLAutoFilter)ws.AutoFilter).Column(1);
+
+            Assert.DoesNotThrow(() => column.Clear(reapply: true));
+        }
+
+        [Test]
         public void CanLoadAutoFilterWithThousandsSeparator()
         {
             var backupCulture = Thread.CurrentThread.CurrentCulture;

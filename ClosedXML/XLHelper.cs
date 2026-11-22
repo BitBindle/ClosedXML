@@ -168,7 +168,7 @@ namespace ClosedXML.Excel
             if (length > 3)
                 return false;
 
-            var theColumn = column.ToUpper();
+            var theColumn = column.ToUpperInvariant();
 
             var isValid = theColumn[0] >= 'A' && theColumn[0] <= 'Z';
             if (length == 1)
@@ -397,7 +397,7 @@ namespace ClosedXML.Excel
                 return false;
             }
 
-            if (new[] { 'C', 'R' }.Any(c => newName.ToUpper().Equals(c.ToString())))
+            if (new[] { 'C', 'R' }.Any(c => newName.ToUpperInvariant().Equals(c.ToString())))
             {
                 message = $"The {objectType} name '{newName}' is invalid";
                 return false;

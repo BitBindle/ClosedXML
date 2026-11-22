@@ -26,6 +26,31 @@ namespace ClosedXML.Tests
         }
 
         [Test]
+        [SetCulture("tr-TR")]
+        public void IsValidColumn_ignores_current_culture_for_lowercase_i()
+        {
+            // The Turkish culture changes the upper case of "i" to "İ" (U+0130), which is not a column letter.
+            Assert.That("i".ToUpper(), Is.Not.EqualTo("I"), "The test culture must change the case of 'i'.");
+
+            Assert.That(XLHelper.IsValidColumn("i"), Is.True);
+            Assert.That(XLHelper.IsValidColumn("ai"), Is.True);
+            Assert.That(XLHelper.IsValidColumn("iii"), Is.True);
+            Assert.That(XLHelper.IsValidA1Address("i5"), Is.True);
+        }
+
+        [Test]
+        [SetCulture("tr-TR")]
+        public void Range_with_lowercase_i_column_is_valid_in_any_culture()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+
+            var range = ws.Range("i5:j6");
+
+            Assert.That(range.RangeAddress.ToStringRelative(), Is.EqualTo("I5:J6"));
+        }
+
+        [Test]
         public void ReplaceRelative1()
         {
             string result = XLHelper.ReplaceRelative("A1", 2, "B");
