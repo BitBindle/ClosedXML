@@ -173,6 +173,15 @@ namespace ClosedXML.Excel
         /// </summary>
         public IXLWorksheets Worksheets => WorksheetsInternal;
 
+        /// <summary>
+        /// Check if the workbook or one of its worksheets has a defined name with the <paramref name="name"/>.
+        /// </summary>
+        internal Boolean HasDefinedName(String name)
+        {
+            return DefinedNamesInternal.TryGetScopedValue(name, out _) ||
+                   WorksheetsInternal.Any<XLWorksheet>(ws => ws.DefinedNames.TryGetScopedValue(name, out _));
+        }
+
         internal XLDefinedNames DefinedNamesInternal
         {
             get

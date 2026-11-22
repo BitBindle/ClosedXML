@@ -134,3 +134,22 @@ The methods ``IXLConditionalFormat.WhenContains``, ``WhenNotContains``, ``WhenSt
   found the text ``A1``. Now it finds the text ``=A1``.
 
 The value that ClosedXML loads from a file is also a literal text.
+
+***********
+Table names
+***********
+
+The setter ``IXLTable.Name`` now throws an ``ArgumentException`` for a name that Excel does not
+accept:
+
+* The name contains whitespace, for example ``My table``.
+* The name is a cell reference, for example ``A1``, ``May2019`` or ``R1C2``.
+* The name is the name of a defined name in the workbook or in one of its worksheets. The compare
+  ignores case.
+
+Before, ClosedXML kept such a name in memory, but the save removed the whitespace. Structured
+references and pivot sources that used the name then pointed to a table that did not exist. A file
+with a cell reference or a defined name as a table name needed a repair in Excel.
+
+The ``CreateTable(name)``, ``AsTable(name)`` and ``InsertTable(data, name)`` methods use the same
+rules. The load keeps a table name from a file as it is.

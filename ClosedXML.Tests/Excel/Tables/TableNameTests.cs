@@ -1,0 +1,137 @@
+﻿using System;
+using System.IO;
+using System.Linq;
+using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Packaging;
+using NUnit.Framework;
+
+namespace ClosedXML.Tests.Excel.Tables
+{
+    [TestFixture]
+    public class TableNameTests
+    {
+        [TestCase("My table")]
+        [TestCase("My\ttable")]
+        [Issue("ClosedXML/ClosedXML#1951")]
+        public void Name_with_whitespace_is_rejected(string name)
+        {
+            // ECMA-376 Part 1, 18.5.1.2: the name of a table shall not have spaces.
+            using var wb = new XLWorkbook();
+            var table = CreateTable(wb.AddWorksheet());
+
+            var ex = Assert.Throws<ArgumentException>(() => table.Name = name);
+            StringAssert.Contains("whitespace", ex!.Message);
+            Assert.AreEqual("Table1", table.Name);
+        }
+
+        [TestCase("A1")]
+        [TestCase("xfd1048576")]
+        [TestCase("May2019")]
+        [TestCase("R1C2")]
+        [TestCase("r3c2")]
+        [TestCase("RC")]
+        [Issue("ClosedXML/ClosedXML#1951")]
+        public void Name_that_is_a_cell_reference_is_rejected(string name)
+        {
+            // A formula could not tell a structured reference from a cell reference.
+            using var wb = new XLWorkbook();
+            var table = CreateTable(wb.AddWorksheet());
+
+            var ex = Assert.Throws<ArgumentException>(() => table.Name = name);
+            StringAssert.Contains("cell reference", ex!.Message);
+        }
+
+        [Test]
+        [Issue("ClosedXML/ClosedXML#1951")]
+        public void Name_of_workbook_defined_name_is_rejected()
+        {
+            // The name of a table is unique among the defined names of the workbook.
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            wb.DefinedNames.Add("Sales", "Sheet1!$A$1:$A$5");
+            var table = CreateTable(ws);
+
+            var ex = Assert.Throws<ArgumentException>(() => table.Name = "sales");
+            StringAssert.Contains("defined name", ex!.Message);
+        }
+
+        [Test]
+        [Issue("ClosedXML/ClosedXML#1951")]
+        public void Name_of_worksheet_defined_name_is_rejected()
+        {
+            using var wb = new XLWorkbook();
+            var ws1 = wb.AddWorksheet();
+            var ws2 = wb.AddWorksheet();
+            ws2.DefinedNames.Add("Sales", "Sheet2!$A$1:$A$5");
+            var table = CreateTable(ws1);
+
+            Assert.Throws<ArgumentException>(() => table.Name = "Sales");
+        }
+
+        [Test]
+        public void Rename_that_changes_only_the_case_is_allowed()
+        {
+            using var wb = new XLWorkbook();
+            var table = CreateTable(wb.AddWorksheet());
+            table.Name = "Sales";
+
+            table.Name = "SALES";
+
+            Assert.AreEqual("SALES", table.Name);
+        }
+
+        [Test]
+        public void Valid_name_is_accepted()
+        {
+            using var wb = new XLWorkbook();
+            var table = CreateTable(wb.AddWorksheet());
+
+            table.Name = "Sales_2019.Q1";
+
+            Assert.AreEqual("Sales_2019.Q1", table.Name);
+        }
+
+        [Test]
+        public void Generated_name_skips_defined_names()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            wb.DefinedNames.Add("Table1", "Sheet1!$A$1");
+
+            var table = CreateTable(ws);
+
+            Assert.AreEqual("Table2", table.Name);
+        }
+
+        [Test]
+        public void Load_keeps_table_name_with_a_space()
+        {
+            // Excel does not write such a name, but other producers can. The load must not fail.
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                CreateTable(wb.AddWorksheet()).Name = "Sales";
+                wb.SaveAs(ms);
+            }
+
+            using (var package = SpreadsheetDocument.Open(ms, true))
+            {
+                var table = package.WorkbookPart!.WorksheetParts.Single().TableDefinitionParts.Single().Table;
+                table.Name = "My sales";
+                table.DisplayName = "My sales";
+                table.Save();
+            }
+
+            ms.Position = 0;
+            using var loaded = new XLWorkbook(ms);
+            Assert.AreEqual("My sales", loaded.Worksheets.Single().Tables.Single().Name);
+        }
+
+        private static IXLTable CreateTable(IXLWorksheet ws)
+        {
+            ws.Cell("A1").Value = "Number";
+            ws.Cell("A2").Value = 1;
+            return ws.Range("A1:A2").CreateTable();
+        }
+    }
+}

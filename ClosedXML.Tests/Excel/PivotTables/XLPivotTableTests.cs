@@ -740,7 +740,7 @@ namespace ClosedXML.Tests
             {
                 ("Name", "Count"),
                 ("Pie", 14),
-            }, "Test table");
+            }, "Test_table");
 
             // A range that matches the size of an area
             var matchingRange = ws.Range("A1:B3");
@@ -749,7 +749,7 @@ namespace ClosedXML.Tests
 
             var cacheSource = (XLPivotSourceReference)((XLPivotCache)tablePivot1.PivotCache).Source;
             Assert.True(cacheSource.UsesName);
-            Assert.AreEqual("Test table", cacheSource.Name);
+            Assert.AreEqual("Test_table", cacheSource.Name);
         }
 
         [Test]

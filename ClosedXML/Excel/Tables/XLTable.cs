@@ -196,30 +196,70 @@ namespace ClosedXML.Excel
         public String Name
         {
             get { return _name; }
-            set
+            set { SetName(value, checkExcelRules: true); }
+        }
+
+        /// <summary>
+        /// Set the name of the table.
+        /// </summary>
+        /// <param name="value">The new name.</param>
+        /// <param name="checkExcelRules">
+        /// If true, the method also applies the rules of Excel: no whitespace, not a cell reference
+        /// and not the name of a defined name. The load gives false, because other producers can
+        /// write such names.
+        /// </param>
+        internal void SetName(String value, Boolean checkExcelRules)
+        {
+            if (_name == value) return;
+
+            // Validation rules for table names
+            var oldname = _name ?? string.Empty;
+            var tableNames = Worksheet.Tables.Select<XLTable, string>(t => t.Name);
+            if (!XLHelper.ValidateName("table", value, oldname, tableNames, out String message))
+                throw new ArgumentException(message, nameof(value));
+
+            if (checkExcelRules && !CheckExcelNameRules(value, out message))
+                throw new ArgumentException(message, nameof(value));
+
+            // A table from IXLRange.AsTable is not in the list. A rename must not add it.
+            var isInTables = oldname.Length > 0 &&
+                             Worksheet.Tables.TryGetTable(oldname, out var listedTable) &&
+                             ReferenceEquals(listedTable, this);
+
+            _name = value;
+
+            // Some totals row formula depend on the table name. Update them.
+            if (_fieldNames?.Any() ?? false)
+                this.Fields.ForEach(f => (f as XLTableField).UpdateTableFieldTotalsRowFormula());
+
+            if (isInTables)
+                Worksheet.Tables.Rename(oldname, this);
+        }
+
+        private Boolean CheckExcelNameRules(String name, out String message)
+        {
+            // ECMA-376 Part 1, 18.5.1.2: the name has no spaces, and it is unique among the
+            // defined names of the workbook. Excel also rejects a name that is a cell reference.
+            if (name.Any(Char.IsWhiteSpace))
             {
-                if (_name == value) return;
-
-                // Validation rules for table names
-                var oldname = _name ?? string.Empty;
-                var tableNames = Worksheet.Tables.Select<XLTable, string>(t => t.Name);
-                if (!XLHelper.ValidateName("table", value, oldname, tableNames, out String message))
-                    throw new ArgumentException(message, nameof(value));
-
-                // A table from IXLRange.AsTable is not in the list. A rename must not add it.
-                var isInTables = oldname.Length > 0 &&
-                                 Worksheet.Tables.TryGetTable(oldname, out var listedTable) &&
-                                 ReferenceEquals(listedTable, this);
-
-                _name = value;
-
-                // Some totals row formula depend on the table name. Update them.
-                if (_fieldNames?.Any() ?? false)
-                    this.Fields.ForEach(f => (f as XLTableField).UpdateTableFieldTotalsRowFormula());
-
-                if (isInTables)
-                    Worksheet.Tables.Rename(oldname, this);
+                message = $"The table name '{name}' contains whitespace.";
+                return false;
             }
+
+            if (XLHelper.IsValidA1Address(name) || XLHelper.IsValidRCAddress(name))
+            {
+                message = $"The table name '{name}' is a cell reference.";
+                return false;
+            }
+
+            if (Worksheet.Workbook.HasDefinedName(name))
+            {
+                message = $"The table name '{name}' is the name of a defined name.";
+                return false;
+            }
+
+            message = String.Empty;
+            return true;
         }
 
         public Boolean ShowTotalsRow

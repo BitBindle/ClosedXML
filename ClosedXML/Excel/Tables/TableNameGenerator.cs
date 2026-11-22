@@ -12,7 +12,7 @@ namespace ClosedXML.Excel
         /// <param name="workbook">Workbook to generate name for</param>
         /// <param name="baseTableName">"Base Table Name</param>
         /// <returns>Name for the table</returns>
-        internal static string GetNewTableName(IXLWorkbook workbook, string baseTableName = "Table")
+        internal static string GetNewTableName(XLWorkbook workbook, string baseTableName = "Table")
         {
             var existingTableNames = new HashSet<String>(
                 workbook.Worksheets
@@ -26,7 +26,7 @@ namespace ClosedXML.Excel
             {
                 tableName = baseTableName + i;
                 i++;
-            } while (existingTableNames.Contains(tableName));
+            } while (existingTableNames.Contains(tableName) || workbook.HasDefinedName(tableName));
 
             return tableName;
         }
