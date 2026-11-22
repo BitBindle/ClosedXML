@@ -121,3 +121,16 @@ The ``IXLConditionalFormat.Ranges`` property had its type changed from ``IXLRang
 If you need to set ranges, use a newly added setter, e.g. ``conditionalFormat.Ranges = ws.Ranges("A1:C5,G1:J5")``.
 
 All conditional formats now must apply to some range. They can't be empty (=with no range).
+
+************************
+Conditional text formats
+************************
+
+The methods ``IXLConditionalFormat.WhenContains``, ``WhenNotContains``, ``WhenStartsWith`` and
+``WhenEndsWith`` keep the text as a literal value:
+
+* The methods do not trim the text.
+* A leading ``=`` is a part of the text. Before, ``WhenContains("=A1")`` removed the ``=`` and
+  found the text ``A1``. Now it finds the text ``=A1``.
+
+The value that ClosedXML loads from a file is also a literal text.

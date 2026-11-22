@@ -78,12 +78,28 @@ namespace ClosedXML.Excel
 
         IXLStyle WhenDateIs(XLTimePeriod timePeriod);
 
+        /// <summary>
+        /// Format a cell when its text contains <paramref name="value"/>.
+        /// </summary>
+        /// <param name="value">The literal text to find. The method does not trim the text. A leading <c>=</c> is a part of the text, not the start of a formula.</param>
         IXLStyle WhenContains(String value);
 
+        /// <summary>
+        /// Format a cell when its text does not contain <paramref name="value"/>.
+        /// </summary>
+        /// <param name="value">The literal text to find. The method does not trim the text. A leading <c>=</c> is a part of the text, not the start of a formula.</param>
         IXLStyle WhenNotContains(String value);
 
+        /// <summary>
+        /// Format a cell when its text starts with <paramref name="value"/>.
+        /// </summary>
+        /// <param name="value">The literal text to find. The method does not trim the text. A leading <c>=</c> is a part of the text, not the start of a formula.</param>
         IXLStyle WhenStartsWith(String value);
 
+        /// <summary>
+        /// Format a cell when its text ends with <paramref name="value"/>.
+        /// </summary>
+        /// <param name="value">The literal text to find. The method does not trim the text. A leading <c>=</c> is a part of the text, not the start of a formula.</param>
         IXLStyle WhenEndsWith(String value);
 
         IXLStyle WhenEquals(String value);
