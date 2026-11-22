@@ -79,6 +79,21 @@ Before, it threw an exception. The ``IEquatable<T>.Equals`` methods of a cell fi
 number format and of a differential protection now return false for null. Before, they threw
 ``NullReferenceException``.
 
+**********************
+Text in the saved file
+**********************
+
+A save now writes a carriage return as ``_x000D_``. Before, it wrote the character, and a load
+changed it to a line feed. Excel also writes ``_x000D_``.
+
+A save now encodes the text of inline strings, rich text, phonetic runs, comments and the cached
+text of formulas. Before, the save encoded only the shared strings. Text such as ``_x0041_`` now
+stays the same after a save and a load. A control character, for example U+0001, no longer causes
+an exception.
+
+A load now decodes the escaped characters of a comment. Before, a comment showed the escape text,
+for example ``_x000D_``.
+
 ********************
 Nullable annotations
 ********************
