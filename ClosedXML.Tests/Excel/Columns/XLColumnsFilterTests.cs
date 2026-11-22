@@ -33,7 +33,7 @@ internal class XLColumnsFilterTests
     [Issue("ClosedXML/ClosedXML#2867")]
     public void Where_Skip_and_Take_use_column_number_order()
     {
-        // The cells are set out of order. The result has the order of the enumeration.
+        // The test sets the cells out of order. The result has the order of the enumeration.
         using var wb = new XLWorkbook();
         var ws = wb.AddWorksheet();
         ws.Cell("C1").Value = "c";
