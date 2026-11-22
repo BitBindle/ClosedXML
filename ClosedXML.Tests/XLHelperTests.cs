@@ -184,5 +184,106 @@ namespace ClosedXML.Tests
         {
             Assert.Throws<ArgumentException>(() => XLHelper.CreateSafeSheetName("abc\\def", replaceChar: ':'));
         }
+
+        [Test]
+        [Issue("77")]
+        public void Column_letter_converts_to_column_number_and_back()
+        {
+            for (var column = XLHelper.MinColumnNumber; column <= XLHelper.MaxColumnNumber; column++)
+            {
+                var letter = XLHelper.GetColumnLetterFromNumber(column);
+                Assert.AreEqual(column, XLHelper.GetColumnNumberFromLetter(letter));
+                Assert.AreEqual(column, XLHelper.GetColumnNumberFromLetter(letter.ToLowerInvariant()));
+                Assert.AreSame(letter, XLHelper.GetColumnLetterFromNumber(column));
+            }
+
+            Assert.AreEqual("A", XLHelper.GetColumnLetterFromNumber(1));
+            Assert.AreEqual("Z", XLHelper.GetColumnLetterFromNumber(26));
+            Assert.AreEqual("AA", XLHelper.GetColumnLetterFromNumber(27));
+            Assert.AreEqual("ZZ", XLHelper.GetColumnLetterFromNumber(702));
+            Assert.AreEqual("AAA", XLHelper.GetColumnLetterFromNumber(703));
+            Assert.AreEqual("XFD", XLHelper.GetColumnLetterFromNumber(16384));
+        }
+
+        [TestCase("12", 12)]
+        [TestCase(" 3", 3)]
+        [TestCase("xfd", 16384)]
+        [Issue("77")]
+        public void Column_number_from_text(string text, int expectedColumn)
+        {
+            Assert.AreEqual(expectedColumn, XLHelper.GetColumnNumberFromLetter(text));
+        }
+
+        [TestCase("XFE")]
+        [TestCase("AAAA")]
+        [TestCase("A-")]
+        [TestCase("\u212A")]
+        [TestCase("A\u00AD")]
+        [Issue("77")]
+        public void Column_number_needs_ascii_column_letters(string text)
+        {
+            // The Kelvin sign looks like a K, and a soft hyphen is not visible. Both are not column letters.
+            Assert.Throws<ArgumentOutOfRangeException>(() => XLHelper.GetColumnNumberFromLetter(text));
+        }
+
+        [TestCase("B5", true)]
+        [TestCase("$B$5", true)]
+        [TestCase("b$5", true)]
+        [TestCase("XFD1048576", true)]
+        [TestCase("A1 ", true)]
+        [TestCase("$A$1                                  ", true)]
+        [TestCase("$A$0                                  ", false)]
+        [TestCase("A0", false)]
+        [TestCase("XFE1", false)]
+        [TestCase("A1048577", false)]
+        [TestCase("1A", false)]
+        [TestCase("ABCD1", false)]
+        [TestCase("AB", false)]
+        [TestCase("$", false)]
+        [Issue("77")]
+        public void A1_address_validation(string address, bool expected)
+        {
+            Assert.AreEqual(expected, XLHelper.IsValidA1Address(address));
+        }
+
+        [TestCase("1", true)]
+        [TestCase("1048576", true)]
+        [TestCase("0", false)]
+        [TestCase("1048577", false)]
+        [TestCase("A", false)]
+        [Issue("77")]
+        public void Row_validation(string row, bool expected)
+        {
+            Assert.AreEqual(expected, XLHelper.IsValidRow(row));
+        }
+
+        [TestCase("B5", 5, 2, false, false)]
+        [TestCase("$B5", 5, 2, false, true)]
+        [TestCase("B$5", 5, 2, true, false)]
+        [TestCase("$xfd$1048576", 1048576, 16384, true, true)]
+        [Issue("77")]
+        public void Create_reads_row_column_and_dollar_signs(string text, int row, int column, bool fixedRow, bool fixedColumn)
+        {
+            var address = XLAddress.Create(text);
+            Assert.AreEqual(row, address.RowNumber);
+            Assert.AreEqual(column, address.ColumnNumber);
+            Assert.AreEqual(fixedRow, address.FixedRow);
+            Assert.AreEqual(fixedColumn, address.FixedColumn);
+        }
+
+        [TestCase("B2:C3", "B2:C3")]
+        [TestCase("Sheet!$B$2:C3", "$B$2:C3")]
+        [TestCase("B2:C3:D4", "B2:C3")]
+        [TestCase("D4", "D4:D4")]
+        [TestCase("$2:3", "A2:XFD3")]
+        [TestCase("B:$D", "B1:D1048576")]
+        [Issue("77")]
+        public void Constructor_reads_range_address(string text, string expected)
+        {
+            using var wb = new XLWorkbook();
+            var ws = (XLWorksheet)wb.AddWorksheet("Sheet");
+            var rangeAddress = new XLRangeAddress(ws, text);
+            Assert.AreEqual(expected, rangeAddress.FirstAddress + ":" + rangeAddress.LastAddress);
+        }
     }
 }

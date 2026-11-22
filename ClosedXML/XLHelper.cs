@@ -98,36 +98,31 @@ namespace ClosedXML.Excel
                         RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture)]
         internal static partial Regex NamedRangeReferenceRegex { get; }
 
-        private static readonly string[] letters = new[] { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z" };
-
-        private static readonly string[] allLetters;
-        private static readonly Dictionary<string, int> letterIndexes;
-
-        static XLHelper()
-        {
-            allLetters = new string[XLHelper.MaxColumnNumber];
-            letterIndexes = new Dictionary<string, int>(XLHelper.MaxColumnNumber, StringComparer.Create(ParseCulture, true));
-            for (int i = 0; i < XLHelper.MaxColumnNumber; i++)
-            {
-                string letter;
-                if (i < 26)
-                    letter = letters[i];
-                else if (i < 26 * 27)
-                    letter = letters[i / 26 - 1] + letters[i % 26];
-                else
-                    letter = letters[(i - 26) / 26 / 26 - 1] + letters[(i / 26 - 1) % 26] + letters[i % 26];
-                allLetters[i] = letter;
-                letterIndexes.Add(letter, i + 1);
-            }
-        }
+        /// <summary>
+        /// The column letters of each column. The method <see cref="GetColumnLetterFromNumber"/>
+        /// makes an entry at the first use.
+        /// </summary>
+        private static readonly string?[] allLetters = new string?[MaxColumnNumber];
 
         /// <summary>
-        /// Gets the column number of a given column letter.
+        /// Gets the column number of a given column letter. The letters are ASCII letters in upper
+        /// or lower case.
         /// </summary>
         /// <param name="columnLetter"> The column letter to translate into a column number. </param>
         public static int GetColumnNumberFromLetter(string columnLetter)
         {
             if (string.IsNullOrEmpty(columnLetter)) throw new ArgumentNullException("columnLetter");
+
+            return GetColumnNumberFromLetter(columnLetter.AsSpan());
+        }
+
+        /// <summary>
+        /// Gets the column number of the column letters. The letters are ASCII letters in upper or
+        /// lower case. The text can also be a column number.
+        /// </summary>
+        internal static int GetColumnNumberFromLetter(ReadOnlySpan<char> columnLetter)
+        {
+            if (columnLetter.IsEmpty) throw new ArgumentNullException("columnLetter");
 
             //Extra check because we allow users to pass row col positions in as strings
             if (columnLetter[0] <= '9')
@@ -135,10 +130,27 @@ namespace ClosedXML.Excel
                 return Int32.Parse(columnLetter, XLHelper.NumberStyle, XLHelper.ParseCulture);
             }
 
-            if (letterIndexes.TryGetValue(columnLetter, out var retVal))
-                return retVal;
+            if (columnLetter.Length <= 3)
+            {
+                var columnNumber = 0;
+                foreach (var c in columnLetter)
+                {
+                    // The bit 0x20 changes an ASCII upper case letter to lower case.
+                    var lowerCase = c | 0x20;
+                    if (lowerCase is < 'a' or > 'z')
+                    {
+                        columnNumber = 0;
+                        break;
+                    }
 
-            throw new ArgumentOutOfRangeException(columnLetter + " is not recognized as a column letter");
+                    columnNumber = columnNumber * 26 + lowerCase - 'a' + 1;
+                }
+
+                if (columnNumber is >= MinColumnNumber and <= MaxColumnNumber)
+                    return columnNumber;
+            }
+
+            throw new ArgumentOutOfRangeException(columnLetter.ToString() + " is not recognized as a column letter");
         }
 
         /// <summary>
@@ -154,7 +166,21 @@ namespace ClosedXML.Excel
                 throw new ArgumentOutOfRangeException(nameof(columnNumber));
 
             // Adjust for start on column 1
-            return allLetters[columnNumber - 1];
+            return allLetters[columnNumber - 1] ??= CreateColumnLetter(columnNumber);
+
+            static string CreateColumnLetter(int columnNumber)
+            {
+                Span<char> letters = stackalloc char[3];
+                var start = letters.Length;
+                while (columnNumber > 0)
+                {
+                    columnNumber--;
+                    letters[--start] = (char)('A' + columnNumber % 26);
+                    columnNumber /= 26;
+                }
+
+                return new string(letters[start..]);
+            }
         }
 
         internal static int TrimColumnNumber(int columnNumber)
@@ -171,11 +197,18 @@ namespace ClosedXML.Excel
         {
             if (String.IsNullOrWhiteSpace(column))
                 return false;
+
+            return IsValidColumn(column.AsSpan());
+        }
+
+        private static bool IsValidColumn(ReadOnlySpan<char> column)
+        {
             var length = column.Length;
-            if (length > 3)
+            if (length is 0 or > 3)
                 return false;
 
-            var theColumn = column.ToUpperInvariant();
+            Span<char> theColumn = stackalloc char[3];
+            column.ToUpperInvariant(theColumn);
 
             var isValid = theColumn[0] >= 'A' && theColumn[0] <= 'Z';
             if (length == 1)
@@ -200,7 +233,12 @@ namespace ClosedXML.Excel
 
         public static bool IsValidRow(string rowString)
         {
-            if (Int32.TryParse(rowString, out int row))
+            return IsValidRow(rowString.AsSpan());
+        }
+
+        private static bool IsValidRow(ReadOnlySpan<char> rowString)
+        {
+            if (Int32.TryParse(rowString, NumberStyles.Integer, CultureInfo.CurrentCulture, out int row))
                 return row > 0 && row <= MaxRowNumber;
             return false;
         }
@@ -210,16 +248,39 @@ namespace ClosedXML.Excel
             if (String.IsNullOrWhiteSpace(address))
                 return false;
 
-            address = address.Replace("$", "");
-            var rowPos = 0;
-            var addressLength = address.Length;
-            while (rowPos < addressLength && (address[rowPos] > '9' || address[rowPos] < '0'))
-                rowPos++;
+            return IsValidA1Address(address.AsSpan());
+        }
 
+        /// <summary>
+        /// Check that the text is an A1 address, for example <c>B5</c> or <c>$B$5</c>. The method
+        /// ignores each <c>$</c> in the text.
+        /// </summary>
+        internal static bool IsValidA1Address(ReadOnlySpan<char> address)
+        {
+            if (address.Contains('$'))
+            {
+                // A valid address is short. The method copies a long text to the heap.
+                var buffer = address.Length <= 32 ? stackalloc char[address.Length] : new char[address.Length];
+                var length = 0;
+                foreach (var c in address)
+                {
+                    if (c != '$')
+                        buffer[length++] = c;
+                }
+
+                return IsValidA1AddressWithoutDollars(buffer[..length]);
+            }
+
+            return IsValidA1AddressWithoutDollars(address);
+        }
+
+        private static bool IsValidA1AddressWithoutDollars(ReadOnlySpan<char> address)
+        {
+            var rowPos = address.IndexOfAnyInRange('0', '9');
             return
-                rowPos < addressLength
-                && IsValidRow(address.Substring(rowPos))
-                && IsValidColumn(address.Substring(0, rowPos));
+                rowPos >= 0
+                && IsValidRow(address[rowPos..])
+                && IsValidColumn(address[..rowPos]);
         }
 
         public static bool IsValidRCAddress([NotNullWhen(true)] string? address)

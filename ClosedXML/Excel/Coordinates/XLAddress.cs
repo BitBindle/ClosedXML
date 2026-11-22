@@ -18,53 +18,29 @@ namespace ClosedXML.Excel
 
         public static XLAddress Create(XLWorksheet? worksheet, string cellAddressString)
         {
-            var fixedColumn = cellAddressString[0] == '$';
-            Int32 startPos;
-            if (fixedColumn)
-            {
-                startPos = 1;
-            }
-            else
-            {
-                startPos = 0;
-            }
+            return Create(worksheet, cellAddressString.AsSpan());
+        }
 
-            int rowPos = startPos;
-            while (cellAddressString[rowPos] > '9')
+        /// <summary>
+        /// Create an address from an A1 text, for example <c>B5</c> or <c>$B$5</c>.
+        /// </summary>
+        internal static XLAddress Create(XLWorksheet? worksheet, ReadOnlySpan<char> cellAddress)
+        {
+            var fixedColumn = cellAddress[0] == '$';
+            var startPos = fixedColumn ? 1 : 0;
+
+            var rowPos = startPos;
+            while (cellAddress[rowPos] > '9')
             {
                 rowPos++;
             }
 
-            var fixedRow = cellAddressString[rowPos] == '$';
-            string columnLetter;
-            int rowNumber;
-            if (fixedRow)
-            {
-                if (fixedColumn)
-                {
-                    columnLetter = cellAddressString.Substring(startPos, rowPos - 1);
-                }
-                else
-                {
-                    columnLetter = cellAddressString.Substring(startPos, rowPos);
-                }
-
-                rowNumber = int.Parse(cellAddressString.Substring(rowPos + 1), XLHelper.NumberStyle, XLHelper.ParseCulture);
-            }
-            else
-            {
-                if (fixedColumn)
-                {
-                    columnLetter = cellAddressString.Substring(startPos, rowPos - 1);
-                }
-                else
-                {
-                    columnLetter = cellAddressString.Substring(startPos, rowPos);
-                }
-
-                rowNumber = Int32.Parse(cellAddressString.Substring(rowPos), XLHelper.NumberStyle, XLHelper.ParseCulture);
-            }
-            return new XLAddress(worksheet, rowNumber, columnLetter, fixedRow, fixedColumn);
+            var fixedRow = cellAddress[rowPos] == '$';
+            var columnLetter = cellAddress[startPos..rowPos];
+            var rowText = fixedRow ? cellAddress[(rowPos + 1)..] : cellAddress[rowPos..];
+            var rowNumber = Int32.Parse(rowText, XLHelper.NumberStyle, XLHelper.ParseCulture);
+            var columnNumber = XLHelper.GetColumnNumberFromLetter(columnLetter);
+            return new XLAddress(worksheet, rowNumber, columnNumber, fixedRow, fixedColumn);
         }
 
         #endregion Static
