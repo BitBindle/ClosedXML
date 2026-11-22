@@ -11,6 +11,8 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Point = System.Drawing.Point;
 using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
@@ -919,5 +921,98 @@ public class LoadingTests
 
         using (var wb = new XLWorkbook(stream))
             Assert.AreEqual("Note", wb.Worksheet("Sheet1").Cell("A1").GetComment().Text);
+    }
+
+    [Test]
+    [Issue("72")]
+    public async Task LoadAsync_of_a_stream_without_seek_and_synchronous_reads_reads_the_workbook()
+    {
+        using var stream = new ForwardOnlyReadStream(CreateWorkbookBytes("network"));
+
+        using var wb = await XLWorkbook.LoadAsync(stream, new LoadOptions { RecalculateAllFormulas = true });
+
+        Assert.AreEqual("network", wb.Worksheet("Sheet1").Cell("A1").GetText());
+    }
+
+    [Test]
+    [Issue("72")]
+    public async Task Save_of_a_workbook_loaded_from_a_stream_without_seek_throws_until_SaveAs()
+    {
+        using var stream = new ForwardOnlyReadStream(CreateWorkbookBytes("network"));
+        using var wb = await XLWorkbook.LoadAsync(stream);
+        wb.Worksheet("Sheet1").Cell("A1").Value = "changed";
+
+        var ex = Assert.Throws<InvalidOperationException>(() => wb.Save())!;
+        StringAssert.Contains("SaveAs", ex.Message);
+
+        var target = new WriteOnlyStream();
+        wb.SaveAs(target);
+        using (var written = target.GetWrittenBytes())
+        using (var copy = new XLWorkbook(written))
+            Assert.AreEqual("changed", copy.Worksheet("Sheet1").Cell("A1").GetText());
+
+        using var newSource = new MemoryStream();
+        wb.SaveAs(newSource);
+        wb.Worksheet("Sheet1").Cell("A1").Value = "saved";
+        wb.Save();
+        using var saved = new XLWorkbook(newSource);
+        Assert.AreEqual("saved", saved.Worksheet("Sheet1").Cell("A1").GetText());
+    }
+
+    [Test]
+    [Issue("72")]
+    public async Task Save_of_a_workbook_loaded_from_a_stream_without_seek_works_after_SaveAs_to_a_file()
+    {
+        using var stream = new ForwardOnlyReadStream(CreateWorkbookBytes("network"));
+        using var wb = await XLWorkbook.LoadAsync(stream);
+        using var file = new TemporaryFile();
+
+        wb.SaveAs(file.Path);
+        wb.Worksheet("Sheet1").Cell("A1").Value = "saved";
+        wb.Save();
+
+        using var saved = new XLWorkbook(file.Path);
+        Assert.AreEqual("saved", saved.Worksheet("Sheet1").Cell("A1").GetText());
+    }
+
+    [Test]
+    [Issue("72")]
+    public async Task LoadAsync_of_a_seekable_stream_makes_the_stream_the_source_of_the_workbook()
+    {
+        using var stream = new MemoryStream();
+        stream.Write(CreateWorkbookBytes("old"));
+        stream.Position = 0;
+
+        using var wb = await XLWorkbook.LoadAsync(stream);
+        wb.Worksheet("Sheet1").Cell("A1").Value = "saved";
+        wb.Save();
+
+        using var saved = new XLWorkbook(stream);
+        Assert.AreEqual("saved", saved.Worksheet("Sheet1").Cell("A1").GetText());
+    }
+
+    [Test]
+    [Issue("72")]
+    public async Task LoadAsync_with_a_canceled_token_throws()
+    {
+        using var stream = new ForwardOnlyReadStream(CreateWorkbookBytes("network"));
+
+        await Assert.ThatAsync(() => XLWorkbook.LoadAsync(stream, cancellationToken: new CancellationToken(true)), Throws.InstanceOf<OperationCanceledException>());
+    }
+
+    [Test]
+    [Issue("72")]
+    public async Task LoadAsync_of_null_throws()
+    {
+        await Assert.ThatAsync(() => XLWorkbook.LoadAsync(null!), Throws.ArgumentNullException);
+    }
+
+    private static byte[] CreateWorkbookBytes(string a1)
+    {
+        using var wb = new XLWorkbook();
+        wb.AddWorksheet("Sheet1").Cell("A1").Value = a1;
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        return ms.ToArray();
     }
 }

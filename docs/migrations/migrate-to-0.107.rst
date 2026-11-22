@@ -23,6 +23,27 @@ A stream that cannot do one of these operations (read, seek or write) does not b
 of the workbook. A later ``Save()`` or ``SaveAs(Stream)`` uses the source from before. Before, the
 stream became the source, and a later save threw an exception.
 
+**********************************
+Load and save a stream with async
+**********************************
+
+``XLWorkbook`` has two new methods:
+
+* ``XLWorkbook.SaveAsAsync(Stream, SaveOptions?, CancellationToken)``. If the stream cannot do one
+  of these operations (read, seek or write), the method makes the package in memory. Then it
+  copies the package to the stream and flushes the stream with asynchronous calls. Use it for a
+  stream that does not allow synchronous writes, for example the response body in ASP.NET Core.
+* ``XLWorkbook.LoadAsync(Stream, LoadOptions?, CancellationToken)``. If the stream cannot seek, the
+  method first copies the stream to memory with asynchronous calls. Then it reads the copy. A
+  workbook from such a copy cannot ``Save()``. Use one of the ``SaveAs`` methods.
+
+If the stream can seek, ``LoadAsync`` reads the stream synchronously. A stream that can seek, but
+does not allow synchronous reads, causes an exception. An example is an ASP.NET Core request body
+after ``EnableBuffering``. Copy such a stream to a ``MemoryStream`` first.
+
+The work on the package stays synchronous, because the OpenXML SDK has no asynchronous API. The
+methods are not on ``IXLWorkbook``, so other implementations of the interface do not break.
+
 *****************
 Equality methods
 *****************
