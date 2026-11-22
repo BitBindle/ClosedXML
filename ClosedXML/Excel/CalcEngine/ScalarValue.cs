@@ -241,8 +241,9 @@ namespace ClosedXML.Excel.CalcEngine
             //        4 '#,##0.00'
             //       11 '0.00E+00'
             //       48 '##0.0E+0'
+            // A number that is too large for a double is not a number, for example '1E999'.
             if (double.TryParse(text, NumberStyles.Any, culture, out var number))
-                return number;
+                return double.IsFinite(number) ? number : XLError.IncompatibleValue;
 
             // Percents. Percent sign can be at both sides.
             // Format 9 '0%'
@@ -274,7 +275,8 @@ namespace ClosedXML.Excel.CalcEngine
             {
                 if (double.TryParse(text, NumberStyles.Float
                                           | NumberStyles.AllowThousands
-                                          | NumberStyles.AllowParentheses, c, out var percents))
+                                          | NumberStyles.AllowParentheses, c, out var percents)
+                    && double.IsFinite(percents))
                     return percents / 100;
 
                 // other formats don't use '%' sign, but text has it, so just stop for invalid inputs like 'hundred%'

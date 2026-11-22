@@ -331,9 +331,19 @@ namespace ClosedXML.Tests.Excel.CalcEngine
 
         [Test]
         [Issue("76")]
-        public void Fraction_with_an_infinite_whole_number_is_not_a_number()
+        public void Fraction_with_a_whole_number_out_of_range_is_not_a_number()
         {
             AssertCoercion(new string('9', 400) + " 1/2", null);
+        }
+
+        [TestCase("1E999")]
+        [TestCase("-1E999")]
+        [TestCase("1E999%")]
+        [TestCase("%1E999")]
+        [Issue("76")]
+        public void Number_out_of_range_is_not_a_number(string text)
+        {
+            AssertCoercion(text, null);
         }
 
         [TestCase("1 1/2 x")]
