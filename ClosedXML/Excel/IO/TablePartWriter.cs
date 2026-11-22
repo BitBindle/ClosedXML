@@ -38,7 +38,7 @@ namespace ClosedXML.Excel.IO
         {
             foreach (var xlTable in tables.Cast<XLTable>())
             {
-                var relId = xlTable.RelId;
+                var relId = xlTable.RelId ?? throw new InvalidOperationException("The table has no relationship ID.");
                 var tableDefinitionPart = (TableDefinitionPart)worksheetPart.GetPartById(relId);
                 GenerateTableDefinitionPartContent(tableDefinitionPart, xlTable, context);
             }

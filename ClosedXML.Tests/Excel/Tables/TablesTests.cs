@@ -1404,5 +1404,123 @@ namespace ClosedXML.Tests.Excel
         }
 
         //TODO: Delete table (not underlying range)
+
+        [Test]
+        public void Resize_with_range_address_uses_the_given_address()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = "First";
+            ws.Cell("B1").Value = "Second";
+            var table = ws.Range("A1:B2").CreateTable();
+
+            table.Resize(ws.Range("A1:B5").RangeAddress);
+
+            Assert.AreEqual("A1:B5", table.RangeAddress.ToString());
+        }
+
+        [Test]
+        public void Table_rename_does_not_update_totals_formulas_of_a_hidden_totals_row()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = "First";
+            ws.Cell("A2").Value = 1;
+            var table = ws.Range("A1:A2").CreateTable();
+            table.ShowTotalsRow = true;
+            table.Field(0).TotalsRowFunction = XLTotalsRowFunction.Sum;
+            table.ShowTotalsRow = false;
+
+            Assert.DoesNotThrow(() => table.Name = "Renamed");
+
+            Assert.AreEqual("Renamed", table.Name);
+            Assert.AreEqual(XLTotalsRowFunction.Sum, table.Field(0).TotalsRowFunction);
+        }
+
+        [Test]
+        public void Totals_row_label_and_formula_need_a_shown_totals_row()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = "First";
+            ws.Cell("A2").Value = 1;
+            var table = ws.Range("A1:A2").CreateTable();
+            var field = table.Field(0);
+            field.TotalsRowFunction = XLTotalsRowFunction.Sum;
+
+            Assert.Throws<InvalidOperationException>(() => field.TotalsRowLabel = "Total");
+            Assert.Throws<InvalidOperationException>(() => field.TotalsRowFormulaA1 = "SUM(A2)");
+            Assert.Throws<InvalidOperationException>(() => field.TotalsRowFormulaR1C1 = "SUM(R2C1)");
+            Assert.Throws<InvalidOperationException>(() => _ = field.TotalsRowFormulaA1);
+            Assert.Throws<InvalidOperationException>(() => _ = field.TotalsRowFormulaR1C1);
+            Assert.AreEqual(XLTotalsRowFunction.Sum, field.TotalsRowFunction);
+            Assert.IsNull(field.TotalsCell);
+        }
+
+        [Test]
+        public void Table_without_data_rows_has_no_data_range()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = "First";
+            ws.Cell("A2").Value = 1;
+            var table = ws.Range("A1:A2").CreateTable();
+            table.ShowTotalsRow = true;
+            table.DataRange.Rows().Delete();
+
+            Assert.AreEqual(2, table.RowCount());
+            Assert.IsNull(table.DataRange);
+            Assert.IsEmpty(table.AsDynamicEnumerable());
+            var dataTable = table.AsNativeDataTable();
+            Assert.AreEqual(1, dataTable.Columns.Count);
+            Assert.AreEqual(0, dataTable.Rows.Count);
+            Assert.Throws<InvalidOperationException>(() => table.AppendData(new[] { 2 }));
+            Assert.Throws<InvalidOperationException>(() => table.Sort("First"));
+        }
+
+        [Test]
+        public void Table_without_header_row_has_no_headers_row()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = "First";
+            ws.Cell("A2").Value = 1;
+            var table = ws.Range("A1:A2").CreateTable();
+
+            table.ShowHeaderRow = false;
+
+            Assert.IsNull(table.HeadersRow());
+            Assert.IsNull(table.TotalsRow());
+            Assert.IsNull(table.Field(0).HeaderCell);
+        }
+
+        [Test]
+        public void Append_null_or_empty_data_to_table_returns_null()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = "First";
+            ws.Cell("A2").Value = 1;
+            var table = ws.Range("A1:A2").CreateTable();
+
+            Assert.IsNull(table.AppendData((System.Collections.IEnumerable)null));
+            Assert.IsNull(table.AppendData(Array.Empty<int>()));
+            Assert.IsNull(table.AppendData((IEnumerable<int>)null));
+            Assert.AreEqual("A1:A2", table.RangeAddress.ToString());
+        }
+
+        [Test]
+        public void Append_or_replace_of_null_data_table_throws()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = "First";
+            ws.Cell("A2").Value = 1;
+            var table = ws.Range("A1:A2").CreateTable();
+
+            Assert.Throws<ArgumentNullException>(() => table.AppendData((System.Data.DataTable)null));
+            Assert.Throws<ArgumentNullException>(() => table.ReplaceData((System.Data.DataTable)null));
+            Assert.AreEqual("A1:A2", table.RangeAddress.ToString());
+        }
     }
 }

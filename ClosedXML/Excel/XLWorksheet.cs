@@ -1430,7 +1430,7 @@ namespace ClosedXML.Excel
             var rangeKey = new XLRangeKey(XLRangeType.Table, rangeAddress);
             var table = (XLTable)_rangeRepository.GetOrCreate(ref rangeKey);
 
-            if (table.Name != name)
+            if (table.NameOrNull != name)
                 table.SetName(name, checkExcelNameRules);
 
             if (addToTables && !Tables.Contains(table))
@@ -1447,7 +1447,7 @@ namespace ClosedXML.Excel
         private void CheckRangeNotOverlappingOtherEntities(XLRange range)
         {
             // Check that the range doesn't overlap with any existing tables
-            var firstOverlappingTable = Tables.FirstOrDefault<XLTable>(t => t.RangeUsed().Intersects(range));
+            var firstOverlappingTable = Tables.FirstOrDefault<XLTable>(t => t.RangeUsed() is { } tableRange && tableRange.Intersects(range));
             if (firstOverlappingTable != null)
                 throw new InvalidOperationException($"The range {range.RangeAddress.ToStringRelative(includeSheet: true)} is already part of table '{firstOverlappingTable.Name}'");
 
@@ -1458,7 +1458,7 @@ namespace ClosedXML.Excel
 
         private IXLRange GetRangeForSort()
         {
-            var range = RangeUsed();
+            var range = RangeUsed() ?? throw new InvalidOperationException("The worksheet has no used cells to sort.");
             SortColumns.ForEach(e => range.SortColumns.Add(e.ElementNumber, e.SortOrder, e.IgnoreBlanks, e.MatchCase));
             SortRows.ForEach(e => range.SortRows.Add(e.ElementNumber, e.SortOrder, e.IgnoreBlanks, e.MatchCase));
             return range;
@@ -1478,10 +1478,15 @@ namespace ClosedXML.Excel
         {
             if (usedCellsOnly)
                 return Cells(true, XLCellsUsedOptions.AllContents);
-            else
-                return Range((this as IXLRangeBase).FirstCellUsed(XLCellsUsedOptions.All),
-                             (this as IXLRangeBase).LastCellUsed(XLCellsUsedOptions.All))
-                    .Cells(false, XLCellsUsedOptions.All);
+
+            var firstCell = FirstCellUsed(XLCellsUsedOptions.All);
+            var lastCell = LastCellUsed(XLCellsUsedOptions.All);
+
+            // A worksheet without used cells has no cells between the first and the last used cell.
+            if (firstCell is null || lastCell is null)
+                return Cells(true, XLCellsUsedOptions.All);
+
+            return Range(firstCell, lastCell).Cells(false, XLCellsUsedOptions.All);
         }
 
         public override XLCell? Cell(String cellAddressInRange)
@@ -1630,7 +1635,7 @@ namespace ClosedXML.Excel
             return true;
         }
 
-        internal IXLTable InsertTable(Point origin, IInsertDataReader reader, String tableName, Boolean createTable, Boolean addHeadings, Boolean transpose)
+        internal IXLTable InsertTable(Point origin, IInsertDataReader reader, String? tableName, Boolean createTable, Boolean addHeadings, Boolean transpose)
         {
             if (createTable && Tables.Any<XLTable>(t => t.Area.Contains(origin)))
                 throw new InvalidOperationException($"This cell '{origin}' is already part of a table.");

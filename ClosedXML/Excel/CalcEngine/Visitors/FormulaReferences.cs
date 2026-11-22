@@ -61,8 +61,9 @@ internal class FormulaReferences
 
         foreach (var (tableName, column, _) in StructuredReferences)
         {
-            if (workbook.TryGetTable(tableName, out var table))
-                list.Add(table.DataRange.Column(column));
+            // A table without data rows has no data cells to refer to.
+            if (workbook.TryGetTable(tableName, out var table) && table.DataRange is { } dataRange)
+                list.Add(dataRange.Column(column));
         }
 
         return list;

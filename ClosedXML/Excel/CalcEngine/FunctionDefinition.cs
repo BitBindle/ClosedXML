@@ -81,10 +81,11 @@ namespace ClosedXML.Excel.CalcEngine
                 if (!IsParameterSingleValue(i) && arg.IsReference)
                     continue;
 
-                var argIsSingle = arg.TryPickSingleOrMultiValue(out var single, out var multi, ctx);
+                // A single value has no array.
+                arg.TryPickSingleOrMultiValue(out var single, out var multi, ctx);
                 if (IsParameterSingleValue(i))
                 {
-                    arg = argIsSingle
+                    arg = multi is null
                         ? new ScalarArray(single, totalColumns, totalRows)
                         : multi.Broadcast(totalRows, totalColumns);
                 }
@@ -95,7 +96,7 @@ namespace ClosedXML.Excel.CalcEngine
                     // If there is an error as a single value, e.g. reference to a single cell, the SUMIF behaves
                     // as it was converted to 1x1 array and doesn't return error, just because it found an error.
                     // Ergo: for ranges, we don't immediately return error, just because range parameter contains an error
-                    arg = argIsSingle
+                    arg = multi is null
                         ? new ScalarArray(single, 1, 1)
                         : multi;
                 }

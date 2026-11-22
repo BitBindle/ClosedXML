@@ -127,9 +127,13 @@ namespace ClosedXML.Excel
                 _engine.AddArrayFormula(range, arrayFormula, _sheet);
         }
 
-        internal Slice<XLCellFormula>.Enumerator GetForwardEnumerator(Area range)
+        /// <summary>
+        /// Get an enumerator of the cells with a formula. A cell without a formula is not enumerated,
+        /// but the type of the value is nullable, because the slice can store null.
+        /// </summary>
+        internal Slice<XLCellFormula?>.Enumerator GetForwardEnumerator(Area range)
         {
-            return new Slice<XLCellFormula>.Enumerator(_formulas!, range);
+            return new Slice<XLCellFormula?>.Enumerator(_formulas, range);
         }
 
         /// <summary>
@@ -140,7 +144,8 @@ namespace ClosedXML.Excel
             using var enumerator = GetForwardEnumerator(range);
             while (enumerator.MoveNext())
             {
-                enumerator.Current.IsDirty = true;
+                if (enumerator.Current is { } formula)
+                    formula.IsDirty = true;
             }
         }
     }

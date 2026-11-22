@@ -66,6 +66,9 @@ namespace ClosedXML.Excel.CalcEngine
                 while (enumerator.MoveNext())
                 {
                     var formula = enumerator.Current;
+                    if (formula is null)
+                        continue;
+
                     var point = enumerator.Point;
                     try
                     {

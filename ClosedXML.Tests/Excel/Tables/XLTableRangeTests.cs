@@ -202,4 +202,23 @@ internal class XLTableRangeTests
     {
         return rows.Select(r => r.RangeAddress.ToString()).ToArray();
     }
+
+    [Test]
+    public void First_and_last_row_used_are_null_for_table_range_without_used_rows()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = "First";
+        var table = ws.Range("A1:A3").CreateTable();
+        var dataRange = table.DataRange;
+
+        Assert.IsNull(dataRange.FirstRowUsed());
+        Assert.IsNull(dataRange.LastRowUsed());
+        Assert.IsNull(dataRange.FirstRowUsed(XLCellsUsedOptions.All));
+        Assert.IsNull(dataRange.LastRowUsed(XLCellsUsedOptions.All));
+        Assert.AreEqual(2, dataRange.FirstRow().RowNumber());
+        Assert.AreEqual(3, dataRange.LastRow().RowNumber());
+        Assert.IsNull(dataRange.FirstRow(r => r.RowNumber() > 3));
+        Assert.IsNull(dataRange.LastRow(r => r.RowNumber() < 2));
+    }
 }

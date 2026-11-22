@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -28,7 +26,7 @@ namespace ClosedXML.Excel
             /// <summary>
             /// The default value lut ref returns for elements not defined in the lut.
             /// </summary>
-            private static readonly T DefaultValue = default;
+            private static readonly T? DefaultValue = default;
 
             /// <summary>
             /// A sparse array of values in the lut. The top level always allocated at least one element.
@@ -50,7 +48,7 @@ namespace ClosedXML.Excel
             /// </summary>
             /// <param name="index">Index, starting at 0.</param>
             /// <returns>Reference to an element at index, if the element is used, otherwise <see cref="DefaultValue"/>.</returns>
-            internal ref readonly T Get(int index)
+            internal ref readonly T? Get(int index)
             {
                 var (topIdx, bottomIdx) = SplitIndex(index);
                 if (topIdx >= _buckets.Length)
@@ -59,8 +57,7 @@ namespace ClosedXML.Excel
                 if (!IsUsed(topIdx, bottomIdx))
                     return ref DefaultValue;
 
-                var nodes = _buckets[topIdx].Nodes;
-                return ref nodes[bottomIdx];
+                return ref NodeAt(index);
             }
 
             /// <summary>
@@ -79,7 +76,7 @@ namespace ClosedXML.Excel
             /// Set/clar an element at index to a specified value.
             /// The used flag will be if the value is <c>default</c> or not.
             /// </summary>
-            internal void Set(int index, T value)
+            internal void Set(int index, T? value)
             {
                 var (topIdx, bottomIdx) = SplitIndex(index);
 
@@ -97,7 +94,7 @@ namespace ClosedXML.Excel
                 RecalculateMaxIndex(index);
             }
 
-            private void SetValue(T value, int topIdx, int bottomIdx)
+            private void SetValue(T? value, int topIdx, int bottomIdx)
             {
                 var topSize = _buckets.Length;
                 if (topIdx >= topSize)
@@ -111,19 +108,20 @@ namespace ClosedXML.Excel
                 }
 
                 var bucket = _buckets[topIdx];
-                var bottomBucketExists = bucket.Nodes is not null;
-                if (!bottomBucketExists)
+                var bucketNodes = bucket.Nodes;
+                if (bucketNodes is null)
                 {
                     var initialSize = 4;
                     while (bottomIdx >= initialSize)
                         initialSize *= 2;
 
-                    _buckets[topIdx] = bucket = new LutBucket(new T[initialSize], 0);
+                    bucketNodes = new T?[initialSize];
+                    _buckets[topIdx] = new LutBucket(bucketNodes, 0);
                 }
                 else
                 {
                     // Bottom exists, but might not be large enough
-                    var bottomSize = bucket.Nodes.Length;
+                    var bottomSize = bucketNodes.Length;
                     if (bottomIdx >= bottomSize)
                     {
                         do
@@ -131,13 +129,21 @@ namespace ClosedXML.Excel
                             bottomSize *= 2;
                         } while (bottomIdx >= bottomSize);
 
-                        var bucketNodes = bucket.Nodes;
                         Array.Resize(ref bucketNodes, bottomSize);
-                        _buckets[topIdx] = bucket = new LutBucket(bucketNodes, bucket.Bitmap);
+                        _buckets[topIdx] = new LutBucket(bucketNodes, bucket.Bitmap);
                     }
                 }
 
-                bucket.Nodes[bottomIdx] = value;
+                bucketNodes[bottomIdx] = value;
+            }
+
+            /// <summary>
+            /// Get a reference to the node of a used index. A used index always has a bucket with nodes.
+            /// </summary>
+            private ref T? NodeAt(int index)
+            {
+                var nodes = _buckets[index >> BottomLutBits].Nodes ?? throw new InvalidOperationException("The index is not used.");
+                return ref nodes[index & BottomLutMask];
             }
 
             private static (int TopLevelIndex, int BottomLevelIndex) SplitIndex(int index)
@@ -182,7 +188,7 @@ namespace ClosedXML.Excel
             [StructLayout(LayoutKind.Sequential, Pack = 4)]
             private readonly struct LutBucket
             {
-                public readonly T[] Nodes;
+                public readonly T?[]? Nodes;
 
                 /// <summary>
                 /// <para>
@@ -204,7 +210,7 @@ namespace ClosedXML.Excel
                 /// </summary>
                 public readonly uint Bitmap;
 
-                internal LutBucket(T[] nodes, uint bitmap)
+                internal LutBucket(T?[]? nodes, uint bitmap)
                 {
                     Nodes = nodes;
                     Bitmap = bitmap;
@@ -235,7 +241,7 @@ namespace ClosedXML.Excel
                     _endIdx = endIdx;
                 }
 
-                public readonly ref T Current => ref _lut._buckets[_idx >> BottomLutBits].Nodes[_idx & BottomLutMask];
+                public readonly ref T? Current => ref _lut.NodeAt(_idx);
 
                 /// <summary>
                 /// Index of current element in the LUT. Only valid, if enumerator is valid.
@@ -289,7 +295,7 @@ namespace ClosedXML.Excel
                     _startIdx = startIdx;
                 }
 
-                public ref T Current => ref _lut._buckets[_idx >> BottomLutBits].Nodes[_idx & BottomLutMask];
+                public ref T? Current => ref _lut.NodeAt(_idx);
 
                 public int Index => _idx;
 

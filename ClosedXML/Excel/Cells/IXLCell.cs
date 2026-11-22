@@ -1,10 +1,9 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
 namespace ClosedXML.Excel
@@ -105,6 +104,7 @@ namespace ClosedXML.Excel
         /// prefixed (e.g. <c>_xlfn.CONCAT</c>).
         /// </remarks>
         /// <value>The formula with A1 references.</value>
+        [AllowNull]
         String FormulaA1 { get; set; }
 
         /// <summary>
@@ -116,13 +116,14 @@ namespace ClosedXML.Excel
         /// prefixed (e.g. <c>_xlfn.CONCAT</c>).
         /// </remarks>
         /// <value>The formula with R1C1 references.</value>
+        [AllowNull]
         String FormulaR1C1 { get; set; }
 
         /// <summary>
         /// An indication that value of this cell is calculated by a array formula
         /// that calculates values for cells in the referenced address. Null if not part of such formula.
         /// </summary>
-        IXLRangeAddress FormulaReference { get; set; }
+        IXLRangeAddress? FormulaReference { get; set; }
 
         Boolean HasArrayFormula { get; }
 
@@ -152,7 +153,10 @@ namespace ClosedXML.Excel
         /// </value>
         Boolean ShareString { get; set; }
 
-        IXLSparkline Sparkline { get; }
+        /// <summary>
+        /// The sparkline of the cell, or <c>null</c> if the cell has no sparkline.
+        /// </summary>
+        IXLSparkline? Sparkline { get; }
 
         /// <summary>
         /// Gets or sets the cell's style.
@@ -358,7 +362,7 @@ namespace ClosedXML.Excel
         /// <typeparam name="T">The requested type into which will the value be converted.</typeparam>
         /// <param name="value">Value to store the value.</param>
         /// <returns><c>true</c> if the value was converted and the result is in the <paramref name="value"/>, <c>false</c> otherwise.</returns>
-        Boolean TryGetValue<T>(out T value);
+        Boolean TryGetValue<T>([MaybeNullWhen(false)] out T value);
 
         /// <summary>
         /// <inheritdoc cref="TryGetValue{T}"/>
@@ -377,7 +381,7 @@ namespace ClosedXML.Excel
         /// Gets the cell's value formatted depending on the cell's data type and style.
         /// </summary>
         /// <param name="culture">Culture used to format the string. If <c>null</c> (default value), use current culture.</param>
-        String GetFormattedString(CultureInfo culture = null);
+        String GetFormattedString(CultureInfo? culture = null);
 
         /// <summary>
         /// Returns a hyperlink for the cell, if any, or creates a new instance is there is no hyperlink.
@@ -401,21 +405,23 @@ namespace ClosedXML.Excel
         /// Inserts the IEnumerable data elements and returns the range it occupies.
         /// </summary>
         /// <param name="data">The IEnumerable data.</param>
-        IXLRange InsertData(IEnumerable data);
+        /// <returns>The range occupied by the inserted data, or <c>null</c> if <paramref name="data"/> is <c>null</c> or a string.</returns>
+        IXLRange? InsertData(IEnumerable? data);
 
         /// <summary>
         /// Inserts the IEnumerable data elements and returns the range it occupies.
         /// </summary>
         /// <param name="data">The IEnumerable data.</param>
         /// <param name="transpose">if set to <c>true</c> the data will be transposed before inserting.</param>
-        IXLRange InsertData(IEnumerable data, Boolean transpose);
+        /// <returns>The range occupied by the inserted data, or <c>null</c> if <paramref name="data"/> is <c>null</c> or a string.</returns>
+        IXLRange? InsertData(IEnumerable? data, Boolean transpose);
 
         /// <summary>
         /// Inserts the data of a data table.
         /// </summary>
         /// <param name="dataTable">The data table.</param>
-        /// <returns>The range occupied by the inserted data</returns>
-        IXLRange InsertData(DataTable dataTable);
+        /// <returns>The range occupied by the inserted data, or <c>null</c> if <paramref name="dataTable"/> is <c>null</c>.</returns>
+        IXLRange? InsertData(DataTable? dataTable);
 
         /// <summary>
         /// Inserts the IEnumerable data elements as a table and returns it.
@@ -440,7 +446,7 @@ namespace ClosedXML.Excel
         /// </summary>
         /// <param name="data">The table data.</param>
         /// <param name="tableName">Name of the table.</param>
-        IXLTable InsertTable<T>(IEnumerable<T> data, String tableName);
+        IXLTable InsertTable<T>(IEnumerable<T> data, String? tableName);
 
         /// <summary>
         /// Inserts the IEnumerable data elements as a table and returns it.
@@ -451,14 +457,15 @@ namespace ClosedXML.Excel
         /// if set to <c>true</c> it will create an Excel table.
         /// <para>if set to <c>false</c> the table will be created in memory.</para>
         /// </param>
-        IXLTable InsertTable<T>(IEnumerable<T> data, String tableName, Boolean createTable);
+        IXLTable InsertTable<T>(IEnumerable<T> data, String? tableName, Boolean createTable);
 
         /// <summary>
         /// Inserts the DataTable data elements as a table and returns it.
         /// <para>The new table will receive a generic name: Table#</para>
         /// </summary>
         /// <param name="data">The table data.</param>
-        IXLTable InsertTable(DataTable data);
+        /// <returns>The table, or <c>null</c> if <paramref name="data"/> is <c>null</c> or has no columns.</returns>
+        IXLTable? InsertTable(DataTable? data);
 
         /// <summary>
         /// Inserts the DataTable data elements as a table and returns it.
@@ -469,14 +476,16 @@ namespace ClosedXML.Excel
         /// if set to <c>true</c> it will create an Excel table.
         /// <para>if set to <c>false</c> the table will be created in memory.</para>
         /// </param>
-        IXLTable InsertTable(DataTable data, Boolean createTable);
+        /// <returns>The table, or <c>null</c> if <paramref name="data"/> is <c>null</c> or has no columns.</returns>
+        IXLTable? InsertTable(DataTable? data, Boolean createTable);
 
         /// <summary>
         /// Creates an Excel table from the given DataTable data elements.
         /// </summary>
         /// <param name="data">The table data.</param>
         /// <param name="tableName">Name of the table.</param>
-        IXLTable InsertTable(DataTable data, String tableName);
+        /// <returns>The table, or <c>null</c> if <paramref name="data"/> is <c>null</c> or has no columns.</returns>
+        IXLTable? InsertTable(DataTable? data, String? tableName);
 
         /// <summary>
         /// Inserts the DataTable data elements as a table and returns it.
@@ -487,7 +496,8 @@ namespace ClosedXML.Excel
         /// if set to <c>true</c> it will create an Excel table.
         /// <para>if set to <c>false</c> the table will be created in memory.</para>
         /// </param>
-        IXLTable InsertTable(DataTable data, String tableName, Boolean createTable);
+        /// <returns>The table, or <c>null</c> if <paramref name="data"/> is <c>null</c> or has no columns.</returns>
+        IXLTable? InsertTable(DataTable? data, String? tableName, Boolean createTable);
 
         /// <summary>
         /// Invalidate <see cref="CachedValue"/> so the formula will be re-evaluated next time <see cref="Value"/> is accessed.
@@ -501,7 +511,11 @@ namespace ClosedXML.Excel
 
         Boolean IsMerged();
 
-        IXLRange MergedRange();
+        /// <summary>
+        /// Gets the merged range that contains the cell.
+        /// </summary>
+        /// <returns>The merged range, or <c>null</c> if the cell is not merged.</returns>
+        IXLRange? MergedRange();
 
         void Select();
 
@@ -511,7 +525,6 @@ namespace ClosedXML.Excel
 
         IXLCell SetFormulaR1C1(String formula);
 
-#nullable enable
         /// <summary>
         /// Set hyperlink of a cell. When user clicks on a cell with hyperlink,
         /// the Excel opens the target or moves cursor to the target cells in a
@@ -526,7 +539,6 @@ namespace ClosedXML.Excel
         /// <param name="hyperlink">The new cell hyperlink. Use <c>null</c> to
         ///   remove the hyperlink.</param>
         void SetHyperlink(XLHyperlink? hyperlink);
-#nullable disable
 
         /// <inheritdoc cref="Value"/>
         /// <returns>This cell.</returns>

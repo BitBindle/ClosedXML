@@ -205,6 +205,6 @@ namespace ClosedXML.Excel
         /// <param name="clearOptions">Specify what you want to clear.</param>
         new IXLRow Clear(XLClearOptions clearOptions = XLClearOptions.All);
 
-        IXLRangeRow RowUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents);
+        IXLRangeRow? RowUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents);
     }
 }

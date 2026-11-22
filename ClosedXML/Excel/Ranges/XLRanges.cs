@@ -178,7 +178,7 @@ namespace ClosedXML.Excel
 
         public IEnumerable<IXLDataValidation> DataValidation
         {
-            get { return Ranges.Select(range => range.GetDataValidation()).Where(dv => dv != null); }
+            get { return Ranges.Select(range => range.GetDataValidation()).OfType<IXLDataValidation>(); }
         }
 
         public IXLRanges AddToNamed(String rangeName)
@@ -188,7 +188,7 @@ namespace ClosedXML.Excel
 
         public IXLRanges AddToNamed(String rangeName, XLScope scope)
         {
-            return AddToNamed(rangeName, XLScope.Workbook, null);
+            return AddToNamed(rangeName, scope, null);
         }
 
         public IXLRanges AddToNamed(String rangeName, XLScope scope, String? comment)

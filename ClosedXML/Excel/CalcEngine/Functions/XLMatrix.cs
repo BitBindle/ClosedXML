@@ -1,18 +1,17 @@
-#nullable disable
-
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace ClosedXML.Excel.CalcEngine.Functions
 {
     internal class XLMatrix
     {
-        public XLMatrix L;
-        public XLMatrix U;
+        public XLMatrix? L;
+        public XLMatrix? U;
         public int cols;
         private readonly CalcContext _ctx;
         private double detOfP = 1;
         public double[,] mat;
-        private int[] pi;
+        private int[]? pi;
         public int rows;
 
         private XLMatrix(int iRows, int iCols, CalcContext ctx) // XLMatrix Class constructor
@@ -69,6 +68,13 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             for (var i = 0; i < rows; i++) mat[i, k] = v[i, 0];
         }
 
+        /// <summary>
+        /// Is the LU decomposition done.
+        /// </summary>
+        [MemberNotNullWhen(true, nameof(L), nameof(U), nameof(pi))]
+        private bool HasLU => L is not null && U is not null && pi is not null;
+
+        [MemberNotNull(nameof(L), nameof(U), nameof(pi))]
         public void MakeLU() // Function for LU decomposition
         {
             if (!IsSquare()) throw new InvalidOperationException("The matrix is not square!");
@@ -138,7 +144,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
         {
             if (rows != cols) throw new InvalidOperationException("The matrix is not square!");
             if (rows != v.rows) throw new ArgumentException("Wrong number of results in solution vector!");
-            if (L == null) MakeLU();
+            if (!HasLU) MakeLU();
 
             var b = new XLMatrix(rows, 1, _ctx);
             for (var i = 0; i < rows; i++)
@@ -155,7 +161,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
 
         public XLMatrix Invert() // Function returns the inverted matrix
         {
-            if (L == null) MakeLU();
+            if (!HasLU) MakeLU();
 
             var inv = new XLMatrix(rows, cols, _ctx);
 
@@ -171,7 +177,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
 
         public double Determinant() // Function for determinant
         {
-            if (L == null) MakeLU();
+            if (!HasLU) MakeLU();
             var det = detOfP;
             for (var i = 0; i < rows; i++) det *= U[i, i];
             return det;
@@ -194,7 +200,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
 
         public XLMatrix SubsForth(XLMatrix A, XLMatrix b) // Function solves Ax = b for A as a lower triangular matrix
         {
-            if (A.L == null) A.MakeLU();
+            if (!A.HasLU) A.MakeLU();
             var n = A.rows;
             var x = new XLMatrix(n, 1, _ctx);
 
@@ -213,7 +219,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
 
         public XLMatrix SubsBack(XLMatrix A, XLMatrix b) // Function solves Ax = b for A as an upper triangular matrix
         {
-            if (A.L == null) A.MakeLU();
+            if (!A.HasLU) A.MakeLU();
             var n = A.rows;
             var x = new XLMatrix(n, 1, _ctx);
 

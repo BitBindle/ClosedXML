@@ -1250,5 +1250,60 @@ namespace ClosedXML.Tests
                 Assert.AreEqual(functionNames.Value + "()", cell.FormulaA1);
             }
         }
+
+        [Test]
+        public void Insert_of_null_data_returns_null()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var cell = ws.Cell("A1");
+
+            Assert.IsNull(cell.InsertData((System.Collections.IEnumerable)null));
+            Assert.IsNull(cell.InsertData("Text"));
+            Assert.IsNull(cell.InsertData((System.Collections.IEnumerable)null, true));
+            Assert.IsNull(cell.InsertData((DataTable)null));
+            Assert.IsNull(cell.InsertTable((DataTable)null));
+            Assert.IsNull(cell.InsertTable(new DataTable()));
+            Assert.IsTrue(ws.IsEmpty());
+        }
+
+        [Test]
+        public void Cell_without_merge_or_sparkline_returns_null()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var cell = ws.Cell("A1");
+
+            Assert.IsNull(cell.MergedRange());
+            Assert.IsNull(cell.Sparkline);
+            Assert.IsNull(cell.FormulaReference);
+        }
+
+        [Test]
+        public void Formula_can_be_cleared_with_null()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var cell = ws.Cell("A1");
+            cell.FormulaA1 = "1+2";
+
+            cell.FormulaA1 = null;
+
+            Assert.IsFalse(cell.HasFormula);
+            Assert.AreEqual(String.Empty, cell.FormulaA1);
+        }
+
+        [Test]
+        public void Copy_of_sparkline_without_source_data_is_skipped()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.SparklineGroups.Add(ws.Cell("A1"), null);
+
+            ws.Cell("B1").CopyFrom(ws.Cell("A1"));
+
+            Assert.IsTrue(ws.Cell("A1").HasSparkline);
+            Assert.IsFalse(ws.Cell("B1").HasSparkline);
+        }
     }
 }

@@ -1,7 +1,6 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace ClosedXML.Excel
@@ -22,7 +21,7 @@ namespace ClosedXML.Excel
 
         #region IXLTables Members
 
-        bool IXLTables.TryGetTable(string tableName, out IXLTable table)
+        bool IXLTables.TryGetTable(string tableName, [NotNullWhen(true)] out IXLTable? table)
         {
             if (TryGetTable(tableName, out var foundTable))
             {
@@ -97,13 +96,13 @@ namespace ClosedXML.Excel
 
         public IXLTable Table(String name)
         {
-            if (TryGetTable(name, out XLTable table))
+            if (TryGetTable(name, out var table))
                 return table;
 
             throw new ArgumentOutOfRangeException(nameof(name), $"Table {name} was not found.");
         }
 
-        internal bool TryGetTable(string tableName, out XLTable table)
+        internal bool TryGetTable(string tableName, [NotNullWhen(true)] out XLTable? table)
         {
             return _tables.TryGetValue(tableName, out table);
         }

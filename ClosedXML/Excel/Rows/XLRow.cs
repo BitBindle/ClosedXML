@@ -201,7 +201,16 @@ namespace ClosedXML.Excel
             if (usedCellsOnly)
                 return Cells(true, XLCellsUsedOptions.AllContents);
             else
-                return Cells(FirstCellUsed().Address.ColumnNumber, LastCellUsed().Address.ColumnNumber);
+            {
+                var firstCell = FirstCellUsed();
+                var lastCell = LastCellUsed();
+
+                // A row without used cells has no cells between the first and the last used cell.
+                if (firstCell is null || lastCell is null)
+                    return Cells(true, XLCellsUsedOptions.AllContents);
+
+                return Cells(firstCell.Address.ColumnNumber, lastCell.Address.ColumnNumber);
+            }
         }
 
         public override XLCells Cells(String cellsInRow)
@@ -503,10 +512,14 @@ namespace ClosedXML.Excel
             return this;
         }
 
-        public IXLRangeRow RowUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents)
+        public IXLRangeRow? RowUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents)
         {
-            return Row((this as IXLRangeBase).FirstCellUsed(options),
-                (this as IXLRangeBase).LastCellUsed(options));
+            var firstCell = FirstCellUsed(options);
+            var lastCell = LastCellUsed(options);
+            if (firstCell is null || lastCell is null)
+                return null;
+
+            return Row(firstCell, lastCell);
         }
 
         #endregion IXLRow Members

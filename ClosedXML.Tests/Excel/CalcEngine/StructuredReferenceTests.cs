@@ -203,7 +203,7 @@ namespace ClosedXML.Tests.Excel.CalcEngine
                 dt.Rows.Add(row);
             }
 
-            var table = ws.Cell(origin).InsertTable(dt, "TableName");
+            var table = ws.Cell(origin).InsertTable(dt, "TableName") ?? throw new AssertionException("The data table must give a table.");
             table.SetShowTotalsRow(true);
             return table;
         }

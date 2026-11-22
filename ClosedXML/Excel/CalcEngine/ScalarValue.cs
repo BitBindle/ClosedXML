@@ -1,6 +1,5 @@
-#nullable disable
-
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using ClosedXML.Extensions;
 
@@ -28,10 +27,10 @@ namespace ClosedXML.Excel.CalcEngine
         private readonly byte _index;
         private readonly bool _logical;
         private readonly double _number;
-        private readonly string _text;
+        private readonly string? _text;
         private readonly XLError _error;
 
-        private ScalarValue(byte index, bool logical, double number, string text, XLError error)
+        private ScalarValue(byte index, bool logical, double number, string? text, XLError error)
         {
             _index = index;
             _logical = logical;
@@ -39,6 +38,9 @@ namespace ClosedXML.Excel.CalcEngine
             _text = text;
             _error = error;
         }
+
+        // The index selects the field that the constructor sets. This property only guards that rule.
+        private string TextOrThrow => _text ?? throw new InvalidOperationException("The value is not a text.");
 
         /// <summary>
         /// A blank value of a scalar. It can behave as a 0 or empty string, depending on context.
@@ -97,7 +99,7 @@ namespace ClosedXML.Excel.CalcEngine
 
         public Double GetNumber() => IsNumber ? _number : throw new InvalidCastException();
 
-        public string GetText() => IsText ? _text : throw new InvalidCastException();
+        public string GetText() => IsText ? TextOrThrow : throw new InvalidCastException();
 
         public XLError GetError() => IsError ? _error : throw new InvalidCastException();
 
@@ -108,7 +110,7 @@ namespace ClosedXML.Excel.CalcEngine
                 BlankValue => 0, // The result value of a formula calculation can be blank, but result of formula in a cell value is never blank, but 0.
                 LogicalValue => _logical,
                 NumberValue => _number,
-                TextValue => _text,
+                TextValue => TextOrThrow,
                 ErrorValue => _error,
                 _ => throw new InvalidOperationException()
             };
@@ -121,7 +123,7 @@ namespace ClosedXML.Excel.CalcEngine
                 BlankValue => transformBlank(),
                 LogicalValue => transformLogical(_logical),
                 NumberValue => transformNumber(_number),
-                TextValue => transformText(_text),
+                TextValue => transformText(TextOrThrow),
                 ErrorValue => transformError(_error),
                 _ => throw new InvalidOperationException()
             };
@@ -134,7 +136,7 @@ namespace ClosedXML.Excel.CalcEngine
                 BlankValue => transformBlank(param),
                 LogicalValue => transformLogical(_logical, param),
                 NumberValue => transformNumber(_number, param),
-                TextValue => transformText(_text, param),
+                TextValue => transformText(TextOrThrow, param),
                 ErrorValue => transformError(_error, param),
                 _ => throw new InvalidOperationException()
             };
@@ -147,7 +149,7 @@ namespace ClosedXML.Excel.CalcEngine
                 BlankValue => transformBlank(param1, param2),
                 LogicalValue => transformLogical(_logical, param1, param2),
                 NumberValue => transformNumber(_number, param1, param2),
-                TextValue => transformText(_text, param1, param2),
+                TextValue => transformText(TextOrThrow, param1, param2),
                 ErrorValue => transformError(_error, param1, param2),
                 _ => throw new InvalidOperationException()
             };
@@ -160,7 +162,7 @@ namespace ClosedXML.Excel.CalcEngine
                 BlankValue => AnyValue.Blank,
                 LogicalValue => _logical,
                 NumberValue => _number,
-                TextValue => _text,
+                TextValue => TextOrThrow,
                 ErrorValue => _error,
                 _ => throw new InvalidOperationException()
             };
@@ -176,7 +178,7 @@ namespace ClosedXML.Excel.CalcEngine
                 BlankValue => string.Empty,
                 LogicalValue => _logical ? "TRUE" : "FALSE",
                 NumberValue => _number.ToString(culture),
-                TextValue => _text,
+                TextValue => TextOrThrow,
                 ErrorValue => _error,
                 _ => throw new InvalidOperationException()
             };
@@ -192,7 +194,7 @@ namespace ClosedXML.Excel.CalcEngine
                 BlankValue => 0,
                 LogicalValue => _logical ? 1.0 : 0.0,
                 NumberValue => _number,
-                TextValue => TextToNumber(_text, culture),
+                TextValue => TextToNumber(TextOrThrow, culture),
                 ErrorValue => _error,
                 _ => throw new InvalidOperationException()
             };
@@ -416,11 +418,11 @@ namespace ClosedXML.Excel.CalcEngine
             return false;
         }
 
-        public bool TryPickText(out string text, out XLError error)
+        public bool TryPickText([NotNullWhen(true)] out string? text, out XLError error)
         {
             if (_index == TextValue)
             {
-                text = _text;
+                text = TextOrThrow;
                 error = default;
                 return true;
             }
@@ -467,11 +469,11 @@ namespace ClosedXML.Excel.CalcEngine
                     value = _number != 0;
                     error = default;
                     return true;
-                case TextValue when (StringComparer.OrdinalIgnoreCase.Equals(_text, "TRUE")):
+                case TextValue when (StringComparer.OrdinalIgnoreCase.Equals(TextOrThrow, "TRUE")):
                     value = true;
                     error = default;
                     return true;
-                case TextValue when (StringComparer.OrdinalIgnoreCase.Equals(_text, "FALSE")):
+                case TextValue when (StringComparer.OrdinalIgnoreCase.Equals(TextOrThrow, "FALSE")):
                     value = false;
                     error = default;
                     return true;
@@ -493,7 +495,7 @@ namespace ClosedXML.Excel.CalcEngine
                 BlankValue => "Blank",
                 LogicalValue => _logical.ToString().ToUpper(),
                 NumberValue => _number.ToString(CultureInfo.InvariantCulture),
-                TextValue => _text,
+                TextValue => TextOrThrow,
                 ErrorValue => _error.ToDisplayString(),
                 _ => throw new InvalidOperationException("Invalid type of scalar value.")
             };

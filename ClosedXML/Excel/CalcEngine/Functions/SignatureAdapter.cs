@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 
@@ -669,7 +667,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             };
         }
 
-        public static CalcEngineFunction AdaptAddress(Func<CalcContext, double, double, double, bool, string, ScalarValue> f)
+        public static CalcEngineFunction AdaptAddress(Func<CalcContext, double, double, double, bool, string?, ScalarValue> f)
         {
             return (ctx, args) =>
             {
@@ -689,7 +687,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
                 if (!arg3Converted.TryPickT0(out var arg3, out var err3))
                     return err3;
 
-                string arg4 = null;
+                string? arg4 = null;
                 if (args.Length > 4)
                 {
                     var arg4Converted = ToText(args[4], ctx);
