@@ -28,6 +28,7 @@ namespace ClosedXML.Tests.Excel.Tables
         [TestCase("Sales(1)")]
         [TestCase("A&B")]
         [TestCase(@"Sales\2024")]
+        [TestCase("Sales\uD840")]
         [Issue("56")]
         public void Name_with_character_that_Excel_rejects_is_rejected(string name)
         {
@@ -43,10 +44,13 @@ namespace ClosedXML.Tests.Excel.Tables
         [TestCase(@"\Sales")]
         [TestCase("_Sales.2024")]
         [TestCase("Ventes_Été")]
+        [TestCase("Ventes_E\u0301te\u0301")]
+        [TestCase("Name\uD840\uDC0B")]
         [Issue("56")]
         public void Save_keeps_valid_table_name(string name)
         {
-            // The first character can be a backslash. Letters of all languages are valid.
+            // The first character can be a backslash. Letters of all languages are valid, also with a
+            // combining mark or outside the BMP.
             using var wb = new XLWorkbook();
             CreateTable(wb.AddWorksheet()).Name = name;
             using var ms = new MemoryStream();

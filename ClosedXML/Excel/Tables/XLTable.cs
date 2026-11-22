@@ -204,9 +204,9 @@ namespace ClosedXML.Excel
         /// </summary>
         /// <param name="value">The new name.</param>
         /// <param name="checkExcelRules">
-        /// If true, the method also applies the rules of Excel: no whitespace, not a cell reference
-        /// and not the name of a defined name. The load gives false, because other producers can
-        /// write such names.
+        /// If true, the method also applies the rules of Excel: no whitespace, only letters, digits,
+        /// periods and underscores after the first character, not a cell reference and not the name
+        /// of a defined name. The load gives false, because other producers can write such names.
         /// </param>
         internal void SetName(String value, Boolean checkExcelRules)
         {
@@ -236,6 +236,39 @@ namespace ClosedXML.Excel
                 Worksheet.Tables.Rename(oldname, this);
         }
 
+        /// <summary>
+        /// Excel accepts only letters, digits, periods and underscores after the first character.
+        /// A letter can have combining marks. A letter outside the BMP has two UTF-16 code units.
+        /// </summary>
+        private static Boolean HasValidNameCharacters(String name)
+        {
+            for (var i = 1; i < name.Length; ++i)
+            {
+                var c = name[i];
+                if (c is '.' or '_')
+                    continue;
+
+                var category = CharUnicodeInfo.GetUnicodeCategory(name, i);
+                var isValid = category is UnicodeCategory.UppercaseLetter
+                    or UnicodeCategory.LowercaseLetter
+                    or UnicodeCategory.TitlecaseLetter
+                    or UnicodeCategory.ModifierLetter
+                    or UnicodeCategory.OtherLetter
+                    or UnicodeCategory.NonSpacingMark
+                    or UnicodeCategory.SpacingCombiningMark
+                    or UnicodeCategory.EnclosingMark
+                    or UnicodeCategory.DecimalDigitNumber;
+                if (!isValid)
+                    return false;
+
+                // The category of a surrogate pair is the category of the pair. Skip the low surrogate.
+                if (Char.IsHighSurrogate(c))
+                    ++i;
+            }
+
+            return true;
+        }
+
         private Boolean CheckExcelNameRules(String name, out String message)
         {
             // ECMA-376 Part 1, 18.5.1.2: the name has no spaces, and it is unique among the
@@ -246,8 +279,7 @@ namespace ClosedXML.Excel
                 return false;
             }
 
-            // Excel accepts only letters, digits, periods and underscores after the first character.
-            if (name.Skip(1).Any(static c => !Char.IsLetterOrDigit(c) && c != '.' && c != '_'))
+            if (!HasValidNameCharacters(name))
             {
                 message = $"The table name '{name}' contains a character that is not a letter, a digit, a period or an underscore.";
                 return false;

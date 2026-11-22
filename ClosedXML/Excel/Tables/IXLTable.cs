@@ -18,7 +18,11 @@ namespace ClosedXML.Excel
         /// <summary>
         /// Change the name of a table. Structural references to the table are not updated.
         /// </summary>
-        /// <exception cref="ArgumentException">If the new table name is already used by other table in the sheet.</exception>
+        /// <exception cref="ArgumentException">
+        /// The new name is the name of another table in the sheet. Or the new name breaks a name rule of Excel:
+        /// it contains whitespace, it has a character other than a letter, a digit, a period or an underscore
+        /// after the first character, it is a cell reference, or it is the name of a defined name.
+        /// </exception>
         string Name { get; set; }
         Boolean ShowAutoFilter { get; set; }
         Boolean ShowColumnStripes { get; set; }
