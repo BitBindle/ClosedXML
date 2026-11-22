@@ -204,9 +204,9 @@ namespace ClosedXML.Excel.IO
                     ? new FieldGroup(fieldGroupXml)
                     : null;
 
-                // The records have no values for a calculated field or a group field. Thus,
-                // such a field has no shared items and no statistics of the values. Excel doesn't
-                // write the sharedItems element for such a field, so the writer drops the statistics.
+                // The records have no values for a calculated field or a group field. If such a
+                // field has no shared items, Excel writes no sharedItems element. The writer then
+                // drops the statistics.
                 if (!fieldValues.IsDatabaseField && fieldValues.SharedCount == 0)
                     continue;
 

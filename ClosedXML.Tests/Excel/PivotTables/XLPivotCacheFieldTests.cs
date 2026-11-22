@@ -160,6 +160,7 @@ internal class XLPivotCacheFieldTests
 
         Assert.AreEqual("Name2", filter.SourceName);
         Assert.Throws<NotSupportedException>(() => _ = filter.SelectedValues);
+        Assert.Throws<NotSupportedException>(() => filter.AddSelectedValue("Group1"));
     }
 
     [Test]
@@ -266,8 +267,8 @@ internal class XLPivotCacheFieldTests
     }
 
     /// <summary>
-    /// Creates a file with a group field <c>Name2</c> that groups the items of the <c>Name</c> field.
-    /// The records have no values for the group field.
+    /// Creates a file with the calculated field <c>Double</c> and the group field <c>Name2</c>.
+    /// The pivot table has no axis for the group field.
     /// </summary>
     private static MemoryStream CreateFileWithCalculatedAndGroupField()
     {
@@ -286,6 +287,11 @@ internal class XLPivotCacheFieldTests
         return ms;
     }
 
+    /// <summary>
+    /// Creates a file with a group field <c>Name2</c> that groups the items of the <c>Name</c> field.
+    /// The records have no values for the group field.
+    /// </summary>
+    /// <param name="groupFieldInFilter">If true, the pivot table has the group field in the filters and the selected item is <c>Group2</c>.</param>
     private static MemoryStream CreateFileWithGroupField(bool groupFieldInFilter = false)
     {
         var ms = CreateFile();

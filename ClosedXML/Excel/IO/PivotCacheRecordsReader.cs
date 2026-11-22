@@ -50,7 +50,7 @@ internal partial class PivotCacheRecordsReader
 
     partial void OnRecordParsed()
     {
-        // Each record should have element for each database field
+        // Each record has one value for each database field.
         if (_fieldIdx != _databaseFieldIndexes.Length)
             throw PartStructureException.IncorrectElementsCount();
 
