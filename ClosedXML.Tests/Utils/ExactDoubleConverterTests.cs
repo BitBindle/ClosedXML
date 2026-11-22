@@ -82,6 +82,13 @@ internal class ExactDoubleConverterTests
     [TestCase("9007199254740993", 0x4340000000000000UL)]
     [TestCase("9007199254740993.0000000000000000001", 0x4340000000000001UL)]
     [TestCase("9007199254740991.5", 0x4340000000000000UL)]
+    [TestCase("9007199254740995", 0x4340000000000002UL)]
+    [TestCase("4503599627370496.5", 0x4330000000000000UL)]
+    [TestCase("4503599627370497.5", 0x4330000000000002UL)]
+    [TestCase("9007199254740993e5", 0x44486A0000000001UL)]
+    [TestCase("1234567890123456789e-27", 0x3E1535AFDF5AE86EUL)]
+    [TestCase("1234567890123456789e27", 0x494BAE1279C66306UL)]
+    [TestCase("9999999999999999999e-27", 0x3E45798EE2308C3AUL)]
     [TestCase("1.7976931348623157E+308", 0x7FEFFFFFFFFFFFFFUL)]
     [TestCase("2.2250738585072014E-308", 0x0010000000000000UL)]
     [TestCase("2.2250738585072011E-308", 0x000FFFFFFFFFFFFFUL)]
@@ -207,6 +214,23 @@ internal class ExactDoubleConverterTests
         }
     }
 
+    [Test]
+    public void TryParse_gives_same_value_as_runtime_for_text_that_excel_writes()
+    {
+        // Excel writes 17 significant digits. The integer of 16 to 19 digits is larger than 2^53 in most cases.
+        var random = new Random(34);
+        for (var i = 0; i < 20000; i++)
+        {
+            var value = random.NextDouble() * Math.Pow(10, random.Next(-12, 19));
+            var digitCount = random.Next(16, 20);
+            var text = value.ToString("E" + (digitCount - 1).ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+            var expected = double.Parse(text, CultureInfo.InvariantCulture);
+
+            Assert.True(ExactDoubleConverter.TryParse(text, out var parsed), text);
+            Assert.AreEqual(BitConverter.DoubleToInt64Bits(expected), BitConverter.DoubleToInt64Bits(parsed), text);
+        }
+    }
+
     private static IEnumerable<double> GetRandomDoubles(int count)
     {
         var random = new Random(34);
@@ -220,6 +244,9 @@ internal class ExactDoubleConverterTests
 
             // Values with few digits, as a person types them.
             yield return Math.Round(random.NextDouble() * Math.Pow(10, random.Next(-8, 18)), random.Next(0, 10));
+
+            // Values with all digits, as a calculation gives them.
+            yield return random.NextDouble() * Math.Pow(10, random.Next(-13, 19));
         }
     }
 
