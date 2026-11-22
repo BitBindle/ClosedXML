@@ -1,4 +1,8 @@
-﻿using ClosedXML.Excel;
+﻿using System.IO;
+using System.Linq;
+using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using NUnit.Framework;
 
 namespace ClosedXML.Tests.Excel.PivotTables.Style;
@@ -205,5 +209,71 @@ internal class XLPivotFieldStyleFormatsTests
                 .AndWith(flavorField, x => x.IsText && x.GetText() == "Peach" || x.GetText() == "Chocolate")
                 .Style.Fill.BackgroundColor = XLColor.LightBlue;
         }, @"Other\PivotTable\Style\Style_data_cells_at_intersection_of_value_field_and_axis_field_with_specific_values.xlsx");
+    }
+
+    [Test]
+    [Issue("51")]
+    public void Style_format_references_item_by_position_in_field_items()
+    {
+        // A pivot area reference selects an item by its position in the field items. The position
+        // is different from the shared item index, if the field items have a different order.
+        using var ms = new MemoryStream();
+        using (var wb = new XLWorkbook())
+        {
+            var ws = wb.AddWorksheet();
+            var data = ws.Cell("A1").InsertData(new object[]
+            {
+                ("City", "Sales"),
+                ("Paris", 1),
+                ("Rome", 2),
+                ("Oslo", 3),
+                ("Kyiv", 4),
+            });
+            var pt = ws.PivotTables.Add("pt", ws.Cell("D1"), data);
+            pt.RowLabels.Add("City");
+            pt.Values.Add("Sales");
+            wb.SaveAs(ms);
+        }
+
+        using (var document = SpreadsheetDocument.Open(ms, true))
+        {
+            var definition = GetPivotTableDefinition(document);
+            var items = definition.PivotFields!.Elements<PivotField>().First().Items!;
+            var dataItems = items.Elements<Item>().Where(item => item.ItemType is null).ToList();
+            CollectionAssert.AreEqual(new uint[] { 0, 1, 2, 3 }, dataItems.Select(item => item.Index!.Value));
+            foreach (var dataItem in dataItems)
+                dataItem.Remove();
+
+            // Put the data items in reverse order before the subtotal item.
+            foreach (var dataItem in dataItems)
+                items.InsertAt(dataItem, 0);
+        }
+
+        using var savedMs = new MemoryStream();
+        using (var wb = new XLWorkbook(ms))
+        {
+            var pt = wb.Worksheet(1).PivotTable("pt");
+            var cityField = pt.RowLabels.Get("City");
+            cityField.StyleFormats.DataValuesFormat
+                .AndWith(cityField, v => v.IsText && v.GetText() == "Rome")
+                .Style.Fill.BackgroundColor = XLColor.LightBlue;
+            wb.SaveAs(savedMs);
+        }
+
+        using (var document = SpreadsheetDocument.Open(savedMs, false))
+        {
+            var definition = GetPivotTableDefinition(document);
+            var pivotArea = definition.Formats!.Elements<Format>().Single().PivotArea!;
+            var cityReference = pivotArea.PivotAreaReferences!.Elements<PivotAreaReference>()
+                .Single(reference => reference.Field?.Value == 0 && reference.Elements<FieldItem>().Any());
+
+            // The shared item index of Rome is 1. The field items are Kyiv, Oslo, Rome and Paris.
+            CollectionAssert.AreEqual(new uint[] { 2 }, cityReference.Elements<FieldItem>().Select(x => x.Val!.Value));
+        }
+    }
+
+    private static PivotTableDefinition GetPivotTableDefinition(SpreadsheetDocument document)
+    {
+        return document.WorkbookPart!.WorksheetParts.SelectMany(wsp => wsp.PivotTableParts).Single().PivotTableDefinition!;
     }
 }
