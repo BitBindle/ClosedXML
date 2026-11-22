@@ -206,5 +206,15 @@ namespace ClosedXML.Tests.Excel
                 @"Other\StyleReferenceFiles\FillAtReservedPosition-MoveFill-Input.xlsx",
                 @"Other\StyleReferenceFiles\FillAtReservedPosition-MoveFill-Output.xlsx");
         }
-    }
+    
+        [Test]
+        [Issue("60")]
+        public void Fill_is_not_equal_to_null()
+        {
+            using var wb = new XLWorkbook();
+            var fill = wb.AddWorksheet().Cell("A1").Style.Fill;
+
+            Assert.That(((System.IEquatable<IXLFill>)fill).Equals(null), Is.False);
+        }
+}
 }

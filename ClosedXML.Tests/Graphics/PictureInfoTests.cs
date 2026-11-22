@@ -236,12 +236,10 @@ namespace ClosedXML.Tests.Graphics
                 return base.Read(buffer, offset, Math.Min(count, 1));
             }
 
-#if NET
             public override int Read(Span<byte> buffer)
             {
                 return base.Read(buffer.Slice(0, Math.Min(buffer.Length, 1)));
             }
-#endif
         }
     }
 }

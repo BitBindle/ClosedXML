@@ -111,16 +111,16 @@ namespace ClosedXML.Excel
 
         #region IEquatable<XLColor> Members
 
-        public bool Equals(XLColor other)
+        public bool Equals(XLColor? other)
         {
-            return Key == other.Key;
+            return other is not null && Key == other.Key;
         }
 
         #endregion IEquatable<XLColor> Members
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
-            return Equals((XLColor)obj);
+            return Equals(obj as XLColor);
         }
 
         public override int GetHashCode()

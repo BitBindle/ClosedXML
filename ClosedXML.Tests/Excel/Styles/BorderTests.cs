@@ -110,11 +110,7 @@ namespace ClosedXML.Tests.Excel.Styles
         }
 
         [Test]
-#if NETFRAMEWORK
-        [Timeout(100)]
-#else
         [MaxTime(100)]
-#endif
         public void OutsideBorder_for_column()
         {
             using var wb = new XLWorkbook();
@@ -144,11 +140,7 @@ namespace ClosedXML.Tests.Excel.Styles
         }
 
         [Test]
-#if NETFRAMEWORK
-        [Timeout(100)]
-#else
         [MaxTime(100)]
-#endif
         public void InsideBorder_for_one_column()
         {
             using var wb = new XLWorkbook();

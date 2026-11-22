@@ -1,4 +1,3 @@
-#if NETFRAMEWORK
 using ClosedXML.Excel;
 using ClosedXML.Tests.Utils;
 using NUnit.Framework;
@@ -8,10 +7,12 @@ using System.Data;
 using System.Data.OleDb;
 using System.IO;
 using System.Linq;
+using System.Runtime.Versioning;
 
 namespace ClosedXML.Tests.OleDb
 {
     [TestFixture]
+    [SupportedOSPlatform("windows")]
     public class OleDbTests
     {
         [Test]
@@ -118,4 +119,3 @@ namespace ClosedXML.Tests.OleDb
         }
     }
 }
-#endif

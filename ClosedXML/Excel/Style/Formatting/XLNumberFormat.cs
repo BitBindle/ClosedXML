@@ -34,7 +34,7 @@ internal readonly record struct XLNumberFormat : IEquatable<string>
         return new XLNumberFormat(formatCode);
     }
 
-    public bool Equals(string other)
+    public bool Equals(string? other)
     {
         return other == _format;
     }

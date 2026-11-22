@@ -365,11 +365,6 @@ public sealed class XmlTreeReader : IDisposable
     /// </summary>
     private static double ToDouble(string value)
     {
-#if !NETSTANDARD2_1_OR_GREATER
-        // The parser of .NET Framework can give a different double than .NET for the same text.
-        if (ExactNumberParser.TryParseExact(value, out var number))
-            return number;
-#endif
         return XmlConvert.ToDouble(value);
     }
 

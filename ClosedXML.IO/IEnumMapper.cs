@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace ClosedXML.IO;
 
@@ -24,6 +25,6 @@ public interface IEnumMapper
     /// <param name="enumValue">Enum value.</param>
     /// <param name="text">Output text for the enum value.</param>
     /// <returns><c>True</c> if text was found for passed enum value, false otherwise.</returns>
-    bool TryGetText<TEnum>(TEnum enumValue, out string text)
+    bool TryGetText<TEnum>(TEnum enumValue, [MaybeNullWhen(false)] out string text)
         where TEnum : struct, Enum;
 }

@@ -2,6 +2,14 @@
 Migration from 0.105 to 0.106
 #############################
 
+*****************
+Target frameworks
+*****************
+
+ClosedXML now targets only ``net10.0``. The ``netstandard2.0`` and ``netstandard2.1`` builds are removed.
+.NET Framework, Mono and Unity applications can't use this version. These applications can stay on
+version 0.105.
+
 **************
 Number formats
 **************

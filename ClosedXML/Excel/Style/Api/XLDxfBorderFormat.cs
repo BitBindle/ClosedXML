@@ -277,7 +277,7 @@ internal class XLDxfBorderFormat : IXLBorder
         return _parent;
     }
 
-    bool IEquatable<IXLBorder>.Equals(IXLBorder other)
+    bool IEquatable<IXLBorder>.Equals(IXLBorder? other)
     {
         throw new NotImplementedException();
     }

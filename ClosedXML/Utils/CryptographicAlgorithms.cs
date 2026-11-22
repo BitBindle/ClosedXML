@@ -44,7 +44,7 @@ namespace ClosedXML.Utils
 
         public static string GetSalt(int length = 32)
         {
-            using (var random = new RNGCryptoServiceProvider())
+            using (var random = RandomNumberGenerator.Create())
             {
                 var salt = new byte[length];
                 random.GetNonZeroBytes(salt);
@@ -108,7 +108,7 @@ namespace ClosedXML.Utils
             var bytes = saltBytes.Concat(passwordBytes).ToArray();
 
             byte[] hashedBytes;
-            using (var hash = new SHA512Managed())
+            using (var hash = SHA512.Create())
             {
                 hashedBytes = hash.ComputeHash(bytes);
 

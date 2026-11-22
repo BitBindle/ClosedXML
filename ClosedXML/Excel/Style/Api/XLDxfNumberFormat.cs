@@ -73,9 +73,9 @@ internal class XLDxfNumberFormat : IXLNumberFormat
         return _parent;
     }
 
-    bool IEquatable<IXLNumberFormatBase>.Equals(IXLNumberFormatBase other)
+    bool IEquatable<IXLNumberFormatBase>.Equals(IXLNumberFormatBase? other)
     {
-        return Format == other.Format;
+        return other is not null && Format == other.Format;
     }
 
     internal void SetValue(IXLNumberFormat value)

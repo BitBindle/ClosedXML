@@ -116,14 +116,7 @@ namespace ClosedXML.Excel
                     }
                     else if (m.VTDouble != null)
                     {
-#if NETSTANDARD2_1_OR_GREATER
                         var number = Double.Parse(m.VTDouble.Text, CultureInfo.InvariantCulture);
-#else
-                        // The parser of .NET Framework can give a different double than .NET for the same text.
-                        var number = ExactNumberParser.TryParseExact(m.VTDouble.Text, out var exactNumber)
-                            ? exactNumber
-                            : Double.Parse(m.VTDouble.Text, CultureInfo.InvariantCulture);
-#endif
                         CustomProperties.Add(name, number);
                     }
                     else if (m.VTBool != null)

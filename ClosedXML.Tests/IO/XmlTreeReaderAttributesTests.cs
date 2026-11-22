@@ -108,7 +108,7 @@ internal class XmlTreeReaderAttributesTests
     [Issue("46")]
     public void GetOptionalDouble_reads_nearest_double(string xmlText, ulong expectedBits)
     {
-        // The parser of .NET Framework reads 9007199254740991.5 as 0x433FFFFFFFFFFFFF.
+        // The text 9007199254740991.5 is at the midpoint between two doubles. The result has the even mantissa.
         using var reader = CreateReader(xmlText);
 
         var readValue = reader.GetOptionalDouble(AttributeName);

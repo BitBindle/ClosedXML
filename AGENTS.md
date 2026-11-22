@@ -9,10 +9,10 @@ ClosedXML is a .NET library that reads and writes Excel files (`.xlsx`, `.xlsm`)
 
 | Project | Content |
 | --- | --- |
-| `ClosedXML` | The library. Targets `netstandard2.0` and `netstandard2.1`. |
-| `ClosedXML.IO` | Low-level readers and writers for the package parts. |
+| `ClosedXML` | The library. Targets `net10.0`. |
+| `ClosedXML.IO` | Low-level readers and writers for the package parts. Targets `net10.0`. |
 | `ClosedXML.IO.CodeGen` | Code generator for `ClosedXML.IO`. |
-| `ClosedXML.Tests` | NUnit tests. Target `net10.0` and `net462`. |
+| `ClosedXML.Tests` | NUnit tests. Targets `net10.0`. |
 | `ClosedXML.Examples` | Examples. Some tests use them. |
 | `ClosedXML.Sandbox` | Console application for manual experiments. |
 
@@ -28,21 +28,14 @@ Do these steps before the review gate. The commands are based on `.github/workfl
    dotnet build ClosedXML.slnx --configuration Release
    ```
 
-2. Run the tests with coverage. On Linux, use `net10.0` and skip the `OLEDB` category, because it needs a Windows driver:
+2. Run the tests with coverage. On Linux, skip the `OLEDB` category, because it needs a Windows driver:
 
    ```bash
-   dotnet test ClosedXML.Tests/ClosedXML.Tests.csproj --configuration Release --no-build --framework net10.0 --filter "TestCategory!=OLEDB" --collect "Code Coverage;Format=cobertura" --results-directory test-results
+   dotnet test ClosedXML.Tests/ClosedXML.Tests.csproj --configuration Release --no-build --filter "TestCategory!=OLEDB" --collect "Code Coverage;Format=cobertura" --results-directory test-results
    ```
 
 3. Measure the line coverage of the new code from the Cobertura report. For example, use `diff-cover` against `origin/develop`.
-4. Run the tests against the `netstandard2.0` build of ClosedXML. .NET Framework applications use this build. This build replaces the test output, so do this step after step 3:
-
-   ```bash
-   dotnet build ClosedXML.Tests/ClosedXML.Tests.csproj --configuration Release --framework net10.0 -p:ClosedXMLTargetFramework=netstandard2.0
-   dotnet test ClosedXML.Tests/ClosedXML.Tests.csproj --configuration Release --no-build --framework net10.0 -p:ClosedXMLTargetFramework=netstandard2.0 --filter "TestCategory!=OLEDB"
-   ```
-
-5. Run the text check:
+4. Run the text check:
 
    ```bash
    scripts/check.sh
@@ -50,7 +43,7 @@ Do these steps before the review gate. The commands are based on `.github/workfl
 
    If you change `scripts/check.sh`, also run `scripts/check-test.sh`.
 
-6. If a step fails, fix the cause. Do not skip, disable or ignore a test to make a step pass.
+5. If a step fails, fix the cause. Do not skip, disable or ignore a test to make a step pass.
 
 ## Review gate
 
@@ -96,7 +89,6 @@ You can find a problem that the change did not cause.
 
 - Use `Span<T>`, `ReadOnlySpan<T>`, `Memory<T>`, `stackalloc` and `ArrayPool<T>` where they remove an allocation or a copy on a hot path. Examples of hot paths are parsers, converters and serializers.
 - Do not use them where they only make the code harder to read.
-- On `netstandard2.0`, the `System.Memory` and `System.Buffers` packages supply these types.
 
 ### Async code
 

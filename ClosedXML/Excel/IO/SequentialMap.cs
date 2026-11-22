@@ -7,6 +7,7 @@ namespace ClosedXML.Excel.IO;
 
 internal class SequentialMap<TKey, T>
     where TKey : struct
+    where T : notnull
 {
     /// <summary>
     /// The index is the one that is used to save the <typeparamref name="T"/> while value is an index to the <c>_fullMap</c>.

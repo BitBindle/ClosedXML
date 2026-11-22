@@ -33,13 +33,35 @@ namespace ClosedXML.Tests.Extensions
             Assert.AreEqual(expectedText, value.ToInvariantString());
         }
 
-        // .NET Framework formats these values with a different last digit.
+        [TestCase(-0d, "-0")]
+        [TestCase(1d, "1")]
+        [TestCase(-42d, "-42")]
+        [TestCase(999999999999999d, "999999999999999")]
+        [TestCase(1e15, "1E+15")]
+        [TestCase(1e16, "1E+16")]
+        [TestCase(9007199254740993d, "9007199254740992")]
+        [TestCase(12345678901234567890d, "1.2345678901234567E+19")]
+        [TestCase(0.0001d, "0.0001")]
+        [TestCase(0.00012345d, "0.00012345")]
+        [TestCase(1e-5, "1E-05")]
+        [TestCase(1.5e-7, "1.5E-07")]
+        [TestCase(double.MinValue, "-1.7976931348623157E+308")]
+        [TestCase(2.2250738585072014E-308, "2.2250738585072014E-308")] // The smallest normal value.
+        [TestCase(2.2250738585072009E-308, "2.225073858507201E-308")] // The largest subnormal value.
+        [TestCase(0.99999999999999989d, "0.9999999999999999")]
         [TestCase(-0.86136133483801225d, "-0.8613613348380122")]
+        // The exact value is in the middle of two 16-digit texts. The text has the even digit.
         [TestCase(562949953421312.25d, "562949953421312.2")]
+        [TestCase(562949953421312.75d, "562949953421312.8")]
+        // The rounding adds a digit: 9.9999999999999995E+22 becomes 1E+23.
+        [TestCase(1e23, "1E+23")]
         [Issue("34")]
-        public void Double_text_is_the_same_on_each_runtime(double value, string expectedText)
+        public void Double_text_has_correctly_rounded_digits(double value, string expectedText)
         {
-            Assert.AreEqual(expectedText, value.ToInvariantString());
+            var text = value.ToInvariantString();
+
+            Assert.AreEqual(expectedText, text);
+            Assert.AreEqual(BitConverter.DoubleToInt64Bits(value), BitConverter.DoubleToInt64Bits(double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture)));
         }
 
         [TestCase(double.NaN, "NaN")]
@@ -70,6 +92,19 @@ namespace ClosedXML.Tests.Extensions
             Assert.AreEqual(expectedText, text);
             Assert.AreEqual(value, float.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture));
             Assert.AreEqual(expectedText, value.ToInvariantString());
+        }
+
+        [TestCase(-0f, "-0")]
+        [TestCase(1e7f, "1E+07")]
+        [TestCase(1e-5f, "1E-05")]
+        [TestCase(float.Epsilon, "1.401298E-45")]
+        [Issue("34")]
+        public void Float_text_has_correctly_rounded_digits(float value, string expectedText)
+        {
+            var text = value.ToInvariantString();
+
+            Assert.AreEqual(expectedText, text);
+            Assert.AreEqual(BitConverter.SingleToInt32Bits(value), BitConverter.SingleToInt32Bits(float.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture)));
         }
 
         [TestCase(float.NaN, "NaN")]
