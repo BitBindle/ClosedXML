@@ -53,6 +53,9 @@
 
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>$(SourceRoot)/ClosedXML.snk</AssemblyOriginatorKeyFile>
+
+    <!-- The netstandard2.0 build of ClosedXML uses this package. Directory.Build.targets also uses this version. -->
+    <MicrosoftBclHashCodeVersion>6.0.0</MicrosoftBclHashCodeVersion>
   </PropertyGroup>
 
   <!-- Make deterministic build (same binary is produced regardless of the machine building it) for CI -->
