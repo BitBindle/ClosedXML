@@ -192,7 +192,7 @@ namespace ClosedXML.Excel
 
         public IXLCells CellsUsed()
         {
-            var cells = new XLCells(_workbook, true, XLCellsUsedOptions.All);
+            var cells = new XLCells(_workbook, true, XLCellsUsedOptions.AllContents);
             foreach (XLColumn container in Columns)
                 cells.Add(container.RangeAddress);
             return cells;

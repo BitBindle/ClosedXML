@@ -40,6 +40,7 @@ jobs:
           dotnet test ClosedXML.Tests/ClosedXML.Tests.csproj
           --configuration Release --no-build --framework net10.0
           --filter "TestCategory!=OLEDB"
+          --collect "Code Coverage;Format=cobertura"
           --logger "trx;LogFileName=test-results.trx" --results-directory test-results
 
       - name: Upload test results
@@ -49,6 +50,21 @@ jobs:
           name: test-results
           path: test-results
           if-no-files-found: ignore
+
+      - name: Make coverage report
+        # The report shows the line coverage of the library assemblies. It has no threshold.
+        if: ${{ !cancelled() && hashFiles('test-results/**/*.cobertura.xml') != '' }}
+        run: |
+          dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.6.1
+          reportgenerator -reports:"test-results/**/*.cobertura.xml" -targetdir:coverage-report -reporttypes:"MarkdownSummaryGithub;Cobertura;HtmlSummary" -assemblyfilters:"+ClosedXML;+ClosedXML.IO"
+          cat coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage report
+        if: ${{ !cancelled() && hashFiles('coverage-report/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage-report
 
   test-netstandard20:
     # .NET Framework applications use the netstandard2.0 build. The test job uses the netstandard2.1 build.

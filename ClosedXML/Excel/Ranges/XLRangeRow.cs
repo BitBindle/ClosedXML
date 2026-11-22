@@ -120,13 +120,13 @@ namespace ClosedXML.Excel
             int lastRowNumber = target.RangeAddress.FirstAddress.RowNumber + RowCount() - 1;
             if (lastRowNumber > XLHelper.MaxRowNumber)
                 lastRowNumber = XLHelper.MaxRowNumber;
-            int lastColumnNumber = target.RangeAddress.LastAddress.ColumnNumber + ColumnCount() - 1;
+            int lastColumnNumber = target.RangeAddress.FirstAddress.ColumnNumber + ColumnCount() - 1;
             if (lastColumnNumber > XLHelper.MaxColumnNumber)
                 lastColumnNumber = XLHelper.MaxColumnNumber;
 
             return target.Worksheet.Range(
                 target.RangeAddress.FirstAddress.RowNumber,
-                target.RangeAddress.LastAddress.ColumnNumber,
+                target.RangeAddress.FirstAddress.ColumnNumber,
                 lastRowNumber,
                 lastColumnNumber)
                 .Row(1);
@@ -164,7 +164,7 @@ namespace ClosedXML.Excel
                     lastColumn = trimmedPair;
                 }
 
-                retVal.Add(Range(firstColumn, lastColumn).FirstRow());
+                retVal.Add(Range(firstColumn + ":" + lastColumn).FirstRow());
             }
 
             return retVal;
@@ -214,74 +214,6 @@ namespace ClosedXML.Excel
 
             var rangeAddress = new XLRangeAddress(Worksheet, rangeAddressToUse);
             return Range(rangeAddress);
-        }
-
-        public int CompareTo(XLRangeRow otherRow, IXLSortElements columnsToSort)
-        {
-            foreach (IXLSortElement e in columnsToSort)
-            {
-                var thisCell = (XLCell)Cell(e.ElementNumber);
-                var otherCell = (XLCell)otherRow.Cell(e.ElementNumber);
-                int comparison;
-                bool thisCellIsBlank = thisCell.IsEmpty();
-                bool otherCellIsBlank = otherCell.IsEmpty();
-                if (e.IgnoreBlanks && (thisCellIsBlank || otherCellIsBlank))
-                {
-                    if (thisCellIsBlank && otherCellIsBlank)
-                        comparison = 0;
-                    else
-                    {
-                        if (thisCellIsBlank)
-                            comparison = e.SortOrder == XLSortOrder.Ascending ? 1 : -1;
-                        else
-                            comparison = e.SortOrder == XLSortOrder.Ascending ? -1 : 1;
-                    }
-                }
-                else
-                {
-                    if (thisCell.DataType == otherCell.DataType)
-                    {
-                        switch (thisCell.DataType)
-                        {
-                            case XLDataType.Text:
-                                comparison = e.MatchCase
-                                                 ? thisCell.GetText().CompareTo(otherCell.GetText())
-                                                 : String.Compare(thisCell.GetText(), otherCell.GetText(), true);
-                                break;
-
-                            case XLDataType.TimeSpan:
-                                comparison = thisCell.GetTimeSpan().CompareTo(otherCell.GetTimeSpan());
-                                break;
-
-                            case XLDataType.DateTime:
-                                comparison = thisCell.GetDateTime().CompareTo(otherCell.GetDateTime());
-                                break;
-
-                            case XLDataType.Number:
-                                comparison = thisCell.GetDouble().CompareTo(otherCell.GetDouble());
-                                break;
-
-                            case XLDataType.Boolean:
-                                comparison = thisCell.GetBoolean().CompareTo(otherCell.GetBoolean());
-                                break;
-
-                            default:
-                                throw new NotImplementedException();
-                        }
-                    }
-                    else if (thisCell.Value.IsUnifiedNumber && otherCell.Value.IsUnifiedNumber)
-                        comparison = thisCell.Value.GetUnifiedNumber().CompareTo(otherCell.Value.GetUnifiedNumber());
-                    else if (e.MatchCase)
-                        comparison = String.Compare(thisCell.GetString(), otherCell.GetString(), true);
-                    else
-                        comparison = thisCell.GetString().CompareTo(otherCell.GetString());
-                }
-
-                if (comparison != 0)
-                    return e.SortOrder == XLSortOrder.Ascending ? comparison : -comparison;
-            }
-
-            return 0;
         }
 
         private XLRangeRow RowShift(Int32 rowsToShift)
