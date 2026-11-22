@@ -14,6 +14,7 @@ namespace ClosedXML.Excel
         private readonly XLWorksheet _worksheet;
         private String _name;
         private XLPivotTableTheme _theme;
+        private String _customStyleName;
 
         /// <summary>
         /// List of all fields in the pivot table, roughly represents <c>pivotTableDefinition.
@@ -106,7 +107,7 @@ namespace ClosedXML.Excel
             set
             {
                 _theme = value;
-                CustomStyleName = null;
+                _customStyleName = null;
             }
         }
 
@@ -114,7 +115,16 @@ namespace ClosedXML.Excel
         /// The name of a custom pivot table style of the workbook. If the name is set, the
         /// <see cref="Theme"/> is <see cref="XLPivotTableTheme.None"/>.
         /// </summary>
-        internal String CustomStyleName { get; set; }
+        internal String CustomStyleName
+        {
+            get => _customStyleName;
+            set
+            {
+                _customStyleName = value;
+                if (value is not null)
+                    _theme = XLPivotTableTheme.None;
+            }
+        }
 
         /// <summary>
         /// All fields reflected in the pivot cache.

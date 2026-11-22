@@ -286,6 +286,7 @@ namespace ClosedXML.Tests
             var pt = (XLPivotTable)wb.Worksheet("pvt1").PivotTables.First();
             pt.CustomStyleName = "MyPivotStyle";
             pt.ShowLastColumn = true;
+            Assert.AreEqual(XLPivotTableTheme.None, pt.Theme);
 
             var sameWorkbookCopy = (XLPivotTable)pt.CopyTo(wb.AddWorksheet("Copy").FirstCell());
             Assert.AreEqual("MyPivotStyle", sameWorkbookCopy.CustomStyleName);
@@ -295,6 +296,7 @@ namespace ClosedXML.Tests
             wb.Worksheet("PastrySalesData").CopyTo(otherWorkbook);
             var otherWorkbookCopy = (XLPivotTable)pt.CopyTo(otherWorkbook.AddWorksheet("pvt").FirstCell());
             Assert.IsNull(otherWorkbookCopy.CustomStyleName);
+            Assert.AreEqual(XLPivotTableTheme.None, otherWorkbookCopy.Theme);
             Assert.IsTrue(otherWorkbookCopy.ShowLastColumn);
 
             using var workbookWithStyle = new XLWorkbook();

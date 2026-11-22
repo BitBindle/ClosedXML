@@ -69,6 +69,7 @@ namespace ClosedXML.Tests.Excel.Tables
         }
 
         [Test]
+        [Issue("ClosedXML/ClosedXML#1951")]
         public void Rename_that_changes_only_the_case_is_allowed()
         {
             using var wb = new XLWorkbook();
@@ -81,6 +82,7 @@ namespace ClosedXML.Tests.Excel.Tables
         }
 
         [Test]
+        [Issue("ClosedXML/ClosedXML#1951")]
         public void Valid_name_is_accepted()
         {
             using var wb = new XLWorkbook();
@@ -92,6 +94,7 @@ namespace ClosedXML.Tests.Excel.Tables
         }
 
         [Test]
+        [Issue("ClosedXML/ClosedXML#1951")]
         public void Generated_name_skips_defined_names()
         {
             using var wb = new XLWorkbook();
@@ -104,6 +107,7 @@ namespace ClosedXML.Tests.Excel.Tables
         }
 
         [Test]
+        [Issue("ClosedXML/ClosedXML#1951")]
         public void Load_keeps_table_name_with_a_space()
         {
             // Excel does not write such a name, but other producers can. The load must not fail.
@@ -113,6 +117,7 @@ namespace ClosedXML.Tests.Excel.Tables
         }
 
         [Test]
+        [Issue("ClosedXML/ClosedXML#1951")]
         public void Copy_keeps_table_name_from_file()
         {
             // The copy takes the name of an existing table. The name rules apply only to a new name.
