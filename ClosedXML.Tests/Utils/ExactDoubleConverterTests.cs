@@ -16,8 +16,8 @@ namespace ClosedXML.Tests.Utils;
 internal class ExactDoubleConverterTests
 {
     /// <summary>
-    /// Number cells of a workbook that Excel saved with 17 significant digits, and the shortest
-    /// text that ClosedXML writes. The workbook is the input of the external reference sparkline test.
+    /// Number cells of a workbook that Excel saved with 17 significant digits, and the text that ClosedXML
+    /// writes with the fewest digits from 15 to 17. The workbook is the input of the external reference sparkline test.
     /// </summary>
     private static readonly TestCaseData[] ExcelNumbers =
     {
@@ -67,7 +67,7 @@ internal class ExactDoubleConverterTests
 
     [TestCaseSource(nameof(ExcelNumbers))]
     [Issue("34")]
-    public void Format_writes_shortest_text_of_excel_number(string _, ulong bits, string expectedText)
+    public void Format_writes_fewest_digits_from_15_to_17_of_excel_number(string _, ulong bits, string expectedText)
     {
         var value = BitConverter.Int64BitsToDouble((long)bits);
 
@@ -162,7 +162,7 @@ internal class ExactDoubleConverterTests
     [TestCase(0x000FFFFFFFFFFFFFUL, "2.225073858507201E-308")]
     [TestCase(0x44B52D02C7E14AF6UL, "1E+23")]
     [TestCase(0x430BB8629B743EDEUL, "975319753197531.8")]
-    public void Format_writes_shortest_text_of_double(ulong bits, string expectedText)
+    public void Format_writes_fewest_digits_from_15_to_17_of_double(ulong bits, string expectedText)
     {
         var value = BitConverter.Int64BitsToDouble((long)bits);
 

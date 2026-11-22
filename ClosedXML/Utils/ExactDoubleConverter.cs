@@ -7,8 +7,7 @@ using ClosedXML.Excel;
 namespace ClosedXML.Utils;
 
 /// <summary>
-/// Converts between a <see cref="double"/> and its decimal text with integer arithmetic only.
-/// The result is the IEEE 754 result, and it does not depend on the runtime.
+/// Converts between a <see cref="double"/> and its decimal text. The result is the IEEE 754 result on each runtime.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -785,7 +784,6 @@ internal static class ExactDoubleConverter
         while (digitCount < MaxPrecision && digits >= IntegerPowersOfTen[digitCount])
             digitCount++;
 
-        // The longest text, for example "-1.2345678901234567E-308", has 24 characters.
         Span<char> digitText = stackalloc char[MaxPrecision];
         for (var i = digitCount - 1; i >= 0; i--)
         {
@@ -793,6 +791,7 @@ internal static class ExactDoubleConverter
             digits /= 10;
         }
 
+        // The longest text, for example "-1.2345678901234567E-308", has 24 characters.
         Span<char> text = stackalloc char[32];
         var length = 0;
         if (isNegative)
