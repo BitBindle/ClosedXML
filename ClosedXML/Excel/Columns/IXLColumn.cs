@@ -196,6 +196,6 @@ namespace ClosedXML.Excel
         /// <param name="clearOptions">Specify what you want to clear.</param>
         new IXLColumn Clear(XLClearOptions clearOptions = XLClearOptions.All);
 
-        IXLRangeColumn ColumnUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents);
+        IXLRangeColumn? ColumnUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents);
     }
 }

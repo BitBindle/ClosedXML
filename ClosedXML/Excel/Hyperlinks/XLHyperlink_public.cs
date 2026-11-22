@@ -1,13 +1,13 @@
-#nullable disable
-
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace ClosedXML.Excel
 {
     public partial class XLHyperlink
     {
-        private Uri _externalAddress;
-        private String _internalAddress;
+        private Uri? _externalAddress;
+        private String? _internalAddress;
+        private String _tooltip = String.Empty;
 
         public XLHyperlink(String address)
         {
@@ -51,7 +51,12 @@ namespace ClosedXML.Excel
 
         public Boolean IsExternal { get; set; }
 
-        public Uri ExternalAddress
+        /// <summary>
+        /// The external address of the hyperlink, or <c>null</c> if the hyperlink is not external.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">The value to set is <c>null</c>.</exception>
+        [DisallowNull]
+        public Uri? ExternalAddress
         {
             get
             {
@@ -59,12 +64,11 @@ namespace ClosedXML.Excel
             }
             set
             {
-                _externalAddress = value;
+                _externalAddress = value ?? throw new ArgumentNullException(nameof(value));
                 IsExternal = true;
             }
         }
 
-#nullable enable
         /// <summary>
         /// Gets top left cell of a hyperlink range. Return <c>null</c>,
         /// if the hyperlink isn't in a worksheet.
@@ -79,13 +83,18 @@ namespace ClosedXML.Excel
                 return Container.GetCell(this);
             }
         }
-#nullable disable
 
-        public String InternalAddress
+        /// <summary>
+        /// The internal address of the hyperlink, or <c>null</c> if the hyperlink is external
+        /// or has no address.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">The value to set is <c>null</c>.</exception>
+        [DisallowNull]
+        public String? InternalAddress
         {
             get
             {
-                if (IsExternal)
+                if (IsExternal || _internalAddress is null)
                     return null;
                 if (_internalAddress.Contains('!'))
                 {
@@ -110,16 +119,21 @@ namespace ClosedXML.Excel
             }
             set
             {
-                _internalAddress = value;
+                _internalAddress = value ?? throw new ArgumentNullException(nameof(value));
                 IsExternal = false;
             }
         }
 
         /// <summary>
         /// Tooltip displayed when user hovers over the hyperlink range. If not specified,
-        /// the link target is displayed in the tooltip.
+        /// the link target is displayed in the tooltip. A <c>null</c> value sets an empty tooltip.
         /// </summary>
-        public String Tooltip { get; set; }
+        [AllowNull]
+        public String Tooltip
+        {
+            get => _tooltip;
+            set => _tooltip = value ?? String.Empty;
+        }
 
         /// <inheritdoc cref="IXLHyperlinks.Delete(XLHyperlink)"/>
         public void Delete()

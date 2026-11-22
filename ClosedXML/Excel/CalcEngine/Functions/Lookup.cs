@@ -1,5 +1,3 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Collections.Generic;
@@ -42,7 +40,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             return p[0].ImplicitIntersectionOperator(ctx);
         }
 
-        private static ScalarValue Address(CalcContext ctx, double rowNumber, double columnNumber, double absNumber, bool a1, string sheetText)
+        private static ScalarValue Address(CalcContext ctx, double rowNumber, double columnNumber, double absNumber, bool a1, string? sheetText)
         {
             var row = (int)Math.Truncate(rowNumber);
             var column = (int)Math.Truncate(columnNumber);

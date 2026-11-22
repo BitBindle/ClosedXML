@@ -213,4 +213,48 @@ public class XLHyperlinksTests
             Assert.IsFalse(ws.Hyperlinks.TryGet(addressWithoutLink, out _));
         }
     }
+
+    [Test]
+    public void Hyperlink_addresses_reject_null()
+    {
+        var link = new XLHyperlink("Sheet1!A1");
+
+        Assert.Throws<ArgumentNullException>(() => link.ExternalAddress = null);
+        Assert.Throws<ArgumentNullException>(() => link.InternalAddress = null);
+    }
+
+    [Test]
+    public void Null_tooltip_is_empty()
+    {
+        var link = new XLHyperlink("Sheet1!A1", "Tip");
+
+        link.Tooltip = null;
+
+        Assert.AreEqual(String.Empty, link.Tooltip);
+    }
+
+    [Test]
+    public void Created_hyperlink_has_no_addresses()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        var link = ws.Cell("A1").CreateHyperlink();
+
+        Assert.IsFalse(link.IsExternal);
+        Assert.IsNull(link.InternalAddress);
+        Assert.IsNull(link.ExternalAddress);
+        Assert.AreEqual(String.Empty, link.Tooltip);
+    }
+
+    [Test]
+    public void Hyperlink_of_a_cell_without_hyperlink_has_an_empty_tooltip()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+
+        var link = ws.Cell("A1").GetHyperlink();
+
+        Assert.AreEqual(String.Empty, link.Tooltip);
+    }
 }

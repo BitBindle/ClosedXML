@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 
@@ -14,11 +12,11 @@ namespace ClosedXML.Excel.CalcEngine
             _ignoreFixed = ignoreFixed;
         }
 
-        public bool Equals(IXLAddress x, IXLAddress y)
+        public bool Equals(IXLAddress? x, IXLAddress? y)
         {
             return (x == null && y == null) ||
                    (x != null && y != null &&
-                    string.Equals(x.Worksheet.Name, y.Worksheet.Name, StringComparison.InvariantCultureIgnoreCase) &&
+                    string.Equals(x.Worksheet?.Name, y.Worksheet?.Name, StringComparison.InvariantCultureIgnoreCase) &&
                     x.ColumnNumber == y.ColumnNumber &&
                     x.RowNumber == y.RowNumber &&
                     (_ignoreFixed || x.FixedColumn == y.FixedColumn &&
@@ -29,7 +27,7 @@ namespace ClosedXML.Excel.CalcEngine
         {
             return new
             {
-                WorksheetName = obj.Worksheet.Name.ToUpperInvariant(),
+                WorksheetName = obj.Worksheet?.Name.ToUpperInvariant(),
                 obj.ColumnNumber,
                 obj.RowNumber,
                 FixedColumn = (_ignoreFixed ? false : obj.FixedColumn),

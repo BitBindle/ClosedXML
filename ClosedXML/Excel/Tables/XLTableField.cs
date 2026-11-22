@@ -33,10 +33,14 @@ namespace ClosedXML.Excel
                 }
                 return _column;
             }
-            internal set
-            {
-                _column = value;
-            }
+        }
+
+        /// <summary>
+        /// Forgets the cached column. The next read of <see cref="Column"/> gets the column again.
+        /// </summary>
+        internal void InvalidateColumn()
+        {
+            _column = null;
         }
 
         public IXLCells DataCells
@@ -87,7 +91,7 @@ namespace ClosedXML.Excel
                 if (name == value) return;
 
                 if (table.ShowHeaderRow)
-                    ((XLCell)table.HeadersRow(false).Cell(Index + 1)).SetValue(value, setTableHeader: false, checkMergedRanges: true);
+                    ((XLCell)table.ShownHeadersRow(false).Cell(Index + 1)).SetValue(value, setTableHeader: false, checkMergedRanges: true);
 
                 table.RenameField(name, value);
                 name = value;
@@ -109,21 +113,23 @@ namespace ClosedXML.Excel
 
         public String TotalsRowFormulaA1
         {
-            get { return table.TotalsRow().Cell(Index + 1).FormulaA1; }
+            get { return table.ShownTotalsRow().Cell(Index + 1).FormulaA1; }
             set
             {
+                var totalsRow = table.ShownTotalsRow();
                 totalsRowFunction = XLTotalsRowFunction.Custom;
-                table.TotalsRow().Cell(Index + 1).FormulaA1 = value;
+                totalsRow.Cell(Index + 1).FormulaA1 = value;
             }
         }
 
         public String TotalsRowFormulaR1C1
         {
-            get { return table.TotalsRow().Cell(Index + 1).FormulaR1C1; }
+            get { return table.ShownTotalsRow().Cell(Index + 1).FormulaR1C1; }
             set
             {
+                var totalsRow = table.ShownTotalsRow();
                 totalsRowFunction = XLTotalsRowFunction.Custom;
-                table.TotalsRow().Cell(Index + 1).FormulaR1C1 = value;
+                totalsRow.Cell(Index + 1).FormulaR1C1 = value;
             }
         }
 
@@ -142,8 +148,9 @@ namespace ClosedXML.Excel
             get { return totalsRowLabel; }
             set
             {
+                var totalsRow = table.ShownTotalsRow();
                 totalsRowFunction = XLTotalsRowFunction.None;
-                ((XLCell)table.TotalsRow().Cell(Index + 1)).SetValue(value, setTableHeader: false, checkMergedRanges: true);
+                ((XLCell)totalsRow.Cell(Index + 1)).SetValue(value, setTableHeader: false, checkMergedRanges: true);
                 totalsRowLabel = value;
             }
         }
@@ -236,9 +243,10 @@ namespace ClosedXML.Excel
 
         internal void UpdateTableFieldTotalsRowFormula()
         {
-            if (TotalsRowFunction != XLTotalsRowFunction.None && TotalsRowFunction != XLTotalsRowFunction.Custom)
+            // A table that does not show the totals row keeps the function, but has no cell for the formula.
+            if (TotalsRowFunction != XLTotalsRowFunction.None && TotalsRowFunction != XLTotalsRowFunction.Custom && table.ShowTotalsRow)
             {
-                var cell = table.TotalsRow().Cell(Index + 1);
+                var cell = table.ShownTotalsRow().Cell(Index + 1);
                 var formulaCode = String.Empty;
                 switch (TotalsRowFunction)
                 {

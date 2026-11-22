@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -206,7 +207,7 @@ namespace ClosedXML.Excel
             return false;
         }
 
-        public static bool IsValidA1Address(string address)
+        public static bool IsValidA1Address([NotNullWhen(true)] string? address)
         {
             if (String.IsNullOrWhiteSpace(address))
                 return false;
@@ -223,7 +224,7 @@ namespace ClosedXML.Excel
                 && IsValidColumn(address.Substring(0, rowPos));
         }
 
-        public static bool IsValidRCAddress(string address)
+        public static bool IsValidRCAddress([NotNullWhen(true)] string? address)
         {
             if (String.IsNullOrWhiteSpace(address))
                 return false;

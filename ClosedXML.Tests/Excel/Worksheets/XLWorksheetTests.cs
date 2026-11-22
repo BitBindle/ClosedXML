@@ -507,12 +507,14 @@ namespace ClosedXML.Tests
 
                 var ws2 = ws1.CopyTo(wb2, "Copy");
 
+                Assert.AreEqual(1, ws1.DefinedNames.Count());
                 Assert.AreEqual(ws1.DefinedNames.Count(), ws2.DefinedNames.Count());
                 for (int i = 0; i < ws1.DefinedNames.Count(); i++)
                 {
                     var nr1 = ws1.DefinedNames.ElementAt(i);
                     var nr2 = ws2.DefinedNames.ElementAt(i);
-                    Assert.AreEqual(nr1.Ranges.ToString(), nr2.Ranges.ToString());
+                    // The ranges of a copied sheet-scoped name refer to the copied sheet.
+                    Assert.AreEqual(nr1.Ranges.ToString().Replace("Original!", "Copy!"), nr2.Ranges.ToString());
                     Assert.AreEqual(nr1.Scope, nr2.Scope);
                     Assert.AreEqual(nr1.Name, nr2.Name);
                     Assert.AreEqual(nr1.Visible, nr2.Visible);
@@ -533,15 +535,17 @@ namespace ClosedXML.Tests
 
                 var ws2 = ws1.CopyTo("Copy");
 
+                Assert.AreEqual(1, ws1.DefinedNames.Count());
                 Assert.AreEqual(ws1.DefinedNames.Count(), ws2.DefinedNames.Count());
                 for (int i = 0; i < ws1.DefinedNames.Count(); i++)
                 {
                     var nr1 = ws1.DefinedNames.ElementAt(i);
                     var nr2 = ws2.DefinedNames.ElementAt(i);
 
-                    Assert.AreEqual(XLScope.Worksheet, nr2.Scope);
+                    Assert.AreEqual(XLNamedRangeScope.Worksheet, nr2.Scope);
 
-                    Assert.AreEqual(nr1.Ranges.ToString(), nr2.Ranges.ToString());
+                    // The ranges of a copied sheet-scoped name refer to the copied sheet.
+                    Assert.AreEqual(nr1.Ranges.ToString().Replace("Original!", "Copy!"), nr2.Ranges.ToString());
                     Assert.AreEqual(nr1.Name, nr2.Name);
                     Assert.AreEqual(nr1.Visible, nr2.Visible);
                     Assert.AreEqual(nr1.Comment, nr2.Comment);

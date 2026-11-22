@@ -1,6 +1,5 @@
-#nullable disable
-
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace ClosedXML.Excel
@@ -49,7 +48,7 @@ namespace ClosedXML.Excel
         {
             if (deleteTableField && IsTableColumn())
             {
-                var table = Table as XLTable;
+                var table = Table;
                 if (!Cell(1).Value.TryGetText(out var firstCellValue))
                     throw new InvalidOperationException("Top cell doesn't contain a text.");
 
@@ -350,14 +349,19 @@ namespace ClosedXML.Excel
         }
 
 
-        public IXLRangeColumn ColumnUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents)
+        public IXLRangeColumn? ColumnUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents)
         {
-            return Column((this as IXLRangeBase).FirstCellUsed(options),
-                          (this as IXLRangeBase).LastCellUsed(options));
+            var firstCell = FirstCellUsed(options);
+            var lastCell = LastCellUsed(options);
+            if (firstCell is null || lastCell is null)
+                return null;
+
+            return Column(firstCell, lastCell);
         }
 
-        internal IXLTable Table { get; set; }
+        internal XLTable? Table { get; set; }
 
+        [MemberNotNullWhen(true, nameof(Table))]
         public Boolean IsTableColumn()
         {
             return Table != null;

@@ -1,8 +1,7 @@
-#nullable disable
-
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace ClosedXML.Excel
 {
@@ -26,6 +25,6 @@ namespace ClosedXML.Excel
 
         IXLTable Table(String name);
 
-        Boolean TryGetTable(String tableName, out IXLTable table);
+        Boolean TryGetTable(String tableName, [NotNullWhen(true)] out IXLTable? table);
     }
 }

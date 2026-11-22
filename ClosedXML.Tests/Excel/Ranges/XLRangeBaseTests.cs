@@ -567,5 +567,133 @@ namespace ClosedXML.Tests
             var masterCellFormula = ws.Cell("A1").FormulaA1;
             Assert.AreEqual(expected, masterCellFormula);
         }
+
+        [Test]
+        public void Names_that_are_not_addresses_or_defined_names_throw()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var range = ws.Range("A1:C3");
+
+            Assert.Throws<ArgumentException>(() => ws.Intersects("NoSuchName"));
+            Assert.Throws<ArgumentException>(() => ((XLWorksheet)ws).Ranges("A1", "NoSuchName"));
+            Assert.Throws<ArgumentException>(() => range.Cell("NoSuchName"));
+        }
+
+        [Test]
+        public void Used_parts_of_an_empty_range_are_null()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var range = ws.Range("B2:D4");
+
+            Assert.IsNull(range.FirstCellUsed());
+            Assert.IsNull(range.LastCellUsed());
+            Assert.IsNull(range.RangeUsed());
+            Assert.IsNull(range.FirstColumnUsed());
+            Assert.IsNull(range.LastColumnUsed());
+            Assert.IsNull(range.FirstRowUsed());
+            Assert.IsNull(range.LastRowUsed());
+            Assert.IsNull(range.Column(1).ColumnUsed());
+            Assert.IsNull(range.Row(1).RowUsed());
+            Assert.IsNull(range.GetDataValidation());
+            Assert.IsNull(range.FirstColumn(c => false));
+            Assert.IsNull(range.LastColumn(c => false));
+            Assert.IsNull(range.FirstRow(r => false));
+            Assert.IsNull(range.LastRow(r => false));
+            Assert.IsNull(range.FindColumn(c => false));
+            Assert.IsNull(range.FindRow(r => false));
+        }
+
+        [Test]
+        public void Shrink_returns_null_when_no_cells_remain()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+
+            Assert.IsNull(ws.Range("B2:C3").Shrink());
+            Assert.AreEqual("C3:C3", ws.Range("B2:D4").Shrink().RangeAddress.ToString());
+        }
+
+        [Test]
+        public void Union_and_difference_with_null_range_return_cells_of_this_range()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var range = ws.Range("A1:B2");
+
+            Assert.AreEqual(4, range.Union(null).Count());
+            Assert.AreEqual(4, range.Difference(null).Count());
+            Assert.AreEqual(2, range.Union(null, c => c.Address.ColumnNumber == 1).Count());
+            Assert.AreEqual(2, range.Difference(null, c => c.Address.RowNumber == 2).Count());
+            Assert.IsNull(range.Intersection(null));
+        }
+
+        [Test]
+        public void Sort_of_a_range_without_used_cells_keeps_the_range_empty()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var range = ws.Range("A1:C3");
+            var fullWidthRange = ws.Range("A1:XFD3");
+            var fullHeightRange = ws.Range("A:C");
+
+            Assert.DoesNotThrow(() => range.Sort());
+            Assert.DoesNotThrow(() => range.SortLeftToRight());
+            Assert.DoesNotThrow(() => fullWidthRange.Sort());
+            Assert.DoesNotThrow(() => fullWidthRange.SortLeftToRight());
+            Assert.DoesNotThrow(() => fullHeightRange.Sort());
+            Assert.DoesNotThrow(() => fullHeightRange.SortLeftToRight());
+            Assert.IsTrue(range.IsEmpty());
+            Assert.IsTrue(fullWidthRange.IsEmpty());
+            Assert.IsTrue(fullHeightRange.IsEmpty());
+        }
+
+        [Test]
+        public void Sort_of_an_entire_row_range_without_used_cells_keeps_other_cells()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A5").Value = 2;
+            ws.Cell("B5").Value = 1;
+            var fullWidthRange = ws.Range("A1:XFD3");
+            var fullHeightRange = ws.Range("C:D");
+
+            Assert.DoesNotThrow(() => fullWidthRange.Sort());
+            Assert.DoesNotThrow(() => fullWidthRange.SortLeftToRight());
+            Assert.DoesNotThrow(() => fullHeightRange.Sort());
+            Assert.DoesNotThrow(() => fullHeightRange.SortLeftToRight());
+            Assert.IsTrue(fullWidthRange.IsEmpty());
+            Assert.IsTrue(fullHeightRange.IsEmpty());
+            Assert.AreEqual(2, ws.Cell("A5").Value);
+            Assert.AreEqual(1, ws.Cell("B5").Value);
+        }
+
+        [Test]
+        public void Sort_of_a_worksheet_without_used_cells_throws()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+
+            Assert.Throws<InvalidOperationException>(() => ws.Sort());
+        }
+
+        [Test]
+        public void Cells_between_first_and_last_used_cell_are_empty_without_used_cells()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+
+            Assert.AreEqual(0, ws.Cells(false).Count());
+            Assert.AreEqual(0, ws.Column(2).Cells(false).Count());
+            Assert.AreEqual(0, ws.Row(2).Cells(false).Count());
+            Assert.IsNull(ws.Column(2).ColumnUsed());
+            Assert.IsNull(ws.Row(2).RowUsed());
+
+            ws.Cell("B2").Value = 1;
+            ws.Cell("B4").Value = 2;
+            Assert.AreEqual(3, ws.Column(2).Cells(false).Count());
+            Assert.AreEqual("B2:B4", ws.Column(2).ColumnUsed().RangeAddress.ToString());
+        }
     }
 }

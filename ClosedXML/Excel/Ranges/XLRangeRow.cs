@@ -316,10 +316,14 @@ namespace ClosedXML.Excel
         }
 
 
-        public IXLRangeRow RowUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents)
+        public IXLRangeRow? RowUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents)
         {
-            return Row((this as IXLRangeBase).FirstCellUsed(options),
-                       (this as IXLRangeBase).LastCellUsed(options));
+            var firstCell = FirstCellUsed(options);
+            var lastCell = LastCellUsed(options);
+            if (firstCell is null || lastCell is null)
+                return null;
+
+            return Row(firstCell, lastCell);
         }
     }
 }

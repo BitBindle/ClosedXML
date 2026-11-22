@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 
 namespace ClosedXML.Excel
@@ -29,7 +27,7 @@ namespace ClosedXML.Excel
             }
             else
             {
-                if (Uri.TryCreate(address, UriKind.Absolute, out Uri uri))
+                if (Uri.TryCreate(address, UriKind.Absolute, out var uri))
                 {
                     _externalAddress = uri;
                     IsExternal = true;
@@ -63,6 +61,6 @@ namespace ClosedXML.Excel
             IsExternal = false;
         }
 
-        internal XLHyperlinks Container { get; set; }
+        internal XLHyperlinks? Container { get; set; }
     }
 }

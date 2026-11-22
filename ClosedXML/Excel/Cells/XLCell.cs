@@ -1,10 +1,9 @@
-#nullable disable
-
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -95,7 +94,7 @@ namespace ClosedXML.Excel
 
         internal int MemorySstId => _cellsCollection.ValueSlice.GetShareStringId(Point);
 
-        internal XLImmutableRichText RichText => SliceRichText;
+        internal XLImmutableRichText? RichText => SliceRichText;
 
         private XLCellValue SliceCellValue
         {
@@ -107,13 +106,14 @@ namespace ClosedXML.Excel
             }
         }
 
-        private XLImmutableRichText SliceRichText
+        [DisallowNull]
+        private XLImmutableRichText? SliceRichText
         {
             get => _cellsCollection.ValueSlice.GetRichText(Point);
             set => _cellsCollection.ValueSlice.SetRichText(Point, value);
         }
 
-        private XLComment SliceComment
+        private XLComment? SliceComment
         {
             get => _cellsCollection.MiscSlice[_rowNumber, _columnNumber].Comment;
             set
@@ -161,7 +161,7 @@ namespace ClosedXML.Excel
         /// <summary>
         /// A formula in the cell. Null, if cell doesn't contain formula.
         /// </summary>
-        internal XLCellFormula Formula
+        internal XLCellFormula? Formula
         {
             get => _cellsCollection.FormulaSlice.Get(Point);
             set
@@ -180,7 +180,6 @@ namespace ClosedXML.Excel
         #endregion Slice fields
 
         #region IXLFormatContainer
-#nullable enable
 
         /// <summary>
         /// A format of a cell. If cell format depends on inherited format, the value is <c>null</c>.
@@ -190,7 +189,6 @@ namespace ClosedXML.Excel
             get => _cellsCollection.FormatSlice.GetFormat(Point);
             set => _cellsCollection.FormatSlice.Set(Point, value);
         }
-#nullable disable
         #endregion
 
         internal XLCellFormat Format => XLCellFormat.ForCell(this);
@@ -309,7 +307,7 @@ namespace ClosedXML.Excel
         /// </summary>
         private const double UInt64UpperLimit = 18446744073709551616d;
 
-        public Boolean TryGetValue<T>(out T value)
+        public Boolean TryGetValue<T>([MaybeNullWhen(false)] out T value)
         {
             XLCellValue currentValue;
             try
@@ -325,9 +323,10 @@ namespace ClosedXML.Excel
 
             var targetType = typeof(T);
             var isNullable = targetType.IsNullableType();
-            if (isNullable && currentValue.TryConvert(out Blank _))
+            if (isNullable && currentValue.TryConvert(out Blank? _))
             {
-                value = default;
+                // T is a Nullable<> type here, thus null is a valid value of T.
+                value = default!;
                 return true;
             }
 
@@ -458,7 +457,7 @@ namespace ClosedXML.Excel
             return false;
         }
 
-        private static bool TryGetStringValue<T>(out T value, XLCellValue currentValue)
+        private static bool TryGetStringValue<T>([MaybeNullWhen(false)] out T value, XLCellValue currentValue)
         {
             if (typeof(T) == typeof(String))
             {
@@ -467,7 +466,7 @@ namespace ClosedXML.Excel
 
                 if (matches.Count == 0)
                 {
-                    value = (T)Convert.ChangeType(s, typeof(T));
+                    value = (T)(Convert.ChangeType(s, typeof(T)) ?? throw new InvalidCastException());
                     return true;
                 }
 
@@ -488,7 +487,7 @@ namespace ClosedXML.Excel
                 if (lastIndex < s.Length)
                     sb.Append(s.Substring(lastIndex));
 
-                value = (T)Convert.ChangeType(sb.ToString(), typeof(T));
+                value = (T)(Convert.ChangeType(sb.ToString(), typeof(T)) ?? throw new InvalidCastException());
                 return true;
             }
             value = default;
@@ -497,7 +496,7 @@ namespace ClosedXML.Excel
 
         public T GetValue<T>()
         {
-            if (TryGetValue(out T retVal))
+            if (TryGetValue<T>(out var retVal))
                 return retVal;
 
             throw new InvalidCastException($"Cannot convert {Address.ToStringRelative(true)}'s value to " + typeof(T));
@@ -505,7 +504,7 @@ namespace ClosedXML.Excel
 
         public String GetString() => Value.ToString(CultureInfo.CurrentCulture);
 
-        public string GetFormattedString(CultureInfo culture = null)
+        public string GetFormattedString(CultureInfo? culture = null)
         {
             XLCellValue value;
             try
@@ -522,7 +521,7 @@ namespace ClosedXML.Excel
             return GetFormattedString(value, culture);
         }
 
-        internal string GetFormattedString(XLCellValue value, CultureInfo culture = null)
+        internal string GetFormattedString(XLCellValue value, CultureInfo? culture = null)
         {
             culture ??= CultureInfo.CurrentCulture;
             var numberFormat = GetFormat().NumberFormat;
@@ -620,38 +619,38 @@ namespace ClosedXML.Excel
             return InsertTable(data, null, createTable);
         }
 
-        public IXLTable InsertTable<T>(IEnumerable<T> data, string tableName)
+        public IXLTable InsertTable<T>(IEnumerable<T> data, String? tableName)
         {
             return InsertTable(data, tableName, true);
         }
 
-        public IXLTable InsertTable<T>(IEnumerable<T> data, String tableName, Boolean createTable)
+        public IXLTable InsertTable<T>(IEnumerable<T> data, String? tableName, Boolean createTable)
         {
             return InsertTable(data, tableName, createTable, addHeadings: true, transpose: false);
         }
 
-        public IXLTable InsertTable<T>(IEnumerable<T> data, String tableName, Boolean createTable, Boolean addHeadings, Boolean transpose)
+        public IXLTable InsertTable<T>(IEnumerable<T> data, String? tableName, Boolean createTable, Boolean addHeadings, Boolean transpose)
         {
             var reader = InsertDataReaderFactory.Instance.CreateReader(data);
             return Worksheet.InsertTable(Point, reader, tableName, createTable, addHeadings, transpose);
         }
 
-        public IXLTable InsertTable(DataTable data)
+        public IXLTable? InsertTable(DataTable? data)
         {
             return InsertTable(data, null, true);
         }
 
-        public IXLTable InsertTable(DataTable data, Boolean createTable)
+        public IXLTable? InsertTable(DataTable? data, Boolean createTable)
         {
             return InsertTable(data, null, createTable);
         }
 
-        public IXLTable InsertTable(DataTable data, String tableName)
+        public IXLTable? InsertTable(DataTable? data, String? tableName)
         {
             return InsertTable(data, tableName, true);
         }
 
-        public IXLTable InsertTable(DataTable data, String tableName, Boolean createTable)
+        public IXLTable? InsertTable(DataTable? data, String? tableName, Boolean createTable)
         {
             if (data == null || data.Columns.Count == 0)
                 return null;
@@ -671,30 +670,35 @@ namespace ClosedXML.Excel
             var table = this.Worksheet.Tables.FirstOrDefault<XLTable>(t => t.AsRange().Contains(this));
             if (table == null) return XLTableCellType.None;
 
-            if (table.ShowHeaderRow && table.HeadersRow().RowNumber().Equals(this._rowNumber)) return XLTableCellType.Header;
-            if (table.ShowTotalsRow && table.TotalsRow().RowNumber().Equals(this._rowNumber)) return XLTableCellType.Total;
+            if (table.HeadersRow() is { } headersRow && headersRow.RowNumber() == _rowNumber) return XLTableCellType.Header;
+            if (table.TotalsRow() is { } totalsRow && totalsRow.RowNumber() == _rowNumber) return XLTableCellType.Total;
 
             return XLTableCellType.Data;
         }
 
-        public IXLRange InsertData(IEnumerable data)
+        public IXLRange? InsertData(IEnumerable? data)
         {
-            if (data == null || data is String)
-                return null;
-
             return InsertData(data, transpose: false);
         }
 
-        public IXLRange InsertData(IEnumerable data, Boolean transpose)
+        public IXLRange? InsertData(IEnumerable? data, Boolean transpose)
         {
             if (data == null || data is String)
                 return null;
 
+            return InsertDataInternal(data, transpose);
+        }
+
+        /// <summary>
+        /// Inserts the data elements and returns the range it occupies. The caller checks that the data is not a string.
+        /// </summary>
+        internal XLRange InsertDataInternal(IEnumerable data, Boolean transpose)
+        {
             var reader = InsertDataReaderFactory.Instance.CreateReader(data);
             return Worksheet.InsertData(Point, reader, addHeadings: false, transpose: transpose);
         }
 
-        public IXLRange InsertData(DataTable dataTable)
+        public IXLRange? InsertData(DataTable? dataTable)
         {
             if (dataTable == null)
                 return null;
@@ -765,6 +769,7 @@ namespace ClosedXML.Excel
             Worksheet.Range(Address, Address).Delete(shiftDeleteCells);
         }
 
+        [AllowNull]
         public string FormulaA1
         {
             get => Formula?.A1 ?? String.Empty;
@@ -789,6 +794,7 @@ namespace ClosedXML.Excel
             }
         }
 
+        [AllowNull]
         public string FormulaR1C1
         {
             get => Formula?.GetFormulaR1C1(Point) ?? String.Empty;
@@ -822,7 +828,6 @@ namespace ClosedXML.Excel
             return CreateHyperlink();
         }
 
-#nullable enable
         /// <inheritdoc />
         public void SetHyperlink(XLHyperlink? hyperlink)
         {
@@ -846,7 +851,6 @@ namespace ClosedXML.Excel
         {
             Worksheet.Hyperlinks.SetCellHyperlink(Point, hyperlink);
         }
-#nullable disable
 
         public XLHyperlink CreateHyperlink()
         {
@@ -923,7 +927,7 @@ namespace ClosedXML.Excel
             return Worksheet.Internals.MergedRanges.Contains(this);
         }
 
-        public IXLRange MergedRange()
+        public IXLRange? MergedRange()
         {
             return Worksheet
                 .Internals
@@ -990,7 +994,7 @@ namespace ClosedXML.Excel
 
         public IXLCell CopyTo(IXLCell target)
         {
-            (target as XLCell).CopyFrom(this, XLCellCopyOptions.All);
+            ((XLCell)target).CopyFrom(this, XLCellCopyOptions.All);
             return target;
         }
 
@@ -1001,7 +1005,7 @@ namespace ClosedXML.Excel
 
         public IXLCell CopyFrom(IXLCell otherCell)
         {
-            return CopyFrom(otherCell as XLCell, XLCellCopyOptions.All);
+            return CopyFrom(otherCell, XLCellCopyOptions.All);
         }
 
         public IXLCell CopyFrom(String otherCell)
@@ -1024,7 +1028,7 @@ namespace ClosedXML.Excel
         public Boolean HasSparkline => Sparkline != null;
 
         /// <summary> The sparkline assigned to the cell </summary>
-        public IXLSparkline Sparkline => Worksheet.SparklineGroups.GetSparkline(this);
+        public IXLSparkline? Sparkline => Worksheet.SparklineGroups.GetSparkline(this);
 
         public IXLDataValidation GetDataValidation()
         {
@@ -1040,7 +1044,7 @@ namespace ClosedXML.Excel
         /// Get the data validation rule containing current cell.
         /// </summary>
         /// <returns>The data validation rule applying to the current cell or null if there is no such rule.</returns>
-        private IXLDataValidation FindDataValidation()
+        private IXLDataValidation? FindDataValidation()
         {
             Worksheet.DataValidations.TryGet(new XLRangeAddress(Address, Address), out var dataValidation);
             return dataValidation;
@@ -1166,7 +1170,7 @@ namespace ClosedXML.Excel
                 Worksheet.Cell(
                     _rowNumber + sourceCell.Address.RowNumber - minRow,
                     _columnNumber + sourceCell.Address.ColumnNumber - minColumn
-                    ).CopyFromInternal(sourceCell as XLCell,
+                    ).CopyFromInternal((XLCell)sourceCell,
                     XLCellCopyOptions.All
                         & ~XLCellCopyOptions.ConditionalFormats
                         & ~XLCellCopyOptions.DataValidations); //Conditional formats and data validation are copied separately
@@ -1196,7 +1200,7 @@ namespace ClosedXML.Excel
 
             foreach (var dataValidation in dataValidations)
             {
-                XLDataValidation newDataValidation = null;
+                XLDataValidation? newDataValidation = null;
                 foreach (var dvRange in dataValidation.Ranges.Where(r => r.Intersects(asRange)))
                 {
                     var dvTargetAddress = dvRange.RangeAddress.Relative(asRange.RangeAddress, targetRange.RangeAddress);
@@ -1254,7 +1258,7 @@ namespace ClosedXML.Excel
         {
             var pair = target.Split('!');
             if (pair.Length == 1)
-                return defaultWorksheet.Cell(target);
+                return defaultWorksheet.Cell(target) ?? throw new ArgumentException($"'{target}' is not A1 address or named range.", nameof(target));
 
             var wsName = pair[0];
             if (wsName.StartsWith("'"))
@@ -1285,30 +1289,33 @@ namespace ClosedXML.Excel
 
         private void CopySparklineFrom(XLCell otherCell)
         {
-            if (!otherCell.HasSparkline) return;
+            if (otherCell.Sparkline is not { } otherSparkline) return;
 
-            var sourceDataAddress = otherCell.Sparkline.SourceData.RangeAddress.ToString();
+            // A sparkline without source data has nothing to show, thus it is not copied.
+            if (otherSparkline.SourceData is not XLRangeBase otherSourceData) return;
+
+            var sourceDataAddress = otherSourceData.RangeAddress.ToString();
             var shiftedRangeAddress = GetFormulaA1(otherCell.GetFormulaR1C1(sourceDataAddress));
-            var sourceDataWorksheet = otherCell.Worksheet == otherCell.Sparkline.SourceData.Worksheet
+            var sourceDataWorksheet = otherCell.Worksheet == otherSourceData.Worksheet
                 ? Worksheet
-                : (XLWorksheet)otherCell.Sparkline.SourceData.Worksheet;
-            var sourceData = sourceDataWorksheet.Range(shiftedRangeAddress);
+                : otherSourceData.Worksheet;
+            var sourceData = sourceDataWorksheet.Range(shiftedRangeAddress) ?? throw new InvalidOperationException($"The shifted source data address '{shiftedRangeAddress}' is not valid.");
 
             IXLSparklineGroup group;
             if (otherCell.Worksheet == Worksheet)
             {
-                group = otherCell.Sparkline.SparklineGroup;
+                group = otherSparkline.SparklineGroup;
             }
             else
             {
-                group = Worksheet.SparklineGroups.Add(new XLSparklineGroup(Worksheet, otherCell.Sparkline.SparklineGroup));
-                if (otherCell.Sparkline.SparklineGroup.DateRange != null)
+                group = Worksheet.SparklineGroups.Add(new XLSparklineGroup(Worksheet, otherSparkline.SparklineGroup));
+                if (otherSparkline.SparklineGroup.DateRange is XLRangeBase otherDateRange)
                 {
                     var dateRangeWorksheet =
-                        otherCell.Worksheet == otherCell.Sparkline.SparklineGroup.DateRange.Worksheet
+                        otherCell.Worksheet == otherDateRange.Worksheet
                             ? Worksheet
-                            : otherCell.Sparkline.SparklineGroup.DateRange.Worksheet;
-                    var dateRangeAddress = otherCell.Sparkline.SparklineGroup.DateRange.RangeAddress.ToString();
+                            : otherDateRange.Worksheet;
+                    var dateRangeAddress = otherDateRange.RangeAddress.ToString();
                     var shiftedDateRangeAddress = GetFormulaA1(otherCell.GetFormulaR1C1(dateRangeAddress));
                     group.SetDateRange(dateRangeWorksheet.Range(shiftedDateRangeAddress));
                 }
@@ -1319,7 +1326,7 @@ namespace ClosedXML.Excel
 
         public IXLCell CopyFrom(IXLCell otherCell, XLCellCopyOptions options)
         {
-            var source = otherCell as XLCell; // To expose GetFormulaR1C1, etc
+            var source = (XLCell)otherCell; // To expose GetFormulaR1C1, etc
 
             CopyFromInternal(source, options);
             return this;
@@ -1337,7 +1344,7 @@ namespace ClosedXML.Excel
 
         internal void CopyDataValidation(XLCell otherCell, IXLDataValidation otherDv)
         {
-            var thisDv = GetDataValidation() as XLDataValidation;
+            var thisDv = (XLDataValidation)GetDataValidation();
             thisDv.CopyFrom(otherDv);
             thisDv.Value = GetFormulaA1(otherCell.GetFormulaR1C1(otherDv.Value));
             thisDv.MinValue = GetFormulaA1(otherCell.GetFormulaR1C1(otherDv.MinValue));
@@ -1761,7 +1768,7 @@ namespace ClosedXML.Excel
 
         public Boolean HasArrayFormula => Formula?.Type == FormulaType.Array;
 
-        public IXLRangeAddress FormulaReference
+        public IXLRangeAddress? FormulaReference
         {
             get
             {
@@ -1878,7 +1885,7 @@ namespace ClosedXML.Excel
 
         internal bool IsInferiorMergedCell()
         {
-            return this.IsMerged() && !this.Address.Equals(this.MergedRange().RangeAddress.FirstAddress);
+            return MergedRange() is { } mergedRange && !Address.Equals(mergedRange.RangeAddress.FirstAddress);
         }
 
         /// <summary>
@@ -1959,7 +1966,7 @@ namespace ClosedXML.Excel
             }
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is XLCell cell && cell.Worksheet == Worksheet && cell.Point == Point;
         }

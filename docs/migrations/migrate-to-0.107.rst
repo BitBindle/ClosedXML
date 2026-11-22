@@ -83,6 +83,89 @@ runtime. Some members now throw a specified exception where before they threw
   ``ArgumentException``.
 * ``IXLTheme.ResolveThemeColor`` with a value that is not a member of ``XLThemeColor`` now throws
   ``ArgumentOutOfRangeException``.
+* The members that find a used part of a range now return a nullable type. They return null when
+  the range has no used cells:
+
+  * ``FirstCellUsed`` and ``LastCellUsed`` of ``IXLRangeBase`` (all overloads) return ``IXLCell?``.
+  * ``IXLRange.RangeUsed()`` returns ``IXLRange?``.
+  * ``FirstColumnUsed`` and ``LastColumnUsed`` of ``IXLRange`` return ``IXLRangeColumn?``.
+  * ``FirstRowUsed`` and ``LastRowUsed`` of ``IXLRange`` return ``IXLRangeRow?``, and of
+    ``IXLTableRange`` return ``IXLTableRow?``.
+  * ``ColumnUsed`` of ``IXLColumn`` and ``IXLRangeColumn`` returns ``IXLRangeColumn?``. ``RowUsed``
+    of ``IXLRow`` and ``IXLRangeRow`` returns ``IXLRangeRow?``.
+
+* ``FirstColumn``, ``LastColumn``, ``FirstRow`` and ``LastRow`` of ``IXLRange`` and ``FirstRow``
+  and ``LastRow`` of ``IXLTableRange`` had an optional predicate. Each method is now two overloads.
+  The overload without a parameter returns a non-null value. The overload with a predicate returns
+  a nullable value, which is null when no column or row matches the predicate. Code that calls these
+  methods compiles without changes, but you must compile it again, because the binary signature
+  changed.
+* ``IXLRange.FindColumn`` returns ``IXLRangeColumn?`` and ``IXLRange.FindRow`` returns
+  ``IXLRangeRow?``. They return null when no column or row matches the predicate.
+* ``IXLRangeBase.GetDataValidation()`` returns ``IXLDataValidation?``. It returns null when no data
+  validation rule has exactly the address of the range. The documentation said before that the
+  method creates a new rule. It does not.
+* ``IXLRangeBase.Shrink()`` and ``IXLRangeBase.Shrink(Int32)`` return ``IXLRangeBase?``. They
+  return null when no cells remain.
+* ``IXLRangeBase.Intersection`` returns ``IXLRangeAddress?``, and accepts a null range.
+  ``IXLRangeBase.Union`` and ``IXLRangeBase.Difference`` accept a null range. Null gives the cells
+  of the range that match the predicate of the range.
+* ``IXLRangeBase.AddToNamed(String, XLScope, String?)`` accepts a null comment.
+* The optional predicate parameters of these members are now ``Func<...>?``: ``Columns``,
+  ``ColumnsUsed``, ``Rows``, ``RowsUsed``, ``FirstColumnUsed``, ``LastColumnUsed``,
+  ``FirstRowUsed`` and ``LastRowUsed`` of ``IXLRange``, ``Rows``, ``RowsUsed``, ``FirstRowUsed``
+  and ``LastRowUsed`` of ``IXLTableRange``, and ``SurroundingCells``, ``Intersection``, ``Union``
+  and ``Difference`` of ``IXLRangeBase``. Null gives all the items. This was already the behavior at
+  runtime.
+* ``IXLRangeBase.Intersects(String)`` on a worksheet with a name that is not an address or a
+  defined name now throws ``ArgumentException``. Before, it threw ``NullReferenceException``.
+  ``IXLRange.Cell(String)`` with such a name now throws ``ArgumentException``. Before, it returned
+  null.
+* ``IXLWorksheet.Sort()`` on a worksheet without used cells now throws
+  ``InvalidOperationException``. Before, it threw ``NullReferenceException``.
+* ``IXLCell.FormulaA1`` and ``IXLCell.FormulaR1C1`` accept null. Null removes the formula. This was
+  already the behavior at runtime.
+* ``IXLCell.FormulaReference`` is now ``IXLRangeAddress?``, ``IXLCell.Sparkline`` is now
+  ``IXLSparkline?`` and ``IXLCell.MergedRange()`` returns ``IXLRange?``. They are null when the
+  cell has no array formula, no sparkline or no merged range.
+* ``IXLCell.TryGetValue<T>`` now has the parameter ``[MaybeNullWhen(false)] out T value``.
+* ``IXLCell.GetFormattedString(CultureInfo?)`` accepts a null culture. Null gives the current
+  culture. This was already the behavior at runtime.
+* ``IXLCell.InsertData`` (all overloads) returns ``IXLRange?`` and accepts null data. It returns
+  null when the data is null or a string.
+* ``IXLCell.InsertTable`` with a ``DataTable`` returns ``IXLTable?`` and accepts a null data table.
+  It returns null when the data table is null or has no columns. All ``InsertTable`` overloads
+  accept a null table name. Null gives a generated name.
+* ``IXLTable.DataRange`` is now ``IXLTableRange?``. It is null when the table has no data rows.
+  ``IXLTable.HeadersRow()`` and ``IXLTable.TotalsRow()`` return ``IXLRangeRow?``. They are null when
+  the table does not show the row.
+* ``IXLTable.AppendData`` (all overloads) returns ``IXLRange?``. It returns null when the data is
+  empty or a string. The overloads with ``IEnumerable`` and ``IEnumerable<T>`` accept null data, and
+  return null for it. The overload with a ``DataTable`` does not accept null. Null now throws
+  ``ArgumentNullException``. Before, it threw ``NullReferenceException``. This is also true for
+  ``IXLTable.ReplaceData(DataTable, Boolean)``.
+* ``AppendData``, ``ReplaceData`` and ``Sort`` of a table without data rows now throw
+  ``InvalidOperationException``. Before, they threw ``NullReferenceException``.
+* ``IXLTableField.HeaderCell`` and ``IXLTableField.TotalsCell`` are now ``IXLCell?``. They are null
+  when the table does not show the row. ``IXLTableField.TotalsRowLabel`` is now ``String?``. The
+  setter of ``TotalsRowLabel``, and the getters and the setters of ``TotalsRowFormulaA1`` and
+  ``TotalsRowFormulaR1C1``, now throw ``InvalidOperationException`` when the table does not show
+  the totals row. Before, they threw ``NullReferenceException``.
+* ``IXLTables.TryGetTable`` now has the parameter ``[NotNullWhen(true)] out IXLTable? table``.
+* ``XLHyperlink.ExternalAddress`` is now ``Uri?`` and ``XLHyperlink.InternalAddress`` is now
+  ``String?``. Each is null when the hyperlink does not have that kind of address. Their setters now
+  throw ``ArgumentNullException`` for null. The setter of ``XLHyperlink.Tooltip`` accepts null. Null
+  gives an empty tooltip. The tooltip of a hyperlink from ``IXLCell.CreateHyperlink()``, and from
+  ``IXLCell.GetHyperlink()`` on a cell without a hyperlink, is now an empty string. Before, it was
+  null.
+* ``XLHelper.IsValidA1Address`` and ``XLHelper.IsValidRCAddress`` accept null. Null gives false.
+* The implicit conversion from ``String?`` to ``XLCellValue`` accepts null. Null gives a blank
+  value. This was already the behavior at runtime. ``XLCellValue.FromObject`` accepts null.
+  ``XLCellValue.TryGetText`` now has the parameter ``[NotNullWhen(true)] out String? value``, and
+  ``XLCellValue.TryConvert`` for ``Blank`` has the parameter ``[NotNullWhen(true)] out Blank? value``.
+  ``XLCellValue.Equals(Blank?)`` and ``XLCellValue.Equals(String?)`` accept null.
+  ``Equals(Blank?)`` returns true for a blank value, also for null. ``Equals(String?)`` returns
+  false for null.
 
 These bugs are fixed:
 
@@ -96,3 +179,19 @@ These bugs are fixed:
   custom name.
 * A new table on a worksheet with an enabled autofilter that has no range threw
   ``NullReferenceException``. A copy of that worksheet threw the same exception.
+* ``IXLRanges.AddToNamed(String, XLScope)`` ignored the scope and always added a workbook name.
+* ``IXLTable.Resize(IXLRangeAddress)`` ignored the address and used the current address of the
+  table.
+* ``FirstRowUsed`` and ``LastRowUsed`` of ``IXLTableRange`` without a predicate returned a row that
+  was not valid when the table range had no used rows. They now return null.
+* A new name, or a new totals row function, for a table with a hidden totals row threw
+  ``NullReferenceException`` when a field had a totals row function.
+* ``Cells(false)`` of a column, of a row and of a worksheet without used cells threw
+  ``NullReferenceException``. They now return no cells.
+* ``Sort()`` and ``SortLeftToRight()`` of an entire-row or entire-column range without used cells
+  threw ``NullReferenceException``. When the worksheet also had no used cells, they threw
+  ``ArgumentOutOfRangeException``. They now do nothing.
+* A copy of a cell with a sparkline that has no source data threw ``NullReferenceException``. The
+  copy now does not include the sparkline.
+* ``IXLTable.AsDynamicEnumerable()`` and ``IXLTable.AsNativeDataTable()`` of a table without data
+  rows threw ``NullReferenceException``. They now return no rows.

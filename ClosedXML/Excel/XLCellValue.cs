@@ -1,7 +1,6 @@
-#nullable disable
-
 using System;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using ClosedXML.Excel.CalcEngine;
 using ClosedXML.Extensions;
@@ -22,7 +21,7 @@ namespace ClosedXML.Excel
     public readonly struct XLCellValue : IEquatable<XLCellValue>, IEquatable<Blank>, IEquatable<Boolean>, IEquatable<Double>, IEquatable<String>, IEquatable<XLError>, IEquatable<DateTime>, IEquatable<TimeSpan>, IEquatable<int>
     {
         private readonly double _value;
-        private readonly string _text;
+        private readonly string? _text;
 
         private XLCellValue(Blank _) : this()
         {
@@ -55,6 +54,9 @@ namespace ClosedXML.Excel
             Type = XLDataType.Text;
             _text = text;
         }
+
+        // The type selects the field that the constructor sets. This property only guards that rule.
+        private string TextOrThrow => _text ?? throw new InvalidOperationException("The value is not a text.");
 
         private XLCellValue(XLError error) : this()
         {
@@ -132,7 +134,7 @@ namespace ClosedXML.Excel
 
         public static implicit operator XLCellValue(Blank blank) => new(blank);
         public static implicit operator XLCellValue(bool logical) => new(logical);
-        public static implicit operator XLCellValue(string text) => text is not null ? new(text) : new(Blank.Value);
+        public static implicit operator XLCellValue(string? text) => text is not null ? new(text) : new(Blank.Value);
         public static implicit operator XLCellValue(XLError error) => new(error);
         public static implicit operator XLCellValue(DateTime dateTime) => new(dateTime);
         public static implicit operator XLCellValue(TimeSpan timeSpan) => new(timeSpan);
@@ -196,7 +198,7 @@ namespace ClosedXML.Excel
         /// <param name="obj">The object to convert.</param>
         /// <param name="provider">An object that supplies culture-specific formatting information.</param>
         /// <returns>An <see cref="XLCellValue"/> representation of the object.</returns>
-        public static XLCellValue FromObject(object obj, IFormatProvider provider = null)
+        public static XLCellValue FromObject(object? obj, IFormatProvider? provider = null)
         {
             return obj switch
             {
@@ -225,7 +227,7 @@ namespace ClosedXML.Excel
         /// <summary>
         /// A function used during data insertion to convert an <c>object</c> to <c>XLCellValue</c>.
         /// </summary>
-        internal static XLCellValue FromInsertedObject(object value)
+        internal static XLCellValue FromInsertedObject(object? value)
         {
             XLCellValue convertedValue = value switch
             {
@@ -325,7 +327,7 @@ namespace ClosedXML.Excel
         /// If the value is of type <see cref="XLDataType.Text"/>,
         /// return text, otherwise throw <see cref="InvalidCastException"/>.
         /// </summary>
-        public String GetText() => IsText ? _text : throw new InvalidCastException();
+        public String GetText() => IsText ? TextOrThrow : throw new InvalidCastException();
 
         /// <summary>
         /// If the value is of type <see cref="XLDataType.Error"/>,
@@ -363,7 +365,7 @@ namespace ClosedXML.Excel
             throw new InvalidCastException("Value is not a number.");
         }
 
-        internal Object ToObject()
+        internal Object? ToObject()
         {
             return Type switch
             {
@@ -392,7 +394,7 @@ namespace ClosedXML.Excel
                 XLDataType.Blank => string.Empty,
                 XLDataType.Boolean => GetBoolean() ? "TRUE" : "FALSE",
                 XLDataType.Number => _value.ToString(culture),
-                XLDataType.Text => _text,
+                XLDataType.Text => TextOrThrow,
                 XLDataType.Error => GetError().ToDisplayString(),
                 XLDataType.DateTime => GetDateTime().ToString(culture),
                 XLDataType.TimeSpan => GetTimeSpan().ToExcelString(culture),
@@ -404,7 +406,7 @@ namespace ClosedXML.Excel
             return Type == other.Type && _value.Equals(other._value) && _text == other._text;
         }
 
-        public bool Equals(Blank other)
+        public bool Equals(Blank? other)
         {
             return IsBlank;
         }
@@ -423,7 +425,7 @@ namespace ClosedXML.Excel
         /// Is the cell value text and is equal to the <paramref name="other"/>?
         /// Text comparison is case sensitive.
         /// </summary>
-        public bool Equals(string other)
+        public bool Equals(string? other)
         {
             return IsText && _text == other;
         }
@@ -448,7 +450,7 @@ namespace ClosedXML.Excel
             return Equals((double)other);
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is XLCellValue other && Equals(other);
         }
@@ -468,11 +470,11 @@ namespace ClosedXML.Excel
         /// Get a value, if it is a <see cref="XLDataType.Text"/>.
         /// </summary>
         /// <returns>True if value was retrieved, false otherwise.</returns>
-        public bool TryGetText(out string value)
+        public bool TryGetText([NotNullWhen(true)] out string? value)
         {
             if (IsText)
             {
-                value = _text;
+                value = TextOrThrow;
                 return true;
             }
 
@@ -488,7 +490,7 @@ namespace ClosedXML.Excel
         ///   <item>Type <see cref="XLDataType.Text"/> and the text is empty.</item>
         /// </list>
         /// </summary>
-        public bool TryConvert(out Blank value)
+        public bool TryConvert([NotNullWhen(true)] out Blank? value)
         {
             var isBlankLike = IsBlank || (IsText && GetText().Length == 0);
             if (isBlankLike)

@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Globalization;
 
@@ -113,22 +111,22 @@ namespace ClosedXML.Excel
         ///   Returns the first non-empty cell with a value of this range. Formats are ignored.
         ///   <para>The cell's address is going to be ([First Row with a value], [First Column with a value])</para>
         /// </summary>
-        IXLCell FirstCellUsed();
+        IXLCell? FirstCellUsed();
 
         /// <summary>
         /// Returns the first non-empty cell with a value of this range.
         /// </summary>
         /// <param name="options">The options to determine whether a cell is used.</param>
-        IXLCell FirstCellUsed(XLCellsUsedOptions options);
+        IXLCell? FirstCellUsed(XLCellsUsedOptions options);
 
-        IXLCell FirstCellUsed(Func<IXLCell, Boolean> predicate);
+        IXLCell? FirstCellUsed(Func<IXLCell, Boolean> predicate);
 
         /// <summary>
         /// Returns the first non-empty cell with a value of this range.
         /// </summary>
         /// <param name="options">The options to determine whether a cell is used.</param>
         /// <param name="predicate">The predicate used to choose cells</param>
-        IXLCell FirstCellUsed(XLCellsUsedOptions options, Func<IXLCell, Boolean> predicate);
+        IXLCell? FirstCellUsed(XLCellsUsedOptions options, Func<IXLCell, Boolean> predicate);
 
         /// <summary>
         ///   Returns the last cell of this range.
@@ -139,17 +137,17 @@ namespace ClosedXML.Excel
         ///   Returns the last non-empty cell with a value of this range. Formats are ignored.
         ///   <para>The cell's address is going to be ([Last Row with a value], [Last Column with a value])</para>
         /// </summary>
-        IXLCell LastCellUsed();
+        IXLCell? LastCellUsed();
 
         /// <summary>
         /// Returns the last non-empty cell with a value of this range.
         /// </summary>
         /// <param name="options">The options to determine whether a cell is used.</param>
-        IXLCell LastCellUsed(XLCellsUsedOptions options);
+        IXLCell? LastCellUsed(XLCellsUsedOptions options);
 
-        IXLCell LastCellUsed(Func<IXLCell, Boolean> predicate);
+        IXLCell? LastCellUsed(Func<IXLCell, Boolean> predicate);
 
-        IXLCell LastCellUsed(XLCellsUsedOptions options, Func<IXLCell, Boolean> predicate);
+        IXLCell? LastCellUsed(XLCellsUsedOptions options, Func<IXLCell, Boolean> predicate);
 
         /// <summary>
         ///   Determines whether this range contains the specified range (completely).
@@ -227,7 +225,7 @@ namespace ClosedXML.Excel
         /// <param name = "scope">The scope for the named range.</param>
         /// <param name = "comment">The comments for the named range.</param>
         /// </summary>
-        IXLRange AddToNamed(String name, XLScope scope, String comment);
+        IXLRange AddToNamed(String name, XLScope scope, String? comment);
 
         /// <summary>
         /// Clears the contents of this range.
@@ -290,9 +288,10 @@ namespace ClosedXML.Excel
         IXLAutoFilter SetAutoFilter(Boolean value);
 
         /// <summary>
-        /// Returns a data validation rule assigned to the range, if any, or creates a new instance of data validation rule if no rule exists.
+        /// Returns the data validation rule that has exactly the address of the range.
         /// </summary>
-        IXLDataValidation GetDataValidation();
+        /// <returns>The data validation rule, or <c>null</c> if no rule has the address of the range.</returns>
+        IXLDataValidation? GetDataValidation();
 
         /// <summary>
         /// Creates a new data validation rule for the range, replacing the existing one.
@@ -317,13 +316,14 @@ namespace ClosedXML.Excel
         /// <summary>
         /// Shrinks this current range by one cell.
         /// </summary>
-        IXLRangeBase Shrink();
+        IXLRangeBase? Shrink();
 
         /// <summary>
         /// Shrinks the current range by the specified number of cells from each side.
         /// </summary>
         /// <param name="shrinkCount">The shrink count.</param>
-        IXLRangeBase Shrink(Int32 shrinkCount);
+        /// <returns>The smaller range, or <c>null</c> if no cells remain.</returns>
+        IXLRangeBase? Shrink(Int32 shrinkCount);
 
         /// <summary>
         /// Returns the intersection of this range with another range on the same worksheet.
@@ -331,14 +331,14 @@ namespace ClosedXML.Excel
         /// <param name="otherRange">The other range.</param>
         /// <param name="thisRangePredicate">Predicate applied to this range's cells.</param>
         /// <param name="otherRangePredicate">Predicate applied to the other range's cells.</param>
-        /// <returns>The range address of the intersection</returns>
-        IXLRangeAddress Intersection(IXLRangeBase otherRange, Func<IXLCell, Boolean> thisRangePredicate = null, Func<IXLCell, Boolean> otherRangePredicate = null);
+        /// <returns>The range address of the intersection, or <c>null</c> if the ranges do not intersect or are on different worksheets.</returns>
+        IXLRangeAddress? Intersection(IXLRangeBase? otherRange, Func<IXLCell, Boolean>? thisRangePredicate = null, Func<IXLCell, Boolean>? otherRangePredicate = null);
 
         /// <summary>
         /// Returns the set of cells surrounding the current range.
         /// </summary>
         /// <param name="predicate">The predicate to apply on the resulting set of cells.</param>
-        IXLCells SurroundingCells(Func<IXLCell, Boolean> predicate = null);
+        IXLCells SurroundingCells(Func<IXLCell, Boolean>? predicate = null);
 
         /// <summary>
         /// Calculates the union of two ranges on the same worksheet.
@@ -349,7 +349,7 @@ namespace ClosedXML.Excel
         /// <returns>
         /// The union
         /// </returns>
-        IXLCells Union(IXLRangeBase otherRange, Func<IXLCell, Boolean> thisRangePredicate = null, Func<IXLCell, Boolean> otherRangePredicate = null);
+        IXLCells Union(IXLRangeBase? otherRange, Func<IXLCell, Boolean>? thisRangePredicate = null, Func<IXLCell, Boolean>? otherRangePredicate = null);
 
         /// <summary>
         /// Returns all cells in the current range that are not in the other range.
@@ -357,7 +357,7 @@ namespace ClosedXML.Excel
         /// <param name="otherRange">The other range.</param>
         /// <param name="thisRangePredicate">Predicate applied to this range's cells.</param>
         /// <param name="otherRangePredicate">Predicate applied to the other range's cells.</param>
-        IXLCells Difference(IXLRangeBase otherRange, Func<IXLCell, Boolean> thisRangePredicate = null, Func<IXLCell, Boolean> otherRangePredicate = null);
+        IXLCells Difference(IXLRangeBase? otherRange, Func<IXLCell, Boolean>? thisRangePredicate = null, Func<IXLCell, Boolean>? otherRangePredicate = null);
 
         /// <summary>
         /// Returns a range so that its offset from the target base range is equal to the offset of the current range to the source base range.

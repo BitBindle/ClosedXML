@@ -33,4 +33,16 @@ internal class XLRangesTests
 
         Assert.Throws<ArgumentException>(() => ranges.GetIntersectedRanges(new XLAddress(1, 1, false, false)));
     }
+
+    [Test]
+    public void AddToNamed_uses_the_given_scope()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet("Sheet");
+
+        ws.Ranges("A1:A2,C1:C2").AddToNamed("Local", XLScope.Worksheet);
+
+        Assert.IsTrue(ws.DefinedNames.Contains("Local"));
+        Assert.IsFalse(wb.DefinedNames.Contains("Local"));
+    }
 }

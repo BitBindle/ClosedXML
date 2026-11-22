@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -21,7 +19,7 @@ namespace ClosedXML.Excel
     internal partial class Slice<TElement> : ISlice
     {
         private static readonly Lut<TElement> Dummy = new();
-        private readonly TElement _defaultValue = default;
+        private readonly TElement? _defaultValue = default;
 
         /// <summary>
         /// The content of the slice. Note that LUT uses index that starts from 0,
@@ -42,12 +40,12 @@ namespace ClosedXML.Excel
         /// <summary>
         /// Get the slice value at the specified point of the sheet.
         /// </summary>
-        internal ref readonly TElement this[Point point] => ref this[point.Row, point.Column];
+        internal ref readonly TElement? this[Point point] => ref this[point.Row, point.Column];
 
         /// <summary>
         /// Get the slice value at the specified point of the sheet.
         /// </summary>
-        internal ref readonly TElement this[int row, int column]
+        internal ref readonly TElement? this[int row, int column]
         {
             get
             {
@@ -76,7 +74,7 @@ namespace ClosedXML.Excel
                 var rowsEnumerator = new Lut<Lut<TElement>>.LutEnumerator(_data, XLHelper.MinRowNumber - 1, XLHelper.MaxRowNumber - 1);
                 while (rowsEnumerator.MoveNext())
                 {
-                    if (!rowsEnumerator.Current.IsEmpty)
+                    if (rowsEnumerator.Current is { IsEmpty: false })
                         yield return rowsEnumerator.Index + 1;
                 }
             }
@@ -243,7 +241,7 @@ namespace ClosedXML.Excel
             Set(sp2, in value1);
         }
 
-        internal void SetAll(Area range, in TElement value)
+        internal void SetAll(Area range, in TElement? value)
         {
             foreach (var point in range)
             {
@@ -251,10 +249,10 @@ namespace ClosedXML.Excel
             }
         }
 
-        internal void Set(Point point, in TElement value)
+        internal void Set(Point point, in TElement? value)
             => Set(point.Row, point.Column, in value);
 
-        internal void Set(int row, int column, in TElement value)
+        internal void Set(int row, int column, in TElement? value)
         {
             var rowLut = _data.Get(row - 1);
             if (rowLut is null)
@@ -292,7 +290,7 @@ namespace ClosedXML.Excel
             var maxColIdx = -1;
             var rowEnumerator = new Lut<Lut<TElement>>.LutEnumerator(_data, XLHelper.MinRowNumber - 1, XLHelper.MaxRowNumber - 1);
             while (rowEnumerator.MoveNext())
-                maxColIdx = Math.Max(maxColIdx, rowEnumerator.Current.MaxUsedIndex);
+                maxColIdx = Math.Max(maxColIdx, rowEnumerator.Current?.MaxUsedIndex ?? -1);
 
             return maxColIdx + 1;
         }
@@ -338,7 +336,7 @@ namespace ClosedXML.Excel
                     range.LastPoint.Row - 1);
             }
 
-            public ref readonly TElement Current => ref _columnsEnumerator.Current;
+            public ref readonly TElement? Current => ref _columnsEnumerator.Current;
 
             public Point Point => new(_rowsEnumerator.Index + 1, _columnsEnumerator.Index + 1);
 
@@ -352,8 +350,12 @@ namespace ClosedXML.Excel
                     if (!_rowsEnumerator.MoveNext())
                         return false;
 
+                    // A used row always has a lookup table.
+                    if (_rowsEnumerator.Current is not { } rowLut)
+                        continue;
+
                     _columnsEnumerator = new Lut<TElement>.LutEnumerator(
-                        _rowsEnumerator.Current,
+                        rowLut,
                         _range.FirstPoint.Column - 1,
                         _range.LastPoint.Column - 1);
                 }
@@ -387,7 +389,7 @@ namespace ClosedXML.Excel
                     range.LastPoint.Row - 1);
             }
 
-            public ref TElement Current => ref _columnsEnumerator.Current;
+            public ref TElement? Current => ref _columnsEnumerator.Current;
 
             public Point Point => new(_rowsEnumerator.Index + 1, _columnsEnumerator.Index + 1);
 
@@ -398,8 +400,12 @@ namespace ClosedXML.Excel
                     if (!_rowsEnumerator.MoveNext())
                         return false;
 
+                    // A used row always has a lookup table.
+                    if (_rowsEnumerator.Current is not { } rowLut)
+                        continue;
+
                     _columnsEnumerator = new Lut<TElement>.ReverseLutEnumerator(
-                        _rowsEnumerator.Current,
+                        rowLut,
                         _range.FirstPoint.Column - 1,
                         _range.LastPoint.Column - 1);
                 }

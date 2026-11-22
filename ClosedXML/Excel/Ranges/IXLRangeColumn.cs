@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 
 namespace ClosedXML.Excel
@@ -143,6 +141,6 @@ namespace ClosedXML.Excel
         /// <param name="clearOptions">Specify what you want to clear.</param>
         new IXLRangeColumn Clear(XLClearOptions clearOptions = XLClearOptions.All);
 
-        IXLRangeColumn ColumnUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents);
+        IXLRangeColumn? ColumnUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents);
     }
 }

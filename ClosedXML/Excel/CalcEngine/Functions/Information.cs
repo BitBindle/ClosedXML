@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Linq;
 using static ClosedXML.Excel.CalcEngine.Functions.SignatureAdapter;
@@ -144,8 +142,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
         {
             if (!value.TryPickScalar(out var scalar, out var collection))
             {
-                var isArray = collection.TryPickT0(out _, out var reference);
-                if (isArray)
+                if (collection.TryPickT0(out _, out var reference))
                     return 64;
                 if (reference.Areas.Count > 1)
                     return 16;

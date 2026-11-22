@@ -1,7 +1,6 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace ClosedXML.Excel.CalcEngine
 {
@@ -25,7 +24,7 @@ namespace ClosedXML.Excel.CalcEngine
     {
         private readonly Dictionary<string, FunctionDefinition> _func = new(StringComparer.InvariantCultureIgnoreCase);
 
-        public bool TryGetFunc(string name, out FunctionDefinition func)
+        public bool TryGetFunc(string name, [NotNullWhen(true)] out FunctionDefinition? func)
         {
             return _func.TryGetValue(name, out func);
         }

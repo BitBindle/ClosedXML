@@ -133,7 +133,7 @@ namespace ClosedXML.Excel
                     .Cast<XLWorksheet>()
                     .SelectMany(ws => ws.Tables.Cast<XLTable>())
                     .Where(t => !String.IsNullOrWhiteSpace(t.RelId))
-                    .Select(t => t.RelId), RelType.Workbook);
+                    .Select(t => t.RelId).OfType<string>(), RelType.Workbook);
 
                 foreach (var xlWorksheet in xlWorkbook.WorksheetsInternal.Cast<XLWorksheet>())
                 {

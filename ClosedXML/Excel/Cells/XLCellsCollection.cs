@@ -515,7 +515,10 @@ namespace ClosedXML.Excel
             using var enumerator = FormulaSlice.GetForwardEnumerator(Area.Full);
             while (enumerator.MoveNext())
             {
-                ref readonly XLCellFormula cellFormula = ref enumerator.Current;
+                var cellFormula = enumerator.Current;
+                if (cellFormula is null)
+                    continue;
+
                 var currentPoint = enumerator.Point;
                 if (cellFormula.Type != FormulaType.Normal)
                 {

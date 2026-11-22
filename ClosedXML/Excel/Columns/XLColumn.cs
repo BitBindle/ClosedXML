@@ -79,7 +79,16 @@ namespace ClosedXML.Excel
             if (usedCellsOnly)
                 return Cells(true, XLCellsUsedOptions.AllContents);
             else
-                return Cells(FirstCellUsed().Address.RowNumber, LastCellUsed().Address.RowNumber);
+            {
+                var firstCell = FirstCellUsed();
+                var lastCell = LastCellUsed();
+
+                // A column without used cells has no cells between the first and the last used cell.
+                if (firstCell is null || lastCell is null)
+                    return Cells(true, XLCellsUsedOptions.AllContents);
+
+                return Cells(firstCell.Address.RowNumber, lastCell.Address.RowNumber);
+            }
         }
 
         public XLCells Cells(Int32 firstRow, Int32 lastRow)
@@ -437,10 +446,14 @@ namespace ClosedXML.Excel
             return this;
         }
 
-        public IXLRangeColumn ColumnUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents)
+        public IXLRangeColumn? ColumnUsed(XLCellsUsedOptions options = XLCellsUsedOptions.AllContents)
         {
-            return Column((this as IXLRangeBase).FirstCellUsed(options),
-                          (this as IXLRangeBase).LastCellUsed(options));
+            var firstCell = FirstCellUsed(options);
+            var lastCell = LastCellUsed(options);
+            if (firstCell is null || lastCell is null)
+                return null;
+
+            return Column(firstCell, lastCell);
         }
 
         #endregion IXLColumn Members

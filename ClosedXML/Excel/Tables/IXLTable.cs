@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -10,7 +8,11 @@ namespace ClosedXML.Excel
     public interface IXLTable : IXLRange
     {
         IXLAutoFilter AutoFilter { get; }
-        IXLTableRange DataRange { get; }
+        /// <summary>
+        /// The data rows of the table, without the header row and the totals row.
+        /// </summary>
+        /// <value>The data range, or <c>null</c> if the table has no data rows.</value>
+        IXLTableRange? DataRange { get; }
         Boolean EmphasizeFirstColumn { get; set; }
         Boolean EmphasizeLastColumn { get; set; }
         IEnumerable<IXLTableField> Fields { get; }
@@ -55,7 +57,11 @@ namespace ClosedXML.Excel
 
         IXLTableField Field(int fieldIndex);
 
-        IXLRangeRow HeadersRow();
+        /// <summary>
+        /// Gets the header row of the table.
+        /// </summary>
+        /// <returns>The header row, or <c>null</c> if the table does not show the header row.</returns>
+        IXLRangeRow? HeadersRow();
 
         /// <summary>
         /// Appends the IEnumerable data elements and returns the range of the new rows.
@@ -63,9 +69,9 @@ namespace ClosedXML.Excel
         /// <param name="data">The IEnumerable data.</param>
         /// <param name="propagateExtraColumns">if set to <c>true</c> propagate extra columns' values and formulas.</param>
         /// <returns>
-        /// The range of the new rows.
+        /// The range of the new rows, or <c>null</c> if <paramref name="data"/> is <c>null</c>, empty or a string.
         /// </returns>
-        IXLRange AppendData(IEnumerable data, Boolean propagateExtraColumns = false);
+        IXLRange? AppendData(IEnumerable? data, Boolean propagateExtraColumns = false);
 
         /// <summary>
         /// Appends the IEnumerable data elements and returns the range of the new rows.
@@ -74,9 +80,9 @@ namespace ClosedXML.Excel
         /// <param name="transpose">if set to <c>true</c> the data will be transposed before inserting.</param>
         /// <param name="propagateExtraColumns">if set to <c>true</c> propagate extra columns' values and formulas.</param>
         /// <returns>
-        /// The range of the new rows.
+        /// The range of the new rows, or <c>null</c> if <paramref name="data"/> is <c>null</c>, empty or a string.
         /// </returns>
-        IXLRange AppendData(IEnumerable data, Boolean transpose, Boolean propagateExtraColumns = false);
+        IXLRange? AppendData(IEnumerable? data, Boolean transpose, Boolean propagateExtraColumns = false);
 
         /// <summary>
         /// Appends the data of a data table and returns the range of the new rows.
@@ -84,9 +90,9 @@ namespace ClosedXML.Excel
         /// <param name="dataTable">The data table.</param>
         /// <param name="propagateExtraColumns">if set to <c>true</c> propagate extra columns' values and formulas.</param>
         /// <returns>
-        /// The range of the new rows.
+        /// The range of the new rows, or <c>null</c> if the data table has no rows.
         /// </returns>
-        IXLRange AppendData(DataTable dataTable, Boolean propagateExtraColumns = false);
+        IXLRange? AppendData(DataTable dataTable, Boolean propagateExtraColumns = false);
 
         /// <summary>
         /// Appends the IEnumerable data elements and returns the range of the new rows.
@@ -95,9 +101,9 @@ namespace ClosedXML.Excel
         /// <param name="data">The table data.</param>
         /// <param name="propagateExtraColumns">if set to <c>true</c> propagate extra columns' values and formulas.</param>
         /// <returns>
-        /// The range of the new rows.
+        /// The range of the new rows, or <c>null</c> if <paramref name="data"/> is <c>null</c>, empty or a string.
         /// </returns>
-        IXLRange AppendData<T>(IEnumerable<T> data, Boolean propagateExtraColumns = false);
+        IXLRange? AppendData<T>(IEnumerable<T>? data, Boolean propagateExtraColumns = false);
 
         /// <summary>
         /// Replaces the IEnumerable data elements and returns the table's data range.
@@ -219,7 +225,11 @@ namespace ClosedXML.Excel
 
         IXLTable SetShowTotalsRow(Boolean value);
 
-        IXLRangeRow TotalsRow();
+        /// <summary>
+        /// Gets the totals row of the table.
+        /// </summary>
+        /// <returns>The totals row, or <c>null</c> if the table does not show the totals row.</returns>
+        IXLRangeRow? TotalsRow();
 
         /// <summary>
         /// Converts the table to an enumerable of dynamic objects

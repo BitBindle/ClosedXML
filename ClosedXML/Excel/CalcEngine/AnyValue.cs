@@ -1,6 +1,5 @@
-#nullable disable
-
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using ClosedXML.Extensions;
@@ -24,12 +23,12 @@ namespace ClosedXML.Excel.CalcEngine
         private readonly byte _index;
         private readonly bool _logical;
         private readonly double _number;
-        private readonly string _text;
+        private readonly string? _text;
         private readonly XLError _error;
-        private readonly Array _array;
-        private readonly Reference _reference;
+        private readonly Array? _array;
+        private readonly Reference? _reference;
 
-        private AnyValue(byte index, bool logical, double number, string text, XLError error, Array array, Reference reference)
+        private AnyValue(byte index, bool logical, double number, string? text, XLError error, Array? array, Reference? reference)
         {
             _index = index;
             _logical = logical;
@@ -39,6 +38,13 @@ namespace ClosedXML.Excel.CalcEngine
             _array = array;
             _reference = reference;
         }
+
+        // The index selects the field that the constructor sets. These properties only guard that rule.
+        private string TextOrThrow => _text ?? throw new InvalidOperationException("The value is not a text.");
+
+        private Array ArrayOrThrow => _array ?? throw new InvalidOperationException("The value is not an array.");
+
+        private Reference ReferenceOrThrow => _reference ?? throw new InvalidOperationException("The value is not a reference.");
 
         /// <summary>
         /// A value of a blank cell or missing argument. Conversion methods mostly treat blank like 0 or an empty string.
@@ -113,14 +119,14 @@ namespace ClosedXML.Excel.CalcEngine
                 BlankValue => ScalarValue.Blank,
                 LogicalValue => _logical,
                 NumberValue => _number,
-                TextValue => _text,
+                TextValue => TextOrThrow,
                 ErrorValue => _error,
                 _ => default
             };
             collection = _index switch
             {
-                ArrayValue => _array,
-                ReferenceValue => _reference,
+                ArrayValue => ArrayOrThrow,
+                ReferenceValue => ReferenceOrThrow,
                 _ => default
             };
             return _index <= ErrorValue;
@@ -138,11 +144,11 @@ namespace ClosedXML.Excel.CalcEngine
             return false;
         }
 
-        public bool TryPickArray(out Array array)
+        public bool TryPickArray([NotNullWhen(true)] out Array? array)
         {
             if (_index == ArrayValue)
             {
-                array = _array;
+                array = ArrayOrThrow;
                 return true;
             }
 
@@ -150,11 +156,11 @@ namespace ClosedXML.Excel.CalcEngine
             return false;
         }
 
-        public bool TryPickReference(out Reference reference, out XLError error)
+        public bool TryPickReference([NotNullWhen(true)] out Reference? reference, out XLError error)
         {
             if (_index == ReferenceValue)
             {
-                reference = _reference;
+                reference = ReferenceOrThrow;
                 error = default;
                 return true;
             }
@@ -179,14 +185,14 @@ namespace ClosedXML.Excel.CalcEngine
                 return false;
             }
 
-            if (_reference.Areas.Count > 1)
+            if (ReferenceOrThrow.Areas.Count > 1)
             {
                 area = default;
                 error = XLError.CellReference;
                 return false;
             }
 
-            area = _reference.Areas[0];
+            area = ReferenceOrThrow.Areas[0];
             error = default;
             return true;
         }
@@ -194,7 +200,7 @@ namespace ClosedXML.Excel.CalcEngine
         /// <summary>
         /// Return array from a single area reference or array. If value is scalar, return false.
         /// </summary>
-        public bool TryPickCollectionArray(out Array array, CalcContext ctx)
+        public bool TryPickCollectionArray([NotNullWhen(true)] out Array? array, CalcContext ctx)
         {
             if (TryPickArea(out var areaAddress, out _))
             {
@@ -223,7 +229,7 @@ namespace ClosedXML.Excel.CalcEngine
         /// <remarks>
         /// Note the difference in nomenclature: <em>single/multi value</em> vs <em>scalar/collection type</em>.
         /// </remarks>
-        internal bool TryPickSingleOrMultiValue(out ScalarValue scalar, out Array array, CalcContext ctx)
+        internal bool TryPickSingleOrMultiValue(out ScalarValue scalar, [NotNullWhen(false)] out Array? array, CalcContext ctx)
         {
             if (TryPickScalar(out scalar, out var collection))
             {
@@ -261,10 +267,10 @@ namespace ClosedXML.Excel.CalcEngine
                 BlankValue => transformBlank(),
                 LogicalValue => transformLogical(_logical),
                 NumberValue => transformNumber(_number),
-                TextValue => transformText(_text),
+                TextValue => transformText(TextOrThrow),
                 ErrorValue => transformError(_error),
-                ArrayValue => transformArray(_array),
-                ReferenceValue => transformReference(_reference),
+                ArrayValue => transformArray(ArrayOrThrow),
+                ReferenceValue => transformReference(ReferenceOrThrow),
                 _ => throw new InvalidOperationException()
             };
         }
@@ -372,7 +378,7 @@ namespace ClosedXML.Excel.CalcEngine
         {
             return value._index switch
             {
-                ReferenceValue => value._reference,
+                ReferenceValue => value.ReferenceOrThrow,
                 ErrorValue => value._error,
                 _ => XLError.IncompatibleValue
             };
@@ -397,8 +403,7 @@ namespace ClosedXML.Excel.CalcEngine
         private static AnyValue UnaryOperation(in AnyValue operand, Func<double, double> operatorFn, CalcContext context)
         {
             var value = IntersectOperand(operand, context);
-            var isSingle = value.TryPickSingleOrMultiValue(out var single, out var array, context);
-            if (isSingle)
+            if (value.TryPickSingleOrMultiValue(out var single, out var array, context))
                 return UnaryArithmeticOp(single, operatorFn, context).ToAnyValue();
 
             return array.Apply(arrayConst => UnaryArithmeticOp(arrayConst, operatorFn, context), context);
@@ -546,19 +551,20 @@ namespace ClosedXML.Excel.CalcEngine
         {
             var left = IntersectOperand(leftOperand, context);
             var right = IntersectOperand(rightOperand, context);
-            var isLeftSingle = left.TryPickSingleOrMultiValue(out var leftSingle, out var leftArray, context);
-            var isRightSingle = right.TryPickSingleOrMultiValue(out var rightSingle, out var rightArray, context);
+            // A single value has no array.
+            left.TryPickSingleOrMultiValue(out var leftSingle, out var leftArray, context);
+            right.TryPickSingleOrMultiValue(out var rightSingle, out var rightArray, context);
 
-            if (isLeftSingle && isRightSingle)
-                return func(in leftSingle, in rightSingle, context).ToAnyValue();
-
-            if (isLeftSingle)
+            if (leftArray is null)
             {
+                if (rightArray is null)
+                    return func(in leftSingle, in rightSingle, context).ToAnyValue();
+
                 var broadcastedLeftArray = new ScalarArray(leftSingle, rightArray.Width, rightArray.Height);
                 return broadcastedLeftArray.Apply(rightArray, func, context);
             }
 
-            if (isRightSingle)
+            if (rightArray is null)
             {
                 var broadcastedRightArray = new ScalarArray(rightSingle, leftArray.Width, leftArray.Height);
                 return leftArray.Apply(broadcastedRightArray, func, context);
@@ -653,10 +659,10 @@ namespace ClosedXML.Excel.CalcEngine
                 BlankValue => "Blank",
                 LogicalValue => $"Logical: {_logical.ToString().ToUpper()}",
                 NumberValue => $"Number: {_number}",
-                TextValue => $"Text: {_text}",
+                TextValue => $"Text: {TextOrThrow}",
                 ErrorValue => $"Error: {_error.ToDisplayString()}",
-                ArrayValue => $"Array{_array.Height}x{_array.Width}",
-                ReferenceValue => $"Reference: {string.Join(",", _reference.Areas.Select(a => $"{a.FirstAddress}:{a.LastAddress}"))}",
+                ArrayValue => $"Array{ArrayOrThrow.Height}x{ArrayOrThrow.Width}",
+                ReferenceValue => $"Reference: {string.Join(",", ReferenceOrThrow.Areas.Select(a => $"{a.FirstAddress}:{a.LastAddress}"))}",
                 _ => throw new InvalidOperationException()
             };
         }
@@ -684,7 +690,7 @@ namespace ClosedXML.Excel.CalcEngine
         /// Return the array value.
         /// </summary>
         /// <exception cref="InvalidCastException" />
-        public Array GetArray() => _index == ArrayValue ? _array : throw new InvalidCastException();
+        public Array GetArray() => _index == ArrayValue ? ArrayOrThrow : throw new InvalidCastException();
 
         private delegate OneOf<double, XLError> BinaryNumberFunc(double lhs, double rhs);
     }

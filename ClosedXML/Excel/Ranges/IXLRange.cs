@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 
 namespace ClosedXML.Excel
@@ -42,6 +40,7 @@ namespace ClosedXML.Excel
         /// <summary>Gets the cell at the specified address.</summary>
         /// <para>The cell address is relative to the parent range.</para>
         /// <param name="cellAddressInRange">The cell address in the parent range.</param>
+        /// <exception cref="ArgumentException">The address is not an A1 address or a defined name.</exception>
         IXLCell Cell(string cellAddressInRange);
 
         /// <summary>
@@ -73,35 +72,49 @@ namespace ClosedXML.Excel
         /// <summary>
         /// Gets the first column of the range.
         /// </summary>
-        IXLRangeColumn FirstColumn(Func<IXLRangeColumn, Boolean> predicate = null);
+        IXLRangeColumn FirstColumn();
+
+        /// <summary>
+        /// Gets the first column of the range that matches the predicate.
+        /// </summary>
+        /// <param name="predicate">The predicate to choose columns.</param>
+        /// <returns>The column, or <c>null</c> if no column matches the predicate.</returns>
+        IXLRangeColumn? FirstColumn(Func<IXLRangeColumn, Boolean> predicate);
 
         /// <summary>
         /// Gets the first non-empty column of the range that contains a cell with a value.
         /// </summary>
         /// <param name="options">The options to determine whether a cell is used.</param>
         /// <param name="predicate">The predicate to choose cells.</param>
-        IXLRangeColumn FirstColumnUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, Boolean> predicate = null);
+        IXLRangeColumn? FirstColumnUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, Boolean>? predicate = null);
 
-        IXLRangeColumn FirstColumnUsed(Func<IXLRangeColumn, Boolean> predicate = null);
+        IXLRangeColumn? FirstColumnUsed(Func<IXLRangeColumn, Boolean>? predicate = null);
 
         /// <summary>
         /// Gets the last column of the range.
         /// </summary>
-        IXLRangeColumn LastColumn(Func<IXLRangeColumn, Boolean> predicate = null);
+        IXLRangeColumn LastColumn();
+
+        /// <summary>
+        /// Gets the last column of the range that matches the predicate.
+        /// </summary>
+        /// <param name="predicate">The predicate to choose columns.</param>
+        /// <returns>The column, or <c>null</c> if no column matches the predicate.</returns>
+        IXLRangeColumn? LastColumn(Func<IXLRangeColumn, Boolean> predicate);
 
         /// <summary>
         /// Gets the last non-empty column of the range that contains a cell with a value.
         /// </summary>
         /// <param name="options">The options to determine whether a cell is used.</param>
         /// <param name="predicate">The predicate to choose cells.</param>
-        IXLRangeColumn LastColumnUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, Boolean> predicate = null);
+        IXLRangeColumn? LastColumnUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, Boolean>? predicate = null);
 
-        IXLRangeColumn LastColumnUsed(Func<IXLRangeColumn, Boolean> predicate = null);
+        IXLRangeColumn? LastColumnUsed(Func<IXLRangeColumn, Boolean>? predicate = null);
 
         /// <summary>
         /// Gets a collection of all columns in this range.
         /// </summary>
-        IXLRangeColumns Columns(Func<IXLRangeColumn, Boolean> predicate = null);
+        IXLRangeColumns Columns(Func<IXLRangeColumn, Boolean>? predicate = null);
 
         /// <summary>
         /// Gets a collection of the specified columns in this range.
@@ -128,40 +141,54 @@ namespace ClosedXML.Excel
         /// <summary>
         /// Returns the first row that matches the given predicate
         /// </summary>
-        IXLRangeColumn FindColumn(Func<IXLRangeColumn, Boolean> predicate);
+        IXLRangeColumn? FindColumn(Func<IXLRangeColumn, Boolean> predicate);
 
         /// <summary>
         /// Returns the first row that matches the given predicate
         /// </summary>
-        IXLRangeRow FindRow(Func<IXLRangeRow, Boolean> predicate);
+        IXLRangeRow? FindRow(Func<IXLRangeRow, Boolean> predicate);
 
         /// <summary>
         /// Gets the first row of the range.
         /// </summary>
-        IXLRangeRow FirstRow(Func<IXLRangeRow, Boolean> predicate = null);
+        IXLRangeRow FirstRow();
+
+        /// <summary>
+        /// Gets the first row of the range that matches the predicate.
+        /// </summary>
+        /// <param name="predicate">The predicate to choose rows.</param>
+        /// <returns>The row, or <c>null</c> if no row matches the predicate.</returns>
+        IXLRangeRow? FirstRow(Func<IXLRangeRow, Boolean> predicate);
 
         /// <summary>
         /// Gets the first non-empty row of the range that contains a cell with a value.
         /// </summary>
         /// <param name="options">The options to determine whether a cell is used.</param>
         /// <param name="predicate">The predicate to choose cells.</param>
-        IXLRangeRow FirstRowUsed(XLCellsUsedOptions options, Func<IXLRangeRow, Boolean> predicate = null);
+        IXLRangeRow? FirstRowUsed(XLCellsUsedOptions options, Func<IXLRangeRow, Boolean>? predicate = null);
 
-        IXLRangeRow FirstRowUsed(Func<IXLRangeRow, Boolean> predicate = null);
+        IXLRangeRow? FirstRowUsed(Func<IXLRangeRow, Boolean>? predicate = null);
 
         /// <summary>
         /// Gets the last row of the range.
         /// </summary>
-        IXLRangeRow LastRow(Func<IXLRangeRow, Boolean> predicate = null);
+        IXLRangeRow LastRow();
+
+        /// <summary>
+        /// Gets the last row of the range that matches the predicate.
+        /// </summary>
+        /// <param name="predicate">The predicate to choose rows.</param>
+        /// <returns>The row, or <c>null</c> if no row matches the predicate.</returns>
+        IXLRangeRow? LastRow(Func<IXLRangeRow, Boolean> predicate);
 
         /// <summary>
         /// Gets the last non-empty row of the range that contains a cell with a value.
         /// </summary>
         /// <param name="options">The options to determine whether a cell is used.</param>
         /// <param name="predicate">The predicate to choose cells.</param>
-        IXLRangeRow LastRowUsed(XLCellsUsedOptions options, Func<IXLRangeRow, Boolean> predicate = null);
+        IXLRangeRow? LastRowUsed(XLCellsUsedOptions options, Func<IXLRangeRow, Boolean>? predicate = null);
 
-        IXLRangeRow LastRowUsed(Func<IXLRangeRow, Boolean> predicate = null);
+        IXLRangeRow? LastRowUsed(Func<IXLRangeRow, Boolean>? predicate = null);
 
         /// <summary>
         /// Gets the specified row of the range.
@@ -170,7 +197,7 @@ namespace ClosedXML.Excel
         /// <returns>The relevant row</returns>
         IXLRangeRow Row(int row);
 
-        IXLRangeRows Rows(Func<IXLRangeRow, Boolean> predicate = null);
+        IXLRangeRows Rows(Func<IXLRangeRow, Boolean>? predicate = null);
 
         /// <summary>
         /// Gets a collection of the specified rows in this range.
@@ -195,6 +222,7 @@ namespace ClosedXML.Excel
         /// <summary>Returns the specified range.</summary>
         /// <para>e.g. Range("A1"), Range("A1:C2")</para>
         /// <param name="rangeAddress">The range boundaries.</param>
+        /// <exception cref="ArgumentException">The address is not an A1 address or a defined name.</exception>
         IXLRange Range(string rangeAddress);
 
         /// <summary>Returns the specified range.</summary>
@@ -304,7 +332,7 @@ namespace ClosedXML.Excel
 
         IXLTable CreateTable(String name);
 
-        IXLRange RangeUsed();
+        IXLRange? RangeUsed();
 
         IXLRange CopyTo(IXLCell target);
 
@@ -393,12 +421,12 @@ namespace ClosedXML.Excel
         /// <param name="clearOptions">Specify what you want to clear.</param>
         new IXLRange Clear(XLClearOptions clearOptions = XLClearOptions.All);
 
-        IXLRangeRows RowsUsed(XLCellsUsedOptions options, Func<IXLRangeRow, Boolean> predicate = null);
+        IXLRangeRows RowsUsed(XLCellsUsedOptions options, Func<IXLRangeRow, Boolean>? predicate = null);
 
-        IXLRangeRows RowsUsed(Func<IXLRangeRow, Boolean> predicate = null);
+        IXLRangeRows RowsUsed(Func<IXLRangeRow, Boolean>? predicate = null);
 
-        IXLRangeColumns ColumnsUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, Boolean> predicate = null);
+        IXLRangeColumns ColumnsUsed(XLCellsUsedOptions options, Func<IXLRangeColumn, Boolean>? predicate = null);
 
-        IXLRangeColumns ColumnsUsed(Func<IXLRangeColumn, Boolean> predicate = null);
+        IXLRangeColumns ColumnsUsed(Func<IXLRangeColumn, Boolean>? predicate = null);
     }
 }
