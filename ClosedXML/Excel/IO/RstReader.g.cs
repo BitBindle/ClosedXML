@@ -140,15 +140,15 @@ internal partial class RstReader
 
         var tResult = _reader.ParseXString("t", _ns);
         var t = tResult.IsSuccess ? tResult.Value : default(string?);
-        var r = new List<(string Text, XLDifferentialFontValue Font)>();
+        List<(string Text, XLDifferentialFontValue Font)>? r = null;
         while (ParseRElt("r", _ns) is { IsSuccess: true} rItem)
         {
-            r.Add(rItem.Value);
+            (r ??= new List<(string Text, XLDifferentialFontValue Font)>()).Add(rItem.Value);
         }
-        var rPh = new List<PhoneticRunDto>();
+        List<PhoneticRunDto>? rPh = null;
         while (ParsePhoneticRun("rPh", _ns) is { IsSuccess: true} rPhItem)
         {
-            rPh.Add(rPhItem.Value);
+            (rPh ??= new List<PhoneticRunDto>()).Add(rPhItem.Value);
         }
         var phoneticPrResult = ParsePhoneticPr("phoneticPr", _ns);
         var phoneticPr = phoneticPrResult.IsSuccess ? phoneticPrResult.Value : default(PhoneticProperties?);

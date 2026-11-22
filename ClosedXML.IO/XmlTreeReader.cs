@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Xml;
 using static ClosedXML.IO.XmlTreeNodeType;
@@ -91,6 +92,27 @@ public sealed class XmlTreeReader : IDisposable
     private bool _inLookup;
 
     private readonly List<string> _context = new();
+
+    /// <summary>
+    /// The white space characters of XML. <see cref="XmlConvert"/> removes them before it parses a value.
+    /// </summary>
+    private const string XmlWhitespace = " \t\n\r";
+
+    /// <summary>
+    /// The number styles of <see cref="XmlConvert.ToInt32(string)"/> and <see cref="XmlConvert.ToInt64(string)"/>.
+    /// </summary>
+    private const NumberStyles XmlIntegerStyle = NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite;
+
+    /// <summary>
+    /// The number styles of <see cref="XmlConvert.ToDouble(string)"/>, after it removes the white space.
+    /// </summary>
+    private const NumberStyles XmlDoubleStyle = NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent;
+
+    /// <summary>
+    /// The buffer that keeps the value of the last attribute that <see cref="TryGetAttributeChars"/> read.
+    /// </summary>
+    private char[] _attributeBuffer = new char[32];
+    private char[] _contentBuffer = new char[64];
 
     public XmlTreeReader(Stream stream, IEnumMapper enumMapper, bool strictAttributeParsing)
         : this(XmlReader.Create(stream, Settings), enumMapper, strictAttributeParsing, leaveOpen: false)
@@ -226,22 +248,21 @@ public sealed class XmlTreeReader : IDisposable
 
     public bool? GetOptionalBool(string attributeName, string? ns = null)
     {
-        ThrowOnNonStartElement();
-        bool? result = null;
-        if (_reader.GetAttribute(attributeName, ns) is { } value)
-        {
-            try
-            {
-                result = XmlConvert.ToBoolean(value);
-            }
-            catch (FormatException e)
-            {
-                if (StrictAttributeParsing)
-                    ThrowAttributeFormatException(attributeName, value, e);
-            }
-        }
+        if (!TryGetAttributeChars(attributeName, ns, out var value))
+            return null;
 
-        return result;
+        // The same values as XmlConvert.ToBoolean.
+        var trimmed = value.Trim(XmlWhitespace);
+        if (trimmed is "1" or "true")
+            return true;
+
+        if (trimmed is "0" or "false")
+            return false;
+
+        if (StrictAttributeParsing)
+            ThrowAttributeFormatException(attributeName, value.ToString());
+
+        return null;
     }
 
     public byte? GetOptionalUByte(string attributeName, string? ns = null)
@@ -271,101 +292,64 @@ public sealed class XmlTreeReader : IDisposable
 
     public int? GetOptionalInt(string attributeName, string? ns = null)
     {
-        ThrowOnNonStartElement();
-        int? number = null;
-        if (_reader.GetAttribute(attributeName, ns) is { } value)
-        {
-            try
-            {
-                number = XmlConvert.ToInt32(value);
-            }
-            catch (OverflowException e)
-            {
-                if (StrictAttributeParsing)
-                    ThrowAttributeFormatException(attributeName, value, e);
-            }
-            catch (FormatException e)
-            {
-                if (StrictAttributeParsing)
-                    ThrowAttributeFormatException(attributeName, value, e);
-            }
-        }
+        if (!TryGetAttributeChars(attributeName, ns, out var value))
+            return null;
 
-        return number;
+        if (int.TryParse(value, XmlIntegerStyle, NumberFormatInfo.InvariantInfo, out var number))
+            return number;
+
+        if (StrictAttributeParsing)
+            ThrowAttributeFormatException(attributeName, value.ToString());
+
+        return null;
     }
 
     public uint? GetOptionalUInt(string attributeName, string? ns = null)
     {
-        ThrowOnNonStartElement();
-        long? number = null;
-        if (_reader.GetAttribute(attributeName, ns) is { } value)
-        {
-            try
-            {
-                number = XmlConvert.ToInt64(value);
-            }
-            catch (OverflowException e)
-            {
-                if (StrictAttributeParsing)
-                    ThrowAttributeFormatException(attributeName, value, e);
-            }
-            catch (FormatException e)
-            {
-                if (StrictAttributeParsing)
-                    ThrowAttributeFormatException(attributeName, value, e);
-            }
+        if (!TryGetAttributeChars(attributeName, ns, out var value))
+            return null;
 
-            if (number is < 0 or > uint.MaxValue)
-            {
-                if (StrictAttributeParsing)
-                    ThrowAttributeFormatException(attributeName, value);
+        if (long.TryParse(value, XmlIntegerStyle, NumberFormatInfo.InvariantInfo, out var number) && number is >= 0 and <= uint.MaxValue)
+            return (uint)number;
 
-                number = null;
-            }
-        }
+        if (StrictAttributeParsing)
+            ThrowAttributeFormatException(attributeName, value.ToString());
 
-        return number is not null ? (uint)number : null;
+        return null;
     }
 
     public double? GetOptionalDouble(string attributeName, string? ns = null)
     {
-        ThrowOnNonStartElement();
-        double? number = null;
-        if (_reader.GetAttribute(attributeName, ns) is { } value)
-        {
-            try
-            {
-                number = ToDouble(value);
-            }
-            catch (OverflowException e)
-            {
-                if (StrictAttributeParsing)
-                    ThrowAttributeFormatException(attributeName, value, e);
-            }
-            catch (FormatException e)
-            {
-                if (StrictAttributeParsing)
-                    ThrowAttributeFormatException(attributeName, value, e);
-            }
+        if (!TryGetAttributeChars(attributeName, ns, out var value))
+            return null;
 
-            if (number is not null && (double.IsNaN(number.Value) || double.IsInfinity(number.Value)))
-            {
-                if (StrictAttributeParsing)
-                    ThrowAttributeFormatException(attributeName, value);
+        // XmlConvert.ToDouble also accepts INF and -INF, but this method does not accept an
+        // infinity or NaN.
+        if (double.TryParse(value.Trim(XmlWhitespace), XmlDoubleStyle, NumberFormatInfo.InvariantInfo, out var number) && double.IsFinite(number))
+            return number;
 
-                number = null;
-            }
-        }
+        if (StrictAttributeParsing)
+            ThrowAttributeFormatException(attributeName, value.ToString());
 
-        return number;
+        return null;
     }
 
     /// <summary>
-    /// Converts an <c>xsd:double</c> text to the nearest <see cref="double"/>.
+    /// Get the characters of an attribute of the current element. The method does not make a new
+    /// string. The <paramref name="value"/> is valid only until the next call to this reader.
     /// </summary>
-    private static double ToDouble(string value)
+    /// <returns>True, if the element has the attribute. False, if the element does not have the attribute.</returns>
+    public bool TryGetAttributeChars(string attributeName, string? ns, out ReadOnlySpan<char> value)
     {
-        return XmlConvert.ToDouble(value);
+        ThrowOnNonStartElement();
+        if (!_reader.TryCopyAttribute(attributeName, ns, ref _attributeBuffer, out var length))
+        {
+            value = default;
+            return false;
+        }
+
+        value = _attributeBuffer.AsSpan(0, length);
+        return true;
     }
 
     /// <summary>
@@ -427,9 +411,23 @@ public sealed class XmlTreeReader : IDisposable
     /// <exception cref="PartStructureException">If another element is found inside the current element.</exception>>
     public string GetContent()
     {
+        var length = GetContent(ref _contentBuffer);
+        return length == 0 ? string.Empty : new string(_contentBuffer, 0, length);
+    }
+
+    /// <summary>
+    /// Copy the content of the current element to the start of the <paramref name="buffer"/>. The
+    /// method does not make a new string. If the buffer is too small, the method puts a larger
+    /// buffer in <paramref name="buffer"/>. Once it ends, it should be on the
+    /// <see cref="XmlTreeNodeType.CloseElement"/> of the tree.
+    /// </summary>
+    /// <returns>The number of characters of the content.</returns>
+    /// <exception cref="PartStructureException">If another element is found inside the current element.</exception>
+    public int GetContent(ref char[] buffer)
+    {
         ThrowOnNonStartElement();
 
-        var content = string.Empty;
+        var length = 0;
         while (_reader.Read())
         {
             switch (_reader.NodeType)
@@ -438,9 +436,9 @@ public sealed class XmlTreeReader : IDisposable
                     throw PartStructureException.UnexpectedElementFound(_reader.LocalName);
                 case CloseElement:
                     _inLookup = true;
-                    return content;
+                    return length;
                 case Text:
-                    content += _reader.Value;
+                    length += _reader.CopyValue(ref buffer, length);
                     break;
                 default:
                     throw new UnreachableException();

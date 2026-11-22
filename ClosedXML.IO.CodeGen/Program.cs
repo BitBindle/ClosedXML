@@ -235,8 +235,10 @@ public static class Program
             .AddParseCall("s:ST_Xstring", "_reader.ParseXString")
             ;
 
+        // A shared string table has many items, and most items have no runs.
         var rstGenerator = new ParserGenerator(schema, typeMap, "RstReader")
             .WithNamespace("ClosedXML.Excel.IO")
+            .WithLazyLists()
             .AddUsing("System.Collections.Generic")
             .AddUsing("ClosedXML.Excel.Formatting")
             .AddUsing("ClosedXML.Excel.CalcEngine")
@@ -294,7 +296,7 @@ public static class Program
                 Name = "ST_CellType",
                 CsTypeName = "string",
                 RequiredTemplate = "_reader.GetString",
-                OptionalTemplate = "_reader.GetOptionalString",
+                OptionalTemplate = "_reader.GetOptionalCellType",
                 MapValue = x => x == "n" ? "\"n\"" : throw new NotSupportedException()
             })
             .AddSimpleType(new SimpleTypeMapping
@@ -302,7 +304,7 @@ public static class Program
                 // Keep "" for default value of ST_CellFormulaType so normal type can be checked by a empty string check
                 Name = "ST_CellFormulaType",
                 CsTypeName = "string",
-                OptionalTemplate = "_reader.GetOptionalString",
+                OptionalTemplate = "_reader.GetOptionalCellFormulaType",
                 MapValue = x => x == "normal" ? "string.Empty" : throw new NotSupportedException()
             })
             .AddSimpleType(new SimpleTypeMapping
@@ -312,15 +314,17 @@ public static class Program
                 OptionalTemplate = "_reader.GetOptionalArea"
             })
 
-            .AddComplexTypeMapping("s:ST_Xstring", "string")
+            // The cell value is a slice of a buffer that the reader uses again for the next cell.
+            .AddComplexTypeMapping("s:ST_Xstring", "ReadOnlyMemory<char>")
             .AddComplexTypeMapping("CT_Rst", "StringItem")
 
-            .AddParseCall("s:ST_Xstring", "_reader.ParseXString")
+            .AddParseCall("s:ST_Xstring", "ParseCellValue")
             .AddParseCall("CT_Rst", "_rstReader.ParseCtRst")
             ;
 
         var sheetDataGenerator = new ParserGenerator(schema, typeMap, "SheetDataReader")
             .WithNamespace("ClosedXML.Excel.IO")
+            .AddUsing("System")
             .AddUsing("System.Collections.Generic")
             .AddUsing("ClosedXML.IO")
             .AddUsing("StringItem = ClosedXML.Excel.CalcEngine.OneOf<string, ClosedXML.Excel.XLImmutableRichText>")

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Xml;
 using ClosedXML.Excel.IO;
 using ClosedXML.IO;
 using ClosedXML.Utils;
@@ -197,6 +198,71 @@ internal class XmlTreeReaderAttributesTests
         Assert.That(reader.GetOptionalString("str"), Is.EqualTo("unqualified"));
         Assert.That(reader.GetOptionalInt("int"), Is.Null);
         Assert.That(reader.GetOptionalString("missing", ns), Is.Null);
+    }
+
+    [TestCase("5")]
+    [TestCase(" 5 ")]
+    [TestCase("&#9;-7&#10;")]
+    [TestCase("&#13;+0 ")]
+    [TestCase("-0")]
+    [TestCase("007")]
+    [TestCase("")]
+    [TestCase(" ")]
+    [TestCase("1 2")]
+    [TestCase("- 1")]
+    [TestCase("1.5")]
+    [TestCase(" -1.5E+3 ")]
+    [TestCase(".5")]
+    [TestCase("5.")]
+    [TestCase("1e400")]
+    [TestCase("INF")]
+    [TestCase("-INF")]
+    [TestCase("NaN")]
+    [TestCase("Infinity")]
+    [TestCase("1,000")]
+    [TestCase("0x10")]
+    [TestCase("true")]
+    [TestCase(" false ")]
+    [TestCase("True")]
+    [TestCase("4294967295")]
+    [TestCase("4294967296")]
+    [TestCase("-2147483649")]
+    [TestCase("99999999999999999999")]
+    [Issue("73")]
+    public void Number_and_bool_readers_accept_the_same_values_as_XmlConvert(string xmlText)
+    {
+        using var reader = CreateReader(xmlText);
+        var value = reader.GetOptionalString(AttributeName)!;
+
+        // The readers do not accept INF, -INF and NaN. The uint reader reads a long in a range.
+        var expectedDouble = XmlConvertOrNull(XmlConvert.ToDouble, value);
+        if (expectedDouble is { } number && !double.IsFinite(number))
+            expectedDouble = null;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reader.GetOptionalBool(AttributeName), Is.EqualTo(XmlConvertOrNull(XmlConvert.ToBoolean, value)));
+            Assert.That(reader.GetOptionalInt(AttributeName), Is.EqualTo(XmlConvertOrNull(XmlConvert.ToInt32, value)));
+            Assert.That(reader.GetOptionalUInt(AttributeName), Is.EqualTo(XmlConvertOrNull(text => checked((uint)XmlConvert.ToInt64(text)), value)));
+            Assert.That(reader.GetOptionalDouble(AttributeName), Is.EqualTo(expectedDouble));
+        });
+    }
+
+    private static T? XmlConvertOrNull<T>(Func<string, T> convert, string text)
+        where T : struct
+    {
+        try
+        {
+            return convert(text);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+        catch (OverflowException)
+        {
+            return null;
+        }
     }
 
     private static XmlTreeReader CreateReaderFromXml(string xml, XmlToEnumMapper mapper)

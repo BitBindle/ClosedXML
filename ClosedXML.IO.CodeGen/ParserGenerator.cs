@@ -13,6 +13,7 @@ public class ParserGenerator
     private readonly SchemeTypeMap _typeMap;
     private readonly List<string> _usings = new();
     private string _targetNamespace = "ClosedXML.Excel.IO";
+    private bool _lazyLists;
 
     public ParserGenerator(Schema schema, SchemeTypeMap typeMap, string readerField)
     {
@@ -24,6 +25,16 @@ public class ParserGenerator
     public ParserGenerator WithNamespace(string targetNamespace)
     {
         _targetNamespace = targetNamespace;
+        return this;
+    }
+
+    /// <summary>
+    /// Make the list for a repeated element only when the element occurs. The hook gets
+    /// <c>null</c> when there is no element. Use it for a part with many small items.
+    /// </summary>
+    public ParserGenerator WithLazyLists()
+    {
+        _lazyLists = true;
         return this;
     }
 
@@ -52,7 +63,7 @@ public class ParserGenerator
     /// <returns>Generated source code.</returns>
     public string Generate()
     {
-        var code = new CodeBuilder(new StringBuilder(), _typeMap);
+        var code = new CodeBuilder(new StringBuilder(), _typeMap) { LazyLists = _lazyLists };
         code.AddLine("#nullable enable");
         code.EndLine();
         foreach (var usingNs in _usings)

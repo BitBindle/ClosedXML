@@ -138,15 +138,21 @@ namespace ClosedXML.Excel.Drawings
             return false;
         }
 
-        internal IXLPicture Add(Stream stream, string name, int Id)
+        /// <summary>
+        /// Add a loaded picture. The picture uses the <paramref name="imageStream"/> without a copy
+        /// and owns it.
+        /// </summary>
+        internal XLPicture AddOwned(MemoryStream imageStream, string name, int id)
         {
-            var picture = (XLPicture)Add(stream);
+            var picture = XLPicture.FromOwnedStream(_worksheet, imageStream);
+            _pictures.Add(picture);
+            picture.Name = GetNextPictureName();
 
             // Excel can save a picture with an empty name. Keep the generated name for it, as Excel does.
             if (!String.IsNullOrEmpty(name))
                 picture.SetName(name);
 
-            picture.Id = Id;
+            picture.Id = id;
             return picture;
         }
 

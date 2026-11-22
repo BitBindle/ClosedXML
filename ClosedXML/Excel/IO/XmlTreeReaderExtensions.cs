@@ -11,6 +11,10 @@ namespace ClosedXML.Excel.IO;
 /// </summary>
 internal static class XmlTreeReaderExtensions
 {
+    private static readonly string[] CellTypes = ["n", "s", "str", "b", "inlineStr", "e", "d"];
+
+    private static readonly string[] CellFormulaTypes = ["normal", "shared", "array", "dataTable"];
+
     /// <summary>
     /// Try to open an optional <c>CT_Color</c> and read the color.
     /// </summary>
@@ -167,14 +171,13 @@ internal static class XmlTreeReaderExtensions
     /// </summary>
     public static Point? GetOptionalPoint(this XmlTreeReader reader, string attributeName)
     {
-        var attributeValue = reader.GetOptionalString(attributeName);
-        if (attributeValue is null)
+        if (!reader.TryGetAttributeChars(attributeName, null, out var attributeValue))
             return null;
 
         if (!Point.TryParse(attributeValue, out var point))
         {
             if (reader.StrictAttributeParsing)
-                throw PartStructureException.InvalidAttributeFormat(attributeName, attributeValue, reader);
+                throw PartStructureException.InvalidAttributeFormat(attributeName, attributeValue.ToString(), reader);
 
             return null;
         }
@@ -187,18 +190,51 @@ internal static class XmlTreeReaderExtensions
     /// </summary>
     public static Area? GetOptionalArea(this XmlTreeReader reader, string attributeName)
     {
-        var attributeValue = reader.GetOptionalString(attributeName);
-        if (attributeValue is null)
+        if (!reader.TryGetAttributeChars(attributeName, null, out var attributeValue))
             return null;
 
         if (!Area.TryParse(attributeValue, out var area))
         {
             if (reader.StrictAttributeParsing)
-                throw PartStructureException.InvalidAttributeFormat(attributeName, attributeValue, reader);
+                throw PartStructureException.InvalidAttributeFormat(attributeName, attributeValue.ToString(), reader);
 
             return null;
         }
 
         return area;
+    }
+
+    /// <summary>
+    /// Return optional <c>ST_CellType</c>. A known value does not make a new string.
+    /// </summary>
+    public static string? GetOptionalCellType(this XmlTreeReader reader, string attributeName)
+    {
+        return reader.GetOptionalKnownString(attributeName, CellTypes);
+    }
+
+    /// <summary>
+    /// Return optional <c>ST_CellFormulaType</c>. A known value does not make a new string.
+    /// </summary>
+    public static string? GetOptionalCellFormulaType(this XmlTreeReader reader, string attributeName)
+    {
+        return reader.GetOptionalKnownString(attributeName, CellFormulaTypes);
+    }
+
+    /// <summary>
+    /// Return the attribute value as one of the <paramref name="knownValues"/>. This does not make
+    /// a new string for each element. A value that is not known gives a new string.
+    /// </summary>
+    private static string? GetOptionalKnownString(this XmlTreeReader reader, string attributeName, string[] knownValues)
+    {
+        if (!reader.TryGetAttributeChars(attributeName, null, out var attributeValue))
+            return null;
+
+        foreach (var knownValue in knownValues)
+        {
+            if (attributeValue.SequenceEqual(knownValue.AsSpan()))
+                return knownValue;
+        }
+
+        return attributeValue.ToString();
     }
 }

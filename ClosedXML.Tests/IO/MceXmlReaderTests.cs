@@ -228,6 +228,68 @@ internal class MceXmlReaderTests
         Assert.That(reader.Read, Throws.TypeOf<InvalidOperationException>().With.Message.EqualTo("Mismatch at 3:4"));
     }
 
+    [Test]
+    [Issue("73")]
+    public void Copy_methods_read_values_of_reader_without_value_chunks()
+    {
+        // XmlNodeReader cannot read a value in chunks.
+        var document = new XmlDocument();
+        document.LoadXml("<root attr=\"value\">text</root>");
+        using var reader = new MceXmlReader(new XmlNodeReader(document), new MceSettings());
+        Assert.That(reader.Read(), Is.True);
+
+        var buffer = new char[2];
+        Assert.That(reader.TryCopyAttribute("attr", null, ref buffer, out var length), Is.True);
+        Assert.That(new string(buffer, 0, length), Is.EqualTo("value"));
+
+        Assert.That(reader.Read(), Is.True);
+        Assert.That(reader.NodeType, Is.EqualTo(Text));
+        length = reader.CopyValue(ref buffer, 1);
+        Assert.That(new string(buffer, 1, length), Is.EqualTo("text"));
+    }
+
+    [Test]
+    [Issue("73")]
+    public void Default_copy_methods_use_string_values()
+    {
+        IXmlReader reader = new StringValueReader();
+
+        var buffer = new char[1];
+        Assert.That(reader.TryCopyAttribute("attr", null, ref buffer, out var length), Is.True);
+        Assert.That(new string(buffer, 0, length), Is.EqualTo("attribute"));
+        Assert.That(reader.TryCopyAttribute("missing", null, ref buffer, out length), Is.False);
+        Assert.That(length, Is.Zero);
+
+        length = reader.CopyValue(ref buffer, 2);
+        Assert.That(new string(buffer, 2, length), Is.EqualTo("text"));
+    }
+
+    /// <summary>
+    /// A reader that has only the members without a default implementation.
+    /// </summary>
+    private sealed class StringValueReader : IXmlReader
+    {
+        public XmlTreeNodeType NodeType => Text;
+
+        public int Depth => 0;
+
+        public LineInfo LineInfo => default;
+
+        public string LocalName => string.Empty;
+
+        public string NamespaceUri => string.Empty;
+
+        public string Value => "text";
+
+        public bool Read() => false;
+
+        public string? GetAttribute(string attributeName, string? namespaceUri) => attributeName == "attr" ? "attribute" : null;
+
+        public void Dispose()
+        {
+        }
+    }
+
     private static MceXmlReader CreateMceReader(string xml, HashSet<string> appConfig, (string LocalName, string NamespaceUri)? adee = null, Action<MismatchInfo>? mismatch = null)
     {
         var stringReader = new StringReader(xml);

@@ -23,6 +23,12 @@ internal class CodeBuilder
         _typeMap = typeMap;
     }
 
+    /// <summary>
+    /// If true, the code for a repeated element makes the list only when it finds the first item.
+    /// The list variable is <c>null</c> when there is no item.
+    /// </summary>
+    internal bool LazyLists { get; init; }
+
     internal CodeBuilder AddLine(string lineText)
     {
         AddIndentedLine(lineText);

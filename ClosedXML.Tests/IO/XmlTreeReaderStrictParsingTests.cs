@@ -61,6 +61,23 @@ internal class XmlTreeReaderStrictParsingTests
         AssertStrictParsingFlag($"""<element uintAttr="{invalidValue}"/>""", reader => reader.GetOptionalUInt("uintAttr"));
     }
 
+    [TestCase("A")]
+    [TestCase("1A")]
+    [TestCase("XFE1")]
+    [Issue("73")]
+    public void Reader_parses_cell_reference_attributes_with_attribute_parsing_flag(string invalidValue)
+    {
+        AssertStrictParsingFlag($"""<element r="{invalidValue}"/>""", reader => reader.GetOptionalPoint("r"));
+    }
+
+    [TestCase("A1:")]
+    [TestCase("A1-B2")]
+    [Issue("73")]
+    public void Reader_parses_area_attributes_with_attribute_parsing_flag(string invalidValue)
+    {
+        AssertStrictParsingFlag($"""<element ref="{invalidValue}"/>""", reader => reader.GetOptionalArea("ref"));
+    }
+
     private static void AssertStrictParsingFlag<T>(string xmlText, Func<XmlTreeReader, T> readAttribute)
     {
         AssertThrowsOnStrict(xmlText, readAttribute);
