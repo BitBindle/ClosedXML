@@ -837,6 +837,41 @@ namespace ClosedXML.Tests.Excel
 
         [Test]
         [Issue("30")]
+        public void Rename_of_table_in_worksheet_tables_with_change_of_case_only_keeps_one_table()
+        {
+            // The table list compares names without case, thus the old and the new key are equal.
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("B2").Value = "Header";
+            ws.Cell("B3").Value = 1;
+            var table = ws.Range("B2:B3").CreateTable("Old");
+
+            table.Name = "OLD";
+
+            Assert.AreEqual(1, ws.Tables.Count());
+            Assert.AreSame(table, ws.Tables.Table("OLD"));
+            Assert.AreEqual("OLD", ws.Tables.Single().Name);
+        }
+
+        [Test]
+        [Issue("30")]
+        public void Rename_of_table_removed_from_worksheet_tables_does_not_add_table_again()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("B2").Value = "Header";
+            ws.Cell("B3").Value = 1;
+            var table = ws.Range("B2:B3").CreateTable("Old");
+            ws.Tables.Remove("Old");
+
+            table.Name = "New";
+
+            Assert.AreEqual("New", table.Name);
+            Assert.IsEmpty(ws.Tables);
+        }
+
+        [Test]
+        [Issue("30")]
         public void Rename_of_loaded_table_saves_table_with_new_name()
         {
             using var ms = new MemoryStream();

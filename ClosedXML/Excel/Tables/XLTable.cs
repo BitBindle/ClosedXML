@@ -206,7 +206,7 @@ namespace ClosedXML.Excel
                 if (!XLHelper.ValidateName("table", value, oldname, tableNames, out String message))
                     throw new ArgumentException(message, nameof(value));
 
-                // A table from IXLRange.AsTable is not in the list, and a rename must not add it.
+                // A table from IXLRange.AsTable is not in the list. A rename must not add it.
                 var isInTables = oldname.Length > 0 &&
                                  Worksheet.Tables.TryGetTable(oldname, out var listedTable) &&
                                  ReferenceEquals(listedTable, this);
