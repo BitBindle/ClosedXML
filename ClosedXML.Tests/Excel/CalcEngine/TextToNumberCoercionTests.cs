@@ -309,6 +309,51 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             AssertCoercion(currency, expectedValue);
         }
 
+        [TestCase("Infinity")]
+        [TestCase("-Infinity")]
+        [TestCase("NaN")]
+        [TestCase("\u221E")]
+        [TestCase("Infinity%")]
+        [TestCase("Jan")]
+        [Issue("76")]
+        public void Text_without_a_digit_is_not_a_number(string text)
+        {
+            AssertCoercion(text, null);
+        }
+
+        [TestCase("99999999999 1/2", 99999999999.5)]
+        [TestCase("-99999999999 1/4", -99999999999.25)]
+        [Issue("76")]
+        public void Fraction_can_have_a_large_whole_number(string fraction, double expectedValue)
+        {
+            AssertCoercion(fraction, expectedValue);
+        }
+
+        [Test]
+        [Issue("76")]
+        public void Fraction_with_a_whole_number_out_of_range_is_not_a_number()
+        {
+            AssertCoercion(new string('9', 400) + " 1/2", null);
+        }
+
+        [TestCase("1E999")]
+        [TestCase("-1E999")]
+        [TestCase("1E999%")]
+        [TestCase("%1E999")]
+        [Issue("76")]
+        public void Number_out_of_range_is_not_a_number(string text)
+        {
+            AssertCoercion(text, null);
+        }
+
+        [TestCase("1 1/2 x")]
+        [TestCase("1 1/2/3")]
+        [Issue("76")]
+        public void Fraction_with_text_after_it_is_not_a_number(string text)
+        {
+            AssertCoercion(text, null);
+        }
+
         private static void AssertCoercion(string text, double? expectedValue, double tolerance = 0)
         {
             using var wb = new XLWorkbook();

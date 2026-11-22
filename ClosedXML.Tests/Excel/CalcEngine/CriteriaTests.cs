@@ -11,6 +11,19 @@ namespace ClosedXML.Tests.Excel.CalcEngine;
 internal class CriteriaTests
 {
     [Test]
+    [Issue("76")]
+    public void Comparison_must_be_at_the_start_of_the_criteria()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Cell("A1").Value = 5;
+
+        // A soft hyphen comes before the comparison, so the criteria has no comparison. The
+        // criteria matches only the same text.
+        Assert.AreEqual(0, ws.Evaluate("COUNTIF(A1,\"\u00AD<>5\")").GetNumber());
+    }
+
+    [Test]
     [SetCulture("cs-CZ")] // cs-CZ has ',' as a decimal separator (e.g. '1,2' is one point two).
     [TestCaseSource(nameof(CriteriaTestCases))]
     public void Selection_criteria_uses_type_and_comparator_to_match_values(ScalarValue selectionCriteria, XLCellValue value, bool expectedResult)

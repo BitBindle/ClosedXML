@@ -229,6 +229,11 @@ namespace ClosedXML.Excel.CalcEngine
             if (string.IsNullOrWhiteSpace(text))
                 return XLError.IncompatibleValue;
 
+            // Each number, percent, fraction, date and time has an ASCII digit. A text without a
+            // digit is not a number. This check also stops texts such as 'Infinity' or 'NaN'.
+            if (text.AsSpan().IndexOfAnyInRange('0', '9') < 0)
+                return XLError.IncompatibleValue;
+
             // Numbers. The parsing method recognizes braces as negative number, includes currency parsing.
             // Format 1 '0'
             //        2 '0.00'
@@ -236,8 +241,9 @@ namespace ClosedXML.Excel.CalcEngine
             //        4 '#,##0.00'
             //       11 '0.00E+00'
             //       48 '##0.0E+0'
+            // A number that is too large for a double is not a number, for example '1E999'.
             if (double.TryParse(text, NumberStyles.Any, culture, out var number))
-                return number;
+                return double.IsFinite(number) ? number : XLError.IncompatibleValue;
 
             // Percents. Percent sign can be at both sides.
             // Format 9 '0%'
@@ -246,13 +252,12 @@ namespace ClosedXML.Excel.CalcEngine
             var textSpanTrimmedEnd = textSpan.TrimEnd();
             var percentSymbol = culture.NumberFormat.PercentSymbol.AsSpan();
             if (textSpanTrimmedEnd.EndsWith(percentSymbol))
-                return ParsePercent(text, 0, textSpanTrimmedEnd.Length - percentSymbol.Length, culture);
+                return ParsePercent(textSpanTrimmedEnd[..^percentSymbol.Length], culture);
 
             var textSpanTrimmedStart = textSpan.TrimStart();
             if (textSpanTrimmedStart.StartsWith(percentSymbol))
             {
-                var newStart = text.Length - textSpanTrimmedStart.Length + percentSymbol.Length;
-                return ParsePercent(text, newStart, text.Length - newStart, culture);
+                return ParsePercent(textSpanTrimmedStart[percentSymbol.Length..], culture);
             }
 
             // Fractions
@@ -266,12 +271,12 @@ namespace ClosedXML.Excel.CalcEngine
 
             return XLError.IncompatibleValue;
 
-            static OneOf<double, XLError> ParsePercent(string text, int start, int length, CultureInfo c)
+            static OneOf<double, XLError> ParsePercent(ReadOnlySpan<char> text, CultureInfo c)
             {
-                text = text.Substring(start, length);
                 if (double.TryParse(text, NumberStyles.Float
                                           | NumberStyles.AllowThousands
-                                          | NumberStyles.AllowParentheses, c, out var percents))
+                                          | NumberStyles.AllowParentheses, c, out var percents)
+                    && double.IsFinite(percents))
                     return percents / 100;
 
                 // other formats don't use '%' sign, but text has it, so just stop for invalid inputs like 'hundred%'
@@ -285,6 +290,10 @@ namespace ClosedXML.Excel.CalcEngine
             "d-MMM-yyyy h:m tt", "d-MMMM-yyyy h:m tt", "d-MMM-yy h:m tt", "d-MMMM-yy h:m tt",
             "d-MMM-yyyy H:m", "d-MMMM-yyyy H:m", "d-MMM-yy H:m", "d-MMMM-yy H:m",
         };
+
+        private static readonly string[] DateFormat16Patterns = { "d-MMM", "d-MMMM" };
+
+        private static readonly string[] DateFormat17Patterns = { "MMM-y", "MMMM-y" };
 
         public static bool ToSerialDateTime(string text, CultureInfo culture, out double serialDateTime)
         {
@@ -307,7 +316,7 @@ namespace ClosedXML.Excel.CalcEngine
 
             // Since format doesn't have a year, it uses current year
             // Format 16 'd-mmm'
-            if (DateTime.TryParseExact(text, new[] { "d-MMM", "d-MMMM" }, culture, dateStyle, out var dateFormat16))
+            if (DateTime.TryParseExact(text, DateFormat16Patterns, culture, dateStyle, out var dateFormat16))
             {
                 return ToSerialDate(dateFormat16, out serialDateTime);
             }
@@ -315,7 +324,7 @@ namespace ClosedXML.Excel.CalcEngine
             // Month and a number. In some cultures, the culture date parsing will interpret this pattern as MMM-dd, but
             // that depends on culture date patterns above. Use MMM and MMMM to encompass both abbreviation and full name.
             // Format 17 'mmm-yy'
-            if (DateTime.TryParseExact(text, new[] { "MMM-y", "MMMM-y" }, culture, dateStyle, out var dateFormat17))
+            if (DateTime.TryParseExact(text, DateFormat17Patterns, culture, dateStyle, out var dateFormat17))
             {
                 if (dateFormat17.Year != DateTime.Now.Year && dateFormat17.Year >= 2030)
                     dateFormat17 = dateFormat17.AddYears(-100);

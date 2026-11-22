@@ -79,7 +79,7 @@ internal class Criteria
         {
             foreach (var (prefix, prefixComparison) in AllComparisons)
             {
-                if (criteriaText.StartsWith(prefix))
+                if (criteriaText.StartsWith(prefix, StringComparison.Ordinal))
                     return (prefix, prefixComparison);
             }
 
