@@ -27,18 +27,22 @@ namespace ClosedXML.Graphics
             // Per spec, APP0 should be the first marker, but there are many sloopy encoders
             while (TryGetMarker(stream, out marker) && TryGetLength(stream, out var length))
             {
-                switch (marker)
-                {
-                    case Marker.APP0:
-                        return IsIdentifier(stream, APP0Identifer);
-                    case Marker.APP1:
-                        return IsIdentifier(stream, APP1Identifer);
-                    case Marker.APP14:
-                        return IsIdentifier(stream, APP14Identifer);
-                    default:
-                        stream.Position += length;
-                        break;
-                }
+                var segmentStart = stream.Position;
+                if (marker == Marker.APP0 && IsIdentifier(stream, APP0Identifer))
+                    return true;
+
+                if (marker == Marker.APP1 && IsIdentifier(stream, APP1Identifer))
+                    return true;
+
+                if (marker == Marker.APP14 && IsIdentifier(stream, APP14Identifer))
+                    return true;
+
+                // JFIF and EXIF segments are optional (ITU-T T.81). Encoders can write other APPn
+                // segments (XMP, ICC profile) or none, so a frame header also identifies a JPEG.
+                if (Marker.SOFx.Contains(marker))
+                    return true;
+
+                stream.Position = segmentStart + length;
             }
 
             return false;
