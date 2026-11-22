@@ -107,7 +107,8 @@ namespace ClosedXML.Excel
         private static readonly string?[] allLetters = new string?[MaxColumnNumber];
 
         /// <summary>
-        /// Gets the column number of a given column letter.
+        /// Gets the column number of a given column letter. The letters are ASCII letters in upper
+        /// or lower case.
         /// </summary>
         /// <param name="columnLetter"> The column letter to translate into a column number. </param>
         public static int GetColumnNumberFromLetter(string columnLetter)
