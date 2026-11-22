@@ -285,15 +285,17 @@ internal partial class RstReader
         return new PhoneticProperties(phoneticFont, type, alignment);
     }
 
-    private OneOf<string, XLImmutableRichText> OnRstParsed(string? fullText, List<(string Text, XLDifferentialFontValue Font)> richRuns, List<PhoneticRunDto> phoneticRuns, PhoneticProperties? phoneticProps)
+    private OneOf<string, XLImmutableRichText> OnRstParsed(string? fullText, List<(string Text, XLDifferentialFontValue Font)>? richRuns, List<PhoneticRunDto>? phoneticRuns, PhoneticProperties? phoneticProps)
     {
-        if (richRuns.Count == 0 && phoneticProps is null)
+        // The reader makes a list only when it finds a run.
+        if (richRuns is null && phoneticProps is null)
             return fullText ?? string.Empty;
 
+        richRuns ??= new List<(string Text, XLDifferentialFontValue Font)>();
         if (!string.IsNullOrEmpty(fullText))
             richRuns.Insert(0, (fullText, XLDifferentialFontValue.Empty));
 
-        return GetRichText(richRuns, phoneticRuns, phoneticProps);
+        return GetRichText(richRuns, phoneticRuns ?? new List<PhoneticRunDto>(), phoneticProps);
     }
 
     private static XLImmutableRichText GetRichText(List<(string Text, XLDifferentialFontValue Font)> richRuns, List<PhoneticRunDto> phoneticRunDtos, PhoneticProperties? phoneticProps)

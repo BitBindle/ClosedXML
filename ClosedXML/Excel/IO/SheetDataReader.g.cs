@@ -1,5 +1,6 @@
 #nullable enable
 
+using System;
 using System.Collections.Generic;
 using ClosedXML.IO;
 using StringItem = ClosedXML.Excel.CalcEngine.OneOf<string, ClosedXML.Excel.XLImmutableRichText>;
@@ -80,7 +81,7 @@ internal partial class SheetDataReader
 
         var r = _reader.GetOptionalPoint("r");
         var s = _reader.GetOptionalUInt("s") ?? 0;
-        var t = _reader.GetOptionalString("t") ?? "n";
+        var t = _reader.GetOptionalCellType("t") ?? "n";
         var cm = _reader.GetOptionalUInt("cm") ?? 0;
         var vm = _reader.GetOptionalUInt("vm") ?? 0;
         var ph = _reader.GetOptionalBool("ph") ?? false;
@@ -91,8 +92,8 @@ internal partial class SheetDataReader
         {
             // Optional element 'f' was present
         }
-        var vResult = _reader.ParseXString("v", _ns);
-        var v = vResult.IsSuccess ? vResult.Value : default(string?);
+        var vResult = ParseCellValue("v", _ns);
+        var v = vResult.IsSuccess ? vResult.Value : default(ReadOnlyMemory<char>?);
         var isResult = _rstReader.ParseCtRst("is", _ns);
         var @is = isResult.IsSuccess ? isResult.Value : default(StringItem?);
         if (ParseExtensionList("extLst", _ns) is { IsSuccess: true })
@@ -107,7 +108,7 @@ internal partial class SheetDataReader
 
     partial void OnCellParsing(Point? r, uint s, string t, uint cm, uint vm, bool ph);
 
-    partial void OnCellParsed(string? v, StringItem? @is, Point? r, uint s, string t, uint cm, uint vm, bool ph);
+    partial void OnCellParsed(ReadOnlyMemory<char>? v, StringItem? @is, Point? r, uint s, string t, uint cm, uint vm, bool ph);
 
     private Xpr ParseCellFormula(string elementName, string ns)
     {
@@ -116,7 +117,7 @@ internal partial class SheetDataReader
             return Xpr.Fail();
         }
 
-        var t = _reader.GetOptionalString("t") ?? string.Empty;
+        var t = _reader.GetOptionalCellFormulaType("t") ?? string.Empty;
         var aca = _reader.GetOptionalBool("aca") ?? false;
         var @ref = _reader.GetOptionalArea("ref");
         var dt2D = _reader.GetOptionalBool("dt2D") ?? false;

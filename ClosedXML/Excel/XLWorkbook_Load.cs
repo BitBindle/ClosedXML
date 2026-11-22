@@ -524,13 +524,14 @@ namespace ClosedXML.Excel
 
                     var imagePart = drawingsPart.GetPartById(imgId);
                     using (var stream = imagePart.GetStream())
-                    using (var ms = new MemoryStream())
                     {
+                        // The picture owns the copy, because the part stream can be forward only.
+                        var ms = new MemoryStream();
                         stream.CopyTo(ms);
                         var vsdp = GetPropertiesFromAnchor(anchor) ?? throw PartStructureException.RequiredElementIsMissing("cNvPr");
                         var pictureId = vsdp.Id?.Value ?? throw PartStructureException.MissingAttribute("id");
 
-                        var picture = (XLPicture)ws.AddPicture(ms, vsdp.Name?.Value ?? String.Empty, Convert.ToInt32(pictureId));
+                        var picture = ((XLPictures)ws.Pictures).AddOwned(ms, vsdp.Name?.Value ?? String.Empty, Convert.ToInt32(pictureId));
                         picture.RelId = imgId;
                         if (String.IsNullOrEmpty(vsdp.Name))
                             unnamedPictures.Add(picture);

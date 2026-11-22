@@ -45,6 +45,11 @@ internal partial class SheetDataReader
     private bool _formulaCa;
     private uint? _formulaSi;
 
+    /// <summary>
+    /// The buffer for the content of a <c>v</c> element. The reader uses it again for each cell.
+    /// </summary>
+    private char[] _cellValueBuffer = new char[64];
+
     internal SheetDataReader(XmlTreeReader reader, XLWorksheet ws, XLWorkbookStyles styles, List<StringItem> sst)
     {
         _reader = reader;
@@ -63,6 +68,22 @@ internal partial class SheetDataReader
         _column = 0;
         ResetFormula();
         return ParseSheetData(elementName, ns);
+    }
+
+    /// <summary>
+    /// Read the content of a <c>v</c> element. The method does not make a new string. The result
+    /// is a slice of a buffer, and the next cell value replaces it.
+    /// </summary>
+    private Xpr<ReadOnlyMemory<char>> ParseCellValue(string elementName, string ns)
+    {
+        if (!_reader.TryOpen(elementName, ns))
+        {
+            return Xpr.Fail<ReadOnlyMemory<char>>();
+        }
+
+        var length = _reader.GetContent(ref _cellValueBuffer);
+        _reader.Close(elementName, ns);
+        return Xpr.From(new ReadOnlyMemory<char>(_cellValueBuffer, 0, length));
     }
 
     private Xpr ParseExtensionList(string elementName, string ns)
@@ -147,7 +168,7 @@ internal partial class SheetDataReader
         _ = bx; // bx attribute of cell formula is not ever used, per MS-OI29500 2.1.620
     }
 
-    partial void OnCellParsed(string? v, StringItem? @is, Point? r, uint s, string t, uint cm, uint vm, bool ph)
+    partial void OnCellParsed(ReadOnlyMemory<char>? v, StringItem? @is, Point? r, uint s, string t, uint cm, uint vm, bool ph)
     {
         var cellAddress = r ?? new Point(_row, _column);
 
@@ -188,9 +209,15 @@ internal partial class SheetDataReader
 
         // Unified code to load value. Value can be empty and only type specified (e.g. when formula doesn't save values)
         // String type is only for formulas, while shared string/inline string/date is only for pure cell values.
-        if (v is not null)
+        if (v is { } cellValue)
         {
-            SetCellValue(dataType, v, xlCell, cellFormat);
+            var cellValueSpan = cellValue.Span;
+
+            // A value with an escaped character (_xHHHH_) needs a decoded copy.
+            if (cellValueSpan.Contains('_'))
+                cellValueSpan = XStringConvert.Decode(cellValueSpan.ToString()).AsSpan();
+
+            SetCellValue(dataType, cellValueSpan, xlCell, cellFormat);
         }
         else
         {
@@ -202,7 +229,7 @@ internal partial class SheetDataReader
         // If the cell doesn't contain value, we should invalidate it, otherwise rely on the stored value.
         // The value is likely more reliable. It should be set when cellFormula.CalculateCell is set or
         // when value is missing. Formula can be null in some cases, e.g. slave cells of array formula.
-        if (formula is not null && v is null)
+        if (formula is not null && !v.HasValue)
         {
             formula.IsDirty = true;
         }
@@ -329,7 +356,7 @@ internal partial class SheetDataReader
         return formula;
     }
 
-    private void SetCellValue(CellValues dataType, string cellValue, XLCell xlCell, XLCellFormatValue format)
+    private void SetCellValue(CellValues dataType, ReadOnlySpan<char> cellValue, XLCell xlCell, XLCellFormatValue format)
     {
         if (dataType == CellValues.Number)
         {
@@ -359,17 +386,17 @@ internal partial class SheetDataReader
         }
         else if (dataType == CellValues.String) // A plain string that is a result of a formula calculation
         {
-            xlCell.SetOnlyValue(cellValue);
+            xlCell.SetOnlyValue(cellValue.ToString());
         }
         else if (dataType == CellValues.Boolean)
         {
-            var isTrue = string.Equals(cellValue, "1", StringComparison.Ordinal) ||
-                         string.Equals(cellValue, "TRUE", StringComparison.OrdinalIgnoreCase);
+            var isTrue = cellValue.Equals("1", StringComparison.Ordinal) ||
+                         cellValue.Equals("TRUE", StringComparison.OrdinalIgnoreCase);
             xlCell.SetOnlyValue(isTrue);
         }
         else if (dataType == CellValues.Error)
         {
-            if (XLErrorParser.TryParseError(cellValue, out var error))
+            if (XLErrorParser.TryParseError(cellValue.ToString(), out var error))
                 xlCell.SetOnlyValue(error);
         }
         else if (dataType == CellValues.Date)
@@ -390,12 +417,12 @@ internal partial class SheetDataReader
             }
             else
             {
-                throw new FormatException($"The value '{cellValue}' of a date cell is not an ISO 8601 date or a serial date.");
+                throw new FormatException($"The value '{cellValue.ToString()}' of a date cell is not an ISO 8601 date or a serial date.");
             }
         }
     }
 
-    private static bool TryParseNumber(string text, out double number)
+    private static bool TryParseNumber(ReadOnlySpan<char> text, out double number)
     {
         return double.TryParse(text, XLHelper.NumberStyle, XLHelper.ParseCulture, out number);
     }

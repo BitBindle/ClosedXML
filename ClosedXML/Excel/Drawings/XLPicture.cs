@@ -23,6 +23,20 @@ namespace ClosedXML.Excel.Drawings
         }
 
         internal XLPicture(IXLWorksheet worksheet, Stream stream, XLPictureFormat format)
+            : this(worksheet, stream, format, copyStream: true)
+        {
+        }
+
+        /// <summary>
+        /// Make a picture that uses the <paramref name="imageStream"/> as its image data. The method
+        /// does not copy the data. The picture owns the stream and disposes it.
+        /// </summary>
+        internal static XLPicture FromOwnedStream(IXLWorksheet worksheet, MemoryStream imageStream)
+        {
+            return new XLPicture(worksheet, imageStream, XLPictureFormat.Unknown, copyStream: false);
+        }
+
+        private XLPicture(IXLWorksheet worksheet, Stream stream, XLPictureFormat format, bool copyStream)
         {
             this.Worksheet = worksheet ?? throw new ArgumentNullException(nameof(worksheet));
             if (stream == null) throw new ArgumentNullException(nameof(stream));
@@ -42,9 +56,17 @@ namespace ClosedXML.Excel.Drawings
             var info = worksheet.Workbook.GraphicEngine.GetPictureInfo(stream, format);
             Init(info);
 
-            ImageStream = new MemoryStream();
-            stream.Position = 0;
-            stream.CopyTo(ImageStream);
+            if (copyStream)
+            {
+                ImageStream = new MemoryStream();
+                stream.Position = 0;
+                stream.CopyTo(ImageStream);
+            }
+            else
+            {
+                ImageStream = (MemoryStream)stream;
+            }
+
             ImageStream.Seek(0, SeekOrigin.Begin);
         }
 

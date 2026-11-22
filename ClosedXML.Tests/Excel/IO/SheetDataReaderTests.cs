@@ -880,6 +880,95 @@ internal class SheetDataReaderTests
         Assert.AreEqual(new DateTime(2006, 1, 1).AddDays(1462), ws.Cell("A1").GetDateTime());
     }
 
+    [Test]
+    [Issue("73")]
+    public void Cell_value_decodes_escaped_characters_and_reads_long_text()
+    {
+        var longText = new string('x', 200);
+        AssertSheetData(
+            $"""
+             <sheetData>
+               <row r="1">
+                 <c r="A1" t="str"><f>A2</f><v>a_x0041_&amp;<![CDATA[b]]></v></c>
+                 <c r="B1" t="str"><f>A3</f><v>{longText}</v></c>
+                 <c r="C1"><v> 1_x0035_ </v></c>
+                 <c r="D1" t="str"><f>A4</f><v>short</v></c>
+               </row>
+             </sheetData>
+             """,
+            (ws, _) =>
+            {
+                Assert.AreEqual("aA&b", ws.Cell("A1").GetString());
+                Assert.AreEqual(longText, ws.Cell("B1").GetString());
+                Assert.AreEqual(15, ws.Cell("C1").GetDouble());
+                Assert.AreEqual("short", ws.Cell("D1").GetString());
+            });
+    }
+
+    [Test]
+    [Issue("73")]
+    public void Explicit_default_cell_and_formula_types_are_read()
+    {
+        AssertSheetData(
+            """
+            <sheetData>
+              <row r="1">
+                <c r="A1" t="n">
+                  <f t="normal">1+2</f>
+                  <v>3</v>
+                </c>
+              </row>
+            </sheetData>
+            """,
+            (ws, _) =>
+            {
+                Assert.AreEqual("1+2", ws.Cell("A1").FormulaA1);
+                Assert.AreEqual(3.0, ws.Cell("A1").CachedValue);
+            });
+    }
+
+    [Test]
+    [Issue("73")]
+    public void Unknown_formula_type_throws()
+    {
+        Assert.Throws<NotSupportedException>(() => AssertSheetData(
+            """
+            <sheetData>
+              <row r="1">
+                <c r="A1"><f t="other">1</f><v>1</v></c>
+              </row>
+            </sheetData>
+            """,
+            (_, _) => { }));
+    }
+
+    [Test]
+    [Issue("73")]
+    public void Inline_text_with_only_phonetic_runs_is_rich_text()
+    {
+        AssertSheetData(
+            """
+            <sheetData>
+              <row r="1">
+                <c r="A1" t="inlineStr">
+                  <is>
+                    <t>abc</t>
+                    <rPh sb="0" eb="1"><t>A</t></rPh>
+                    <phoneticPr fontId="0"/>
+                  </is>
+                </c>
+              </row>
+            </sheetData>
+            """,
+            (ws, _) =>
+            {
+                var richText = ws.Cell("A1").GetRichText();
+                Assert.AreEqual("abc", richText.Text);
+                Assert.True(richText.HasPhonetics);
+                Assert.AreEqual(1, richText.Phonetics.Count);
+            });
+    }
+
     private static void AssertSheetData(
         string sheetDataXml,
         Action<IXLWorksheet, XLWorksheet> assert,

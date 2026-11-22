@@ -188,6 +188,59 @@ public class MceXmlReader : IXmlReader
     }
 
     /// <inheritdoc/>
+    public bool TryCopyAttribute(string attributeName, string? namespaceUri, ref char[] buffer, out int length)
+    {
+        if (!_reader.MoveToAttribute(attributeName, namespaceUri ?? string.Empty))
+        {
+            length = 0;
+            return false;
+        }
+
+        try
+        {
+            length = CopyCurrentValue(ref buffer, 0);
+        }
+        finally
+        {
+            _reader.MoveToElement();
+        }
+
+        return true;
+    }
+
+    /// <inheritdoc/>
+    public int CopyValue(ref char[] buffer, int index)
+    {
+        return CopyCurrentValue(ref buffer, index);
+    }
+
+    /// <summary>
+    /// Copy the value of the current node of the XML reader to the <paramref name="buffer"/>. Use
+    /// <see cref="XmlReader.ReadValueChunk"/>, because it does not make a string.
+    /// </summary>
+    private int CopyCurrentValue(ref char[] buffer, int index)
+    {
+        // ReadValueChunk does not accept a node without a value, for example an entity reference.
+        if (!_reader.CanReadValueChunk || !_reader.HasValue)
+            return IXmlReader.CopyToBuffer(_reader.Value, ref buffer, index);
+
+        var length = 0;
+        while (true)
+        {
+            // Keep space for 2 characters. ReadValueChunk does not split a surrogate pair. Space
+            // for only 1 character can be too small.
+            if (buffer.Length - index - length < 2)
+                Array.Resize(ref buffer, Math.Max(buffer.Length * 2, index + length + 2));
+
+            var read = _reader.ReadValueChunk(buffer, index + length, buffer.Length - index - length);
+            if (read == 0)
+                return length;
+
+            length += read;
+        }
+    }
+
+    /// <inheritdoc/>
     public void Dispose()
     {
         if (!_leaveOpen)

@@ -458,6 +458,52 @@ namespace ClosedXML.Tests
             }
         }
 
+        [Test]
+        [Issue("73")]
+        public void Loaded_picture_keeps_the_image_data()
+        {
+            byte[] imageBytes;
+            using (var resourceStream = Assembly.GetAssembly(typeof(ClosedXML.Examples.BasicTable)).GetManifestResourceStream("ClosedXML.Examples.Resources.SampleImage.jpg"))
+            using (var imageStream = new MemoryStream())
+            {
+                resourceStream.CopyTo(imageStream);
+                imageBytes = imageStream.ToArray();
+            }
+
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                wb.AddWorksheet().AddPicture(new MemoryStream(imageBytes), "Picture");
+                wb.SaveAs(ms);
+            }
+
+            using (var wb = new XLWorkbook(ms))
+            {
+                var picture = (XLPicture)wb.Worksheets.Single().Pictures.Single();
+                Assert.AreEqual(XLPictureFormat.Jpeg, picture.Format);
+                Assert.AreEqual(0, picture.ImageStream.Position);
+                Assert.AreEqual(imageBytes, picture.ImageStream.ToArray());
+
+                // The loaded picture can be saved again.
+                using var saved = new MemoryStream();
+                wb.SaveAs(saved);
+                using var reloaded = new XLWorkbook(saved);
+                var reloadedPicture = (XLPicture)reloaded.Worksheets.Single().Pictures.Single();
+                Assert.AreEqual(imageBytes, reloadedPicture.ImageStream.ToArray());
+            }
+        }
+
+        /// <summary>
+        /// Add a picture the same way as the load of a workbook adds it.
+        /// </summary>
+        private static IXLPicture AddLoadedPicture(IXLWorksheet ws, Stream stream, string name, int id)
+        {
+            var imageStream = new MemoryStream();
+            stream.Position = 0;
+            stream.CopyTo(imageStream);
+            return ((XLPictures)ws.Pictures).AddOwned(imageStream, name, id);
+        }
+
         private static Xdr.TwoCellAnchor CreateRectangleAnchor(uint shapeId)
         {
             return new Xdr.TwoCellAnchor(
@@ -505,11 +551,11 @@ namespace ClosedXML.Tests
 
                 using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ClosedXML.Tests.Resource.Images.ImageHandling.png"))
                 {
-                    (ws1 as XLWorksheet).AddPicture(stream, "Picture 1", 2);
-                    (ws1 as XLWorksheet).AddPicture(stream, "Picture 2", 3);
+                    AddLoadedPicture(ws1, stream, "Picture 1", 2);
+                    AddLoadedPicture(ws1, stream, "Picture 2", 3);
 
                     //Internal method - used for loading files
-                    var pic = (ws2 as XLWorksheet).AddPicture(stream, "Picture 1", 2)
+                    var pic = AddLoadedPicture(ws2, stream, "Picture 1", 2)
                         .WithPlacement(XLPicturePlacement.FreeFloating)
                         .MoveTo(220, 155) as XLPicture;
 
@@ -523,7 +569,7 @@ namespace ClosedXML.Tests
 
                     pic.Id = id;
 
-                    var pic2 = (ws2 as XLWorksheet).AddPicture(stream, "Picture 2", 3)
+                    var pic2 = AddLoadedPicture(ws2, stream, "Picture 2", 3)
                         .WithPlacement(XLPicturePlacement.FreeFloating)
                         .MoveTo(440, 300) as XLPicture;
                 }
@@ -539,7 +585,7 @@ namespace ClosedXML.Tests
             IXLPicture original;
             using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ClosedXML.Tests.Resource.Images.ImageHandling.png"))
             {
-                original = (ws1 as XLWorksheet).AddPicture(stream, "Picture 1", 2)
+                original = AddLoadedPicture(ws1, stream, "Picture 1", 2)
                     .WithPlacement(XLPicturePlacement.FreeFloating)
                     .MoveTo(220, 155) as XLPicture;
             }
@@ -570,7 +616,7 @@ namespace ClosedXML.Tests
             IXLPicture original;
             using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ClosedXML.Tests.Resource.Images.ImageHandling.png"))
             {
-                original = (ws1 as XLWorksheet).AddPicture(stream, "Picture 1", 2)
+                original = AddLoadedPicture(ws1, stream, "Picture 1", 2)
                     .WithPlacement(XLPicturePlacement.FreeFloating)
                     .MoveTo(220, 155) as XLPicture;
             }

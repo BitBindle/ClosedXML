@@ -112,7 +112,24 @@ public class ElementType : IElementGroup
         {
             var needsCountCheck = min > 0 || max < int.MaxValue;
 
-            if (code.TryGetCsType(TypeName, out var csType))
+            if (code.TryGetCsType(TypeName, out var csType) && code.LazyLists)
+            {
+                var listVariable = new Variable($"List<{csType}>?", Name);
+                code.WriteIndent().Append($"{listVariable.Type} ").AppendVariable(listVariable.Name).Append(" = null;").EndLine();
+
+                var itemVariable = new Variable(csType, Name + "Item");
+                code.WriteIndent().Append("while (").AppendCtParseCall(TypeName, Name).Append(" is { IsSuccess: true} ").AppendVariable(itemVariable.Name).Append(")").EndLine();
+                code.OpenBrace();
+                code.WriteIndent().Append("(").AppendVariable(listVariable.Name).Append($" ??= new List<{csType}>()).Add(").AppendVariable(itemVariable.Name).Append(".Value);").EndLine();
+                code.CloseBrace();
+
+                if (needsCountCheck)
+                    CountInRange(code, min, max, $"({listVariable.Name}?.Count ?? 0)");
+
+                return [listVariable];
+            }
+
+            if (code.TryGetCsType(TypeName, out csType))
             {
                 var listVariable = new Variable($"List<{csType}>", Name);
                 code.WriteIndent().Append("var ").AppendVariable(listVariable.Name).Append($" = new {listVariable.Type}();").EndLine();
