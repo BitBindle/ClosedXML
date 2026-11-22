@@ -364,7 +364,7 @@ namespace ClosedXML.Tests.Excel.Styles
 
         private static IEnumerable<object> BorderApiSetters()
         {
-            var styleValues = EnumPolyfill.GetValues<XLBorderStyleValues>();
+            var styleValues = Enum.GetValues<XLBorderStyleValues>();
             var colors = new[] { XLColor.Red, XLColor.Black, XLColor.Automatic };
 
             // Outside border style - check that once set, all outer borders are set to the style

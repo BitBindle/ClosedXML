@@ -48,8 +48,7 @@ public class XStringConvert
                 // Append text from last XString splice
                 sb.Append(text, prevSliceNextCharIndex, i - prevSliceNextCharIndex);
 
-                // Get hex digits from from _xABCD_ patterns. Polyfill doesn't have allocation-free
-                // API, so just decode the hex number.
+                // Get hex digits from _xABCD_ patterns. Decode the hex number without an allocation.
                 var codepoint = GetHexValue(textSpan.Slice(i + 2, 4));
 
                 sb.Append((char)codepoint);

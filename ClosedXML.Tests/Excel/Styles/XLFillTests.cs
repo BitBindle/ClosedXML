@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using ClosedXML.Excel;
 using ClosedXML.Tests.Excel.Styles;
@@ -32,7 +33,7 @@ namespace ClosedXML.Tests.Excel
 
         private static IEnumerable<FormatTestCase<IXLFill>> FillApiSetters()
         {
-            var patternValues = EnumPolyfill.GetValues<XLFillPatternValues>();
+            var patternValues = Enum.GetValues<XLFillPatternValues>();
             yield return FormatTestCase<IXLFill>.ForFill(fill => fill.PatternType, (fill, value) => fill.PatternType = value, patternValues);
             yield return FormatTestCase<IXLFill>.ForFill(fill => fill.PatternType, (fill, value) => fill.SetPatternType(value), patternValues);
 
@@ -206,7 +207,7 @@ namespace ClosedXML.Tests.Excel
                 @"Other\StyleReferenceFiles\FillAtReservedPosition-MoveFill-Input.xlsx",
                 @"Other\StyleReferenceFiles\FillAtReservedPosition-MoveFill-Output.xlsx");
         }
-    
+
         [Test]
         [Issue("60")]
         public void Fill_is_not_equal_to_null()
@@ -214,7 +215,7 @@ namespace ClosedXML.Tests.Excel
             using var wb = new XLWorkbook();
             var fill = wb.AddWorksheet().Cell("A1").Style.Fill;
 
-            Assert.That(((System.IEquatable<IXLFill>)fill).Equals(null), Is.False);
+            Assert.That(((IEquatable<IXLFill>)fill).Equals(null), Is.False);
         }
-}
+    }
 }

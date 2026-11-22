@@ -1,7 +1,6 @@
 // Keep this file CodeMaid organised and cleaned
 using System;
 using System.Globalization;
-using ClosedXML.Utils;
 
 namespace ClosedXML.Excel
 {

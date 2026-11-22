@@ -317,7 +317,8 @@ namespace ClosedXML.Tests
         [Issue("35")]
         public void Custom_filter_saves_number_operand_with_round_trip_text()
         {
-            // A text with 15 significant digits is 0.3. With that text, the filter does not show the cell with 0.1 + 0.2.
+            // A text with 15 significant digits is 0.3. With that text, the filter shows the cell with 0.1 + 0.2,
+            // because that value is greater than 0.3.
             var operand = 0.1 + 0.2;
             using var ms = new MemoryStream();
             using (var wb = new XLWorkbook())

@@ -216,10 +216,33 @@ internal class SheetDataReaderTests
     [TestCase(".5", 0x3FE0000000000000UL)]
     [TestCase("5.", 0x4014000000000000UL)]
     [TestCase("-00012.50e-1", 0xBFF4000000000000UL)]
+    [TestCase(" \t+1.5E+3 ", 0x4097700000000000UL)]
     [Issue("38")]
     public void Reads_number_text_at_or_near_midpoint_as_nearest_double(string text, ulong expectedBits)
     {
         // A text at the midpoint between two doubles, or with more digits than a double keeps, needs exact rounding.
+        AssertSheetData(
+            $"""
+            <sheetData>
+              <row r="1">
+                <c r="A1"><v>{text}</v></c>
+              </row>
+            </sheetData>
+            """,
+            (ws, _) => Assert.AreEqual(expectedBits, (ulong)BitConverter.DoubleToInt64Bits(ws.Cell("A1").GetDouble())));
+    }
+
+    [TestCase("2.7755575615628914E-17", 0x3C80000000000000UL)]
+    [TestCase("1.2345678901234567E+200", 0x6979CE4AE6F82488UL)]
+    [TestCase("4.9406564584124654E-320", 0x0000000000002710UL)]
+    [TestCase("1234567890123456789e-345", 0x0000000000000000UL)]
+    [TestCase("9999999999999999999e-342", 0x0000000000000002UL)]
+    [TestCase("1e-330", 0x0000000000000000UL)]
+    [TestCase("1e-323", 0x0000000000000002UL)]
+    [Issue("47")]
+    public void Reads_number_text_with_large_decimal_scale_as_nearest_double(string text, ulong expectedBits)
+    {
+        // Excel writes such texts for the rounding errors of formulas. Some of the values are subnormal.
         AssertSheetData(
             $"""
             <sheetData>

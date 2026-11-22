@@ -6,7 +6,6 @@ using ClosedXML.Excel.Formatting;
 using ClosedXML.Extensions;
 using ClosedXML.IO;
 using ClosedXML.Parser;
-using ClosedXML.Utils;
 using DocumentFormat.OpenXml.Spreadsheet;
 using StringItem = ClosedXML.Excel.CalcEngine.OneOf<string, ClosedXML.Excel.XLImmutableRichText>;
 
