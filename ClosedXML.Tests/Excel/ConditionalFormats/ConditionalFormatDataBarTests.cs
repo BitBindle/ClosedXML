@@ -129,6 +129,118 @@ internal class ConditionalFormatDataBarTests
         Assert.IsFalse(comparer.Equals(formats[0], formats[2]));
     }
 
+    [Test]
+    [Issue("61")]
+    public void Save_keeps_data_bar_options_from_file()
+    {
+        using var input = CreateFileWithDataBarOptions(X14.DataBarDirectionValues.RightToLeft, X14.DataBarAxisPositionValues.Middle);
+        using var output = new MemoryStream();
+
+        using (var wb = new XLWorkbook(input))
+            wb.SaveAs(output);
+
+        using var package = SpreadsheetDocument.Open(output, false);
+        var dataBar = package.WorkbookPart!.WorksheetParts.Single().Worksheet.Descendants<X14.DataBar>().Single();
+        Assert.AreEqual(5u, dataBar.MinLength!.Value);
+        Assert.AreEqual(95u, dataBar.MaxLength!.Value);
+        Assert.IsTrue(dataBar.Border!.Value);
+        Assert.IsTrue(dataBar.NegativeBarColorSameAsPositive!.Value);
+        Assert.IsFalse(dataBar.NegativeBarBorderColorSameAsPositive!.Value);
+        Assert.AreEqual(X14.DataBarDirectionValues.RightToLeft, dataBar.Direction!.Value);
+        Assert.AreEqual(X14.DataBarAxisPositionValues.Middle, dataBar.AxisPosition!.Value);
+
+        // The schema gives the order of the child elements.
+        CollectionAssert.AreEqual(
+            new[] { "cfvo", "cfvo", "borderColor", "negativeFillColor", "negativeBorderColor", "axisColor" },
+            dataBar.ChildElements.Select(e => e.LocalName));
+        Assert.AreEqual("FF638EC6", dataBar.GetFirstChild<X14.BorderColor>()!.Rgb!.Value);
+        var negativeBorderColor = dataBar.GetFirstChild<X14.NegativeBorderColor>()!;
+        Assert.AreEqual(5u, negativeBorderColor.Theme!.Value);
+        Assert.AreEqual(-0.25, negativeBorderColor.Tint!.Value);
+        Assert.AreEqual("FF00B050", dataBar.GetFirstChild<X14.BarAxisColor>()!.Rgb!.Value);
+    }
+
+    [TestCase("leftToRight", "none")]
+    [TestCase("rightToLeft", "middle")]
+    [TestCase("context", "automatic")]
+    [Issue("61")]
+    public void Save_keeps_direction_and_axis_position_of_data_bar(string direction, string axisPosition)
+    {
+        using var input = CreateFileWithDataBarOptions(new X14.DataBarDirectionValues(direction), new X14.DataBarAxisPositionValues(axisPosition));
+        using var output = new MemoryStream();
+
+        using (var wb = new XLWorkbook(input))
+            wb.SaveAs(output);
+
+        // The save does not write an attribute with the schema default value.
+        using var package = SpreadsheetDocument.Open(output, false);
+        var dataBar = package.WorkbookPart!.WorksheetParts.Single().Worksheet.Descendants<X14.DataBar>().Single();
+        Assert.AreEqual(direction == "context" ? null : direction, dataBar.Direction?.InnerText);
+        Assert.AreEqual(axisPosition == "automatic" ? null : axisPosition, dataBar.AxisPosition?.InnerText);
+    }
+
+    [Test]
+    [Issue("61")]
+    public void Load_uses_schema_defaults_for_missing_data_bar_options()
+    {
+        // The schema default of minLength is 10 and of maxLength is 90. The axis color is optional.
+        using var input = CreateFileWithDataBar(gradient: null);
+        using (var package = SpreadsheetDocument.Open(input, true))
+        {
+            var worksheet = package.WorkbookPart!.WorksheetParts.Single().Worksheet;
+            var dataBar = worksheet.Descendants<X14.DataBar>().Single();
+            dataBar.MinLength = null;
+            dataBar.MaxLength = null;
+            dataBar.GetFirstChild<X14.BarAxisColor>()!.Remove();
+            worksheet.Save();
+        }
+
+        input.Position = 0;
+        using var output = new MemoryStream();
+        using (var wb = new XLWorkbook(input))
+            wb.SaveAs(output);
+
+        using var savedPackage = SpreadsheetDocument.Open(output, false);
+        var savedDataBar = savedPackage.WorkbookPart!.WorksheetParts.Single().Worksheet.Descendants<X14.DataBar>().Single();
+        Assert.AreEqual(10u, savedDataBar.MinLength!.Value);
+        Assert.AreEqual(90u, savedDataBar.MaxLength!.Value);
+        Assert.IsNull(savedDataBar.GetFirstChild<X14.BarAxisColor>());
+        Assert.IsNull(savedDataBar.Border);
+        Assert.IsNull(savedDataBar.NegativeBarColorSameAsPositive);
+        Assert.IsNull(savedDataBar.NegativeBarBorderColorSameAsPositive);
+    }
+
+    [Test]
+    [Issue("61")]
+    public void Copy_keeps_data_bar_options_from_file()
+    {
+        using var input = CreateFileWithDataBarOptions(X14.DataBarDirectionValues.LeftToRight, X14.DataBarAxisPositionValues.None);
+        using var wb = new XLWorkbook(input);
+        var ws = wb.Worksheets.Single();
+
+        var copy = ws.CopyTo("Copy");
+
+        var original = (XLConditionalFormat)ws.ConditionalFormats.Single();
+        var copied = (XLConditionalFormat)copy.ConditionalFormats.Single();
+        Assert.AreEqual(original.DataBarOptions, copied.DataBarOptions);
+        Assert.IsTrue(copied.DataBarOptions.Border);
+    }
+
+    [Test]
+    [Issue("61")]
+    public void Data_bars_with_different_options_are_not_equal()
+    {
+        // The compare of formats without the range must not join data bars that look different.
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        ws.Range("A1:A3").AddConditionalFormat().DataBar(XLColor.Red).LowestValue().HighestValue();
+        ws.Range("B1:B3").AddConditionalFormat().DataBar(XLColor.Red).LowestValue().HighestValue();
+        var formats = ws.ConditionalFormats.Cast<XLConditionalFormat>().ToArray();
+        formats[1].DataBarOptions = formats[1].DataBarOptions with { Border = true };
+
+        Assert.IsFalse(XLConditionalFormat.NoRangeComparer.Equals(formats[0], formats[1]));
+    }
+
     private static bool?[] ReadGradientAttributes(MemoryStream ms)
     {
         using (var package = SpreadsheetDocument.Open(ms, false))
@@ -138,6 +250,35 @@ internal class ConditionalFormatDataBarTests
             ms.Position = 0;
             return result;
         }
+    }
+
+    /// <summary>
+    /// Create a file with a data bar that has the options of Excel 2010 that the public API does not set.
+    /// </summary>
+    private static MemoryStream CreateFileWithDataBarOptions(X14.DataBarDirectionValues direction, X14.DataBarAxisPositionValues axisPosition)
+    {
+        var ms = CreateFileWithDataBar(gradient: null);
+        using (var package = SpreadsheetDocument.Open(ms, true))
+        {
+            var worksheet = package.WorkbookPart!.WorksheetParts.Single().Worksheet;
+            var dataBar = worksheet.Descendants<X14.DataBar>().Single();
+            dataBar.MinLength = 5;
+            dataBar.MaxLength = 95;
+            dataBar.Border = true;
+            dataBar.NegativeBarColorSameAsPositive = true;
+            dataBar.NegativeBarBorderColorSameAsPositive = false;
+            dataBar.Direction = direction;
+            dataBar.AxisPosition = axisPosition;
+
+            var negativeFillColor = dataBar.GetFirstChild<X14.NegativeFillColor>()!;
+            dataBar.InsertBefore(new X14.BorderColor { Rgb = "FF638EC6" }, negativeFillColor);
+            dataBar.InsertAfter(new X14.NegativeBorderColor { Theme = 5, Tint = -0.25 }, negativeFillColor);
+            dataBar.GetFirstChild<X14.BarAxisColor>()!.Rgb = "FF00B050";
+            worksheet.Save();
+        }
+
+        ms.Position = 0;
+        return ms;
     }
 
     /// <summary>
