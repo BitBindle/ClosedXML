@@ -1275,6 +1275,11 @@ namespace ClosedXML.Excel
             if (!_cache.TryGetFieldIndex(sourceName, out var fieldIndex))
                 throw new InvalidOperationException($"Field '{sourceName}' not found in pivot cache.");
 
+            // Excel doesn't allow a calculated field on an axis. A group field on an axis needs items
+            // for the group items of the field, and ClosedXML doesn't read the group items.
+            if (!_cache.GetFieldValues(fieldIndex).IsDatabaseField)
+                throw new InvalidOperationException($"Field '{sourceName}' is a calculated field or a group field. It can't be added to an axis.");
+
             // Check actual fields.
             var customNameUsed = _fields.Any(f => XLHelper.NameComparer.Equals(f.Name, customName));
             if (customNameUsed)

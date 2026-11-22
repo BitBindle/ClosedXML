@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using ClosedXML.Excel;
@@ -135,6 +136,48 @@ internal class XLPivotCacheFieldTests
         Assert.True(cacheFields.All(f => f.FieldGroup is null));
     }
 
+    [TestCase("Double")]
+    [TestCase("Name2")]
+    [Issue("45")]
+    public void Calculated_field_and_group_field_cannot_be_added_to_axis(string fieldName)
+    {
+        using var ms = CreateFileWithCalculatedAndGroupField();
+        using var wb = new XLWorkbook(ms);
+        var pt = wb.Worksheet(1).PivotTable("pt");
+
+        Assert.Throws<InvalidOperationException>(() => pt.ColumnLabels.Add(fieldName));
+        Assert.Throws<InvalidOperationException>(() => pt.ReportFilters.Add(fieldName));
+    }
+
+    [Test]
+    [Issue("45")]
+    public void Selected_value_of_group_field_filter_is_not_supported()
+    {
+        // The item of a group field is an index into the group items, not into the shared items.
+        using var ms = CreateFileWithGroupField(groupFieldInFilter: true);
+        using var wb = new XLWorkbook(ms);
+        var filter = wb.Worksheet(1).PivotTable("pt").ReportFilters.Single();
+
+        Assert.AreEqual("Name2", filter.SourceName);
+        Assert.Throws<NotSupportedException>(() => _ = filter.SelectedValues);
+    }
+
+    [Test]
+    [Issue("45")]
+    public void Cache_without_database_fields_has_no_records()
+    {
+        using var wb = new XLWorkbook();
+        var cache = wb.PivotCachesInternal.Add(new XLPivotSourceConnection(0));
+        cache.AddCachedField("Double", new XLPivotCacheValues(new XLPivotCacheSharedItems(), new XLPivotCacheValuesStats())
+        {
+            Formula = "Value*2",
+            IsDatabaseField = false,
+        });
+
+        Assert.AreEqual(0, cache.RecordCount);
+        Assert.IsEmpty(cache.GetDatabaseFieldIndexes());
+    }
+
     [TestCase("shared-group-field.xlsx", 2)]
     [TestCase("shared-nested-dategroup.xlsx", 3)]
     [Issue("45")]
@@ -226,7 +269,24 @@ internal class XLPivotCacheFieldTests
     /// Creates a file with a group field <c>Name2</c> that groups the items of the <c>Name</c> field.
     /// The records have no values for the group field.
     /// </summary>
-    private static MemoryStream CreateFileWithGroupField()
+    private static MemoryStream CreateFileWithCalculatedAndGroupField()
+    {
+        var ms = CreateFileWithCalculatedField();
+        using (var document = SpreadsheetDocument.Open(ms, true))
+        {
+            var cacheDefinition = document.WorkbookPart!.PivotTableCacheDefinitionParts.Single().PivotCacheDefinition!;
+            cacheDefinition.CacheFields!.AppendChild(CreateGroupField());
+            cacheDefinition.CacheFields.Count = 4;
+
+            var definition = document.WorkbookPart.WorksheetParts.Single().PivotTableParts.Single().PivotTableDefinition!;
+            definition.PivotFields!.AppendChild(new PivotField { ShowAll = false });
+            definition.PivotFields.Count = 4;
+        }
+
+        return ms;
+    }
+
+    private static MemoryStream CreateFileWithGroupField(bool groupFieldInFilter = false)
     {
         var ms = CreateFile();
         using (var document = SpreadsheetDocument.Open(ms, true))
@@ -234,26 +294,49 @@ internal class XLPivotCacheFieldTests
             var cacheDefinition = document.WorkbookPart!.PivotTableCacheDefinitionParts.Single().PivotCacheDefinition!;
             var cacheFields = cacheDefinition.CacheFields!.Elements<CacheField>().ToList();
             cacheFields[0].FieldGroup = new FieldGroup { ParentId = 2 };
-            cacheDefinition.CacheFields!.AppendChild(new CacheField(
-                new FieldGroup(
-                    new DiscreteProperties(new FieldItem { Val = 0 }, new FieldItem { Val = 1 }) { Count = 2 },
-                    new GroupItems(new StringItem { Val = "Group1" }, new StringItem { Val = "Group2" }) { Count = 2 })
-                {
-                    Base = 0,
-                })
-            {
-                Name = "Name2",
-                NumberFormatId = 0,
-                DatabaseField = false,
-            });
+            cacheDefinition.CacheFields!.AppendChild(CreateGroupField());
             cacheDefinition.CacheFields.Count = 3;
 
             var definition = document.WorkbookPart.WorksheetParts.Single().PivotTableParts.Single().PivotTableDefinition!;
-            definition.PivotFields!.AppendChild(new PivotField { ShowAll = false });
+            if (groupFieldInFilter)
+            {
+                definition.PivotFields!.AppendChild(new PivotField(
+                    new Items(new Item { Index = 0 }, new Item { Index = 1 }, new Item { ItemType = ItemValues.Default }) { Count = 3 })
+                {
+                    Axis = PivotTableAxisValues.AxisPage,
+                    ShowAll = false,
+                });
+                definition.PageFields = new PageFields(new PageField { Field = 2, Item = 1, Hierarchy = -1 }) { Count = 1 };
+            }
+            else
+            {
+                definition.PivotFields!.AppendChild(new PivotField { ShowAll = false });
+            }
+
             definition.PivotFields.Count = 3;
         }
 
         return ms;
+    }
+
+    /// <summary>
+    /// Creates a group field <c>Name2</c>. It puts the item <c>Cake</c> into <c>Group1</c>
+    /// and the item <c>Pie</c> into <c>Group2</c>.
+    /// </summary>
+    private static CacheField CreateGroupField()
+    {
+        return new CacheField(
+            new FieldGroup(
+                new DiscreteProperties(new FieldItem { Val = 0 }, new FieldItem { Val = 1 }) { Count = 2 },
+                new GroupItems(new StringItem { Val = "Group1" }, new StringItem { Val = "Group2" }) { Count = 2 })
+            {
+                Base = 0,
+            })
+        {
+            Name = "Name2",
+            NumberFormatId = 0,
+            DatabaseField = false,
+        };
     }
 
     private static MemoryStream CreateFile()
