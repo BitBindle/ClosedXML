@@ -48,33 +48,36 @@ namespace ClosedXML.Excel
 
         public XLRangeAddress(XLWorksheet? worksheet, String rangeAddress) : this()
         {
-            string addressToUse = rangeAddress.Contains('!')
-                ? rangeAddress.Substring(rangeAddress.LastIndexOf('!') + 1)
-                : rangeAddress;
+            var addressToUse = rangeAddress.AsSpan(rangeAddress.LastIndexOf('!') + 1);
 
-            string firstPart;
-            string secondPart;
-            if (addressToUse.Contains(':'))
+            ReadOnlySpan<char> firstSpan;
+            ReadOnlySpan<char> secondSpan;
+            var colonIndex = addressToUse.IndexOf(':');
+            if (colonIndex >= 0)
             {
-                var arrRange = addressToUse.Split(':');
-                firstPart = arrRange[0];
-                secondPart = arrRange[1];
+                // Text after a second colon is ignored.
+                firstSpan = addressToUse[..colonIndex];
+                secondSpan = addressToUse[(colonIndex + 1)..];
+                var secondColonIndex = secondSpan.IndexOf(':');
+                if (secondColonIndex >= 0)
+                    secondSpan = secondSpan[..secondColonIndex];
             }
             else
             {
-                firstPart = addressToUse;
-                secondPart = addressToUse;
+                firstSpan = addressToUse;
+                secondSpan = addressToUse;
             }
 
-            if (XLHelper.IsValidA1Address(firstPart))
+            if (XLHelper.IsValidA1Address(firstSpan))
             {
-                FirstAddress = XLAddress.Create(worksheet, firstPart);
-                LastAddress = XLAddress.Create(worksheet, secondPart);
+                FirstAddress = XLAddress.Create(worksheet, firstSpan);
+                LastAddress = XLAddress.Create(worksheet, secondSpan);
             }
             else
             {
-                firstPart = firstPart.Replace("$", String.Empty);
-                secondPart = secondPart.Replace("$", String.Empty);
+                // A range of whole rows or whole columns, for example 1:3 or A:C.
+                var firstPart = firstSpan.ToString().Replace("$", String.Empty);
+                var secondPart = secondSpan.ToString().Replace("$", String.Empty);
                 if (char.IsDigit(firstPart[0]))
                 {
                     FirstAddress = XLAddress.Create(worksheet, "A" + firstPart);
