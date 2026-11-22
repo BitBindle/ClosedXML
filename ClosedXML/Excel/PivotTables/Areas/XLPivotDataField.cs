@@ -88,6 +88,14 @@ internal class XLPivotDataField : IXLPivotValue
     }
 
     /// <summary>
+    /// Gets <c>true</c> for a data field with a base field and a base item that has a value. Gets
+    /// <c>false</c> for a base item that is not set, the previous item or the next item.
+    /// </summary>
+    internal bool HasBaseItemValue =>
+        _baseField != BaseFieldDefaultValue &&
+        _baseItem is not (BaseItemDefaultValue or BaseItemPreviousValue or BaseItemNextValue);
+
+    /// <summary>
     /// Formatting to apply to the data field. If <see cref="XLPivotFormat"/> disagree, this has precedence.
     /// </summary>
     internal XLNumberFormat? NumberFormatValue
