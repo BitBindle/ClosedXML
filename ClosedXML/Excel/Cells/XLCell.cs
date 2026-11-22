@@ -441,16 +441,17 @@ namespace ClosedXML.Excel
                     return true;
                 }
 
-                var sb = new StringBuilder(s.Length);
+                StringBuilder? sb = null;
                 var lastIndex = 0;
                 foreach (var match in UtfPattern.EnumerateMatches(s))
                 {
+                    sb ??= new StringBuilder(s.Length);
                     sb.Append(s, lastIndex, match.Index - lastIndex);
                     sb.Append((char)int.Parse(s.AsSpan(match.Index + 2, 4), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture));
                     lastIndex = match.Index + match.Length;
                 }
 
-                var unescaped = lastIndex == 0 ? s : sb.Append(s, lastIndex, s.Length - lastIndex).ToString();
+                var unescaped = sb is null ? s : sb.Append(s, lastIndex, s.Length - lastIndex).ToString();
                 value = (T)(object)unescaped;
                 return true;
             }

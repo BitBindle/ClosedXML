@@ -38,8 +38,9 @@ namespace ClosedXML.Excel
         }
 
         /// <summary>
-        /// Replace each line feed and each carriage return with line feed by <see cref="Environment.NewLine"/>.
-        /// A carriage return without a line feed stays the same.
+        /// Replaces each line feed with <see cref="Environment.NewLine"/>. The method also removes a
+        /// carriage return that comes immediately before a line feed. A carriage return without a
+        /// line feed stays the same.
         /// </summary>
         internal static String FixNewLines(this String value)
         {

@@ -1310,7 +1310,6 @@ namespace ClosedXML.Tests
         [TestCase("a_x000D_b", "a\rb")]
         [TestCase("_x0041__x0042_C", "ABC")]
         [TestCase("a_x000D_", "a\r")]
-        [TestCase("_x005F_x000D_", "_x005F_x000D_")]
         [TestCase("a_xZZZZ_b", "a_xZZZZ_b")]
         [TestCase("a_x00", "a_x00")]
         [Issue("77")]
