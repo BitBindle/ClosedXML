@@ -63,22 +63,9 @@ namespace ClosedXML.Excel
                        parsed.Equals(value);
             }
 #else
-            var text = value.ToString("G15", CultureInfo.InvariantCulture);
-            if (IsRoundTrip(text, value))
-                return text;
-
-            text = value.ToString("G16", CultureInfo.InvariantCulture);
-            if (IsRoundTrip(text, value))
-                return text;
-
-            // 17 significant digits are sufficient for each double value.
-            return value.ToString("G17", CultureInfo.InvariantCulture);
-
-            static bool IsRoundTrip(string text, double value)
-            {
-                return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) &&
-                       parsed.Equals(value);
-            }
+            // The double formatter and parser of .NET Framework are not exact for more than
+            // 15 significant digits, so the text can be different from the text on .NET.
+            return ClosedXML.Utils.ExactDoubleConverter.Format(value);
 #endif
         }
 

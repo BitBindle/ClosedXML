@@ -334,7 +334,13 @@ internal partial class SheetDataReader
         if (dataType == CellValues.Number)
         {
             // XLCell is by default blank, so no need to set it.
-            if (double.TryParse(cellValue, XLHelper.NumberStyle, XLHelper.ParseCulture, out var number))
+#if NETSTANDARD2_1_OR_GREATER
+            var isNumber = double.TryParse(cellValue, XLHelper.NumberStyle, XLHelper.ParseCulture, out var number);
+#else
+            // The double parser of .NET Framework is not exact for more than 15 significant digits.
+            var isNumber = ClosedXML.Utils.ExactDoubleConverter.TryParse(cellValue, out var number);
+#endif
+            if (isNumber)
             {
                 var numberDataType = format.NumberFormat.GetNumberDataType();
                 var cellNumber = numberDataType switch
