@@ -1359,8 +1359,8 @@ namespace ClosedXML.Tests.Excel.Saving
         [TestCase("b_x005F_x000D_")]
         [TestCase("_x0041__x0042_")]
         [TestCase("_x0041\r")]
-        [TestCase("\u0001x")]
-        [TestCase("x\uFFFEy")]
+        [TestCase("\u0001x", TestName = "{m}(U+0001 x)")]
+        [TestCase("x\uFFFEy", TestName = "{m}(x U+FFFE y)")]
         [Issue("96")]
         public void Save_and_load_keep_the_cell_text(string text)
         {
@@ -1401,8 +1401,8 @@ namespace ClosedXML.Tests.Excel.Saving
         [TestCase("a_x0041_")]
         [TestCase("b_x005F_x000D_")]
         [TestCase("_x0041\r")]
-        [TestCase("\u0001x")]
-        [TestCase("x\uFFFEy")]
+        [TestCase("\u0001x", TestName = "{m}(U+0001 x)")]
+        [TestCase("x\uFFFEy", TestName = "{m}(x U+FFFE y)")]
         [Issue("96")]
         public void Save_and_load_keep_the_comment_text(string text)
         {
@@ -1435,6 +1435,82 @@ namespace ClosedXML.Tests.Excel.Saving
 
             using var loaded = new XLWorkbook(ms);
             Assert.AreEqual("a\rb", loaded.Worksheet("Sheet1").Cell("A1").GetComment().Text);
+        }
+
+        [TestCase("a\rb")]
+        [TestCase("a_x0041_")]
+        [TestCase("b_x005F_x000D_")]
+        [TestCase("_x0041\r")]
+        [TestCase("\u0001x", TestName = "{m}(U+0001 x)")]
+        [TestCase("x\uFFFEy", TestName = "{m}(x U+FFFE y)")]
+        [Issue("98")]
+        public void Save_and_load_keep_the_formula_text(string text)
+        {
+            var formula = "\"" + text + "\"";
+            var loaded = SaveAndLoad(wb =>
+            {
+                var ws = wb.AddWorksheet("Sheet1");
+                ws.Cell("A1").FormulaA1 = formula;
+                ws.Range("A2:A3").FormulaArrayA1 = formula;
+            }, new SaveOptions());
+
+            using (loaded)
+            {
+                var ws = loaded.Worksheet("Sheet1");
+                Assert.AreEqual(formula, ws.Cell("A1").FormulaA1);
+                Assert.AreEqual(formula, ws.Cell("A2").FormulaA1);
+                Assert.True(ws.Cell("A3").HasArrayFormula);
+            }
+        }
+
+        [TestCase("a\rb")]
+        [TestCase("a_x0041_")]
+        [TestCase("\u0001x", TestName = "{m}(U+0001 x)")]
+        [Issue("98")]
+        public void Save_and_load_keep_the_comment_author(string author)
+        {
+            var loaded = SaveAndLoad(wb =>
+            {
+                var ws = wb.AddWorksheet("Sheet1");
+                ws.Cell("A1").CreateComment().SetAuthor(author).AddText("x");
+                ws.Cell("A2").CreateComment().SetAuthor(author).AddText("y");
+            }, new SaveOptions());
+
+            using (loaded)
+            {
+                var ws = loaded.Worksheet("Sheet1");
+                Assert.AreEqual(author, ws.Cell("A1").GetComment().Author);
+                Assert.AreEqual(author, ws.Cell("A2").GetComment().Author);
+            }
+        }
+
+        [Test]
+        [Issue("98")]
+        public void Load_decodes_the_escaped_characters_of_a_formula_and_a_comment_author()
+        {
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet("Sheet1");
+                ws.Cell("A1").FormulaA1 = "\"x\"";
+                ws.Cell("B1").CreateComment().SetAuthor("y").AddText("z");
+                wb.SaveAs(ms);
+            }
+
+            // Write the text that Excel writes for a carriage return.
+            using (var document = SpreadsheetDocument.Open(ms, true))
+            {
+                var worksheetPart = document.WorkbookPart!.WorksheetParts.Single();
+                var cellFormula = worksheetPart.Worksheet!.Descendants<DocumentFormat.OpenXml.Spreadsheet.CellFormula>().Single();
+                cellFormula.Text = "\"a_x000D_b\"";
+                var author = worksheetPart.WorksheetCommentsPart!.Comments!.Descendants<DocumentFormat.OpenXml.Spreadsheet.Author>().Single();
+                author.Text = "c_x000D_d";
+            }
+
+            using var loaded = new XLWorkbook(ms);
+            var loadedSheet = loaded.Worksheet("Sheet1");
+            Assert.AreEqual("\"a\rb\"", loadedSheet.Cell("A1").FormulaA1);
+            Assert.AreEqual("c\rd", loadedSheet.Cell("B1").GetComment().Author);
         }
 
         private static XLWorkbook SaveAndLoad(Action<XLWorkbook> fill, SaveOptions options)

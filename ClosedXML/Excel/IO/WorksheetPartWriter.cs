@@ -2431,14 +2431,14 @@ namespace ClosedXML.Excel.IO
                             xml.WriteAttributeString("t", "array");
                             var formulaReference = xlCell.FormulaReference ?? throw new InvalidOperationException("The array formula has no range.");
                             xml.WriteAttributeString("ref", formulaReference.ToStringRelative());
-                            xml.WriteString(xlCell.FormulaA1);
+                            xml.WriteString(XmlEncoder.EncodeString(xlCell.FormulaA1));
                             xml.WriteEndElement(); // f
                         }
                     }
                     else
                     {
                         xml.WriteStartElement("f", Main2006SsNs);
-                        xml.WriteString(xlCell.FormulaA1);
+                        xml.WriteString(XmlEncoder.EncodeString(xlCell.FormulaA1));
                         xml.WriteEndElement(); // f
                     }
 

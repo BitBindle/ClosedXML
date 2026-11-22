@@ -409,7 +409,7 @@ namespace ClosedXML.Excel
                         var xlComment = cell.CreateComment(shapeId);
 
                         var authorId = c.AuthorId?.Value ?? throw PartStructureException.MissingAttribute("authorId");
-                        xlComment.Author = authors[(int)authorId].InnerText;
+                        xlComment.Author = XStringConvert.Decode(authors[(int)authorId].InnerText);
                         ShapeIdManager.Add(xlComment.ShapeId);
 
                         var commentText = c.GetFirstChild<CommentText>() ?? throw PartStructureException.RequiredElementIsMissing("text");

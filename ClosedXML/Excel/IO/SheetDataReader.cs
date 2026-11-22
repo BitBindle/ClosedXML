@@ -153,7 +153,9 @@ internal partial class SheetDataReader
     partial void OnCellFormulaParsed(string formula, string t, bool aca, Area? @ref, bool dt2D, bool dtr, bool del1, bool del2, Point? r1, Point? r2, bool ca, uint? si, bool bx)
     {
         HasFormula = true;
-        _formulaText = formula;
+
+        // The formula text is an ST_Xstring. It can contain escaped characters (_xHHHH_).
+        _formulaText = XStringConvert.Decode(formula);
         _formulaType = t;
         _formulaAca = aca;
         _formulaArea = @ref;
