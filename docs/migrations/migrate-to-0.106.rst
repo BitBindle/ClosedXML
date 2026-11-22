@@ -152,4 +152,8 @@ references and pivot sources that used the name then pointed to a table that did
 with a cell reference or a defined name as a table name needed a repair in Excel.
 
 The ``CreateTable(name)``, ``AsTable(name)`` and ``InsertTable(data, name)`` methods use the same
-rules. The load keeps a table name from a file as it is.
+rules. For a name that is a cell reference, the ``InsertTable`` overload for a ``DataTable`` throws
+an ``InvalidOperationException``, as before.
+
+The load and a copy of a table keep a table name from a file as it is. The save still removes the
+whitespace from such a name.

@@ -1319,8 +1319,17 @@ namespace ClosedXML.Excel.IO
                 foreach (var removedPicture in xlPictures.Deleted)
                 {
                     // An anchor that refers to a deleted image part makes a corrupt file for Excel.
-                    if (worksheetPart.DrawingsPart.WorksheetDrawing is not null)
-                        GetAnchorFromImageId(worksheetPart.DrawingsPart, removedPicture)?.Remove();
+                    // Two anchors can refer to one image part. A picture that stays with that
+                    // image gets a new image part and a new anchor below.
+                    var worksheetDrawing = worksheetPart.DrawingsPart.WorksheetDrawing;
+                    if (worksheetDrawing is not null)
+                    {
+                        var anchors = worksheetDrawing.Elements()
+                            .Where(anchor => anchor.Descendants<Xdr.BlipFill>().Any(blipFill => blipFill.Blip?.Embed?.Value == removedPicture))
+                            .ToList();
+                        foreach (var anchor in anchors)
+                            anchor.Remove();
+                    }
 
                     worksheetPart.DrawingsPart.DeletePart(removedPicture);
                 }

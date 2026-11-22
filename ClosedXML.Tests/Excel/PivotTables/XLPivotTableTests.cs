@@ -278,9 +278,9 @@ namespace ClosedXML.Tests
         }
 
         [Test]
-        public void Copy_keeps_custom_style_only_in_same_workbook()
+        public void Copy_keeps_custom_style_if_target_workbook_has_it()
         {
-            // Another workbook does not have the custom pivot styles of the source workbook.
+            // Another workbook can have no pivot style with the custom style name.
             using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\PivotTables\PivotTables.xlsx"));
             using var wb = new XLWorkbook(stream);
             var pt = (XLPivotTable)wb.Worksheet("pvt1").PivotTables.First();
@@ -296,6 +296,12 @@ namespace ClosedXML.Tests
             var otherWorkbookCopy = (XLPivotTable)pt.CopyTo(otherWorkbook.AddWorksheet("pvt").FirstCell());
             Assert.IsNull(otherWorkbookCopy.CustomStyleName);
             Assert.IsTrue(otherWorkbookCopy.ShowLastColumn);
+
+            using var workbookWithStyle = new XLWorkbook();
+            workbookWithStyle.Styles.AddPivotStyle(new XLPivotTableStyle("MyPivotStyle"));
+            wb.Worksheet("PastrySalesData").CopyTo(workbookWithStyle);
+            var styledCopy = (XLPivotTable)pt.CopyTo(workbookWithStyle.AddWorksheet("pvt").FirstCell());
+            Assert.AreEqual("MyPivotStyle", styledCopy.CustomStyleName);
         }
 
         private void AssertPivotTablesAreEqual(XLPivotTable original, XLPivotTable copy, Boolean compareName)

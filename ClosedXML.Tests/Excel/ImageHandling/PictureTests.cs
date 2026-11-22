@@ -408,6 +408,56 @@ namespace ClosedXML.Tests
             }
         }
 
+        [Test]
+        [Issue("ClosedXML/ClosedXML#1252")]
+        public void Deleted_picture_removes_each_anchor_of_shared_image()
+        {
+            // Excel can give one image part to two pictures, for example after a copy of a picture.
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet("Sheet1");
+                using var image = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Images\SampleImagePng.png"));
+                ws.AddPicture(image, "Picture 1").MoveTo(ws.Cell("B2"));
+                wb.SaveAs(ms);
+            }
+
+            using (var document = SpreadsheetDocument.Open(ms, true))
+            {
+                var worksheetDrawing = document.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
+                var copy = worksheetDrawing.Elements<Xdr.OneCellAnchor>().Single().CloneNode(true);
+                var properties = copy.Descendants<Xdr.NonVisualDrawingProperties>().Single();
+                properties.Id = 100U;
+                properties.Name = "Picture 2";
+                worksheetDrawing.AppendChild(copy);
+            }
+
+            using (var wb = new XLWorkbook(ms))
+            {
+                var ws = wb.Worksheet("Sheet1");
+                Assert.AreEqual(2, ws.Pictures.Count);
+                ws.Pictures.Delete("Picture 1");
+                wb.Save();
+            }
+
+            using (var document = SpreadsheetDocument.Open(ms, false))
+            {
+                var drawingsPart = document.WorkbookPart!.WorksheetParts.Single().DrawingsPart!;
+                var embeds = drawingsPart.WorksheetDrawing
+                    .Descendants<DocumentFormat.OpenXml.Drawing.Blip>()
+                    .Select(blip => blip.Embed!.Value!)
+                    .ToList();
+                Assert.AreEqual(1, embeds.Count);
+                var partIds = drawingsPart.Parts.Select(part => part.RelationshipId).ToList();
+                CollectionAssert.IsSubsetOf(embeds, partIds);
+            }
+
+            using (var wb = new XLWorkbook(ms))
+            {
+                Assert.AreEqual("Picture 2", wb.Worksheet("Sheet1").Pictures.Single().Name);
+            }
+        }
+
         private static Xdr.TwoCellAnchor CreateRectangleAnchor(uint shapeId)
         {
             return new Xdr.TwoCellAnchor(

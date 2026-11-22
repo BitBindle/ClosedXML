@@ -236,9 +236,13 @@ namespace ClosedXML.Excel
             newPivotTable.ShowLastColumn = ShowLastColumn;
             newPivotTable.Theme = Theme;
 
-            // Another workbook does not have the custom styles of this workbook.
-            if (targetSheet.Workbook == Worksheet.Workbook)
+            // Another workbook can have no pivot style with the custom style name.
+            var targetWorkbook = (XLWorkbook)targetSheet.Workbook;
+            if (CustomStyleName is not null &&
+                (targetWorkbook == Worksheet.Workbook || targetWorkbook.Styles.PivotStyles.ContainsKey(CustomStyleName)))
+            {
                 newPivotTable.CustomStyleName = CustomStyleName;
+            }
 
             // TODO: Copy Styleformats
 
