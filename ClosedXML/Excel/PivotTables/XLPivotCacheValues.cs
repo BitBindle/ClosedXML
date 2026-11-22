@@ -108,6 +108,22 @@ namespace ClosedXML.Excel
         /// </summary>
         internal string? FieldGroupXml { get; init; }
 
+        /// <summary>
+        /// True, if ClosedXML can read and add pivot field items of the field. An item of a field
+        /// with groups can be an index into the group items, and ClosedXML doesn't read the
+        /// group items. A new shared item of a field with groups makes the groups incorrect.
+        /// </summary>
+        internal bool SupportsItems => IsDatabaseField && FieldGroupXml is null;
+
+        /// <summary>
+        /// Throw <see cref="NotSupportedException"/>, if ClosedXML can't use pivot field items of the field.
+        /// </summary>
+        internal void ThrowIfItemsNotSupported()
+        {
+            if (!SupportsItems)
+                throw new NotSupportedException("ClosedXML doesn't support items of a calculated field or a field with groups.");
+        }
+
         internal int Count => _values.Count;
 
         internal int SharedCount => _sharedItems.Count;

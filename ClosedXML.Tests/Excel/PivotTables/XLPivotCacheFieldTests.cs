@@ -165,6 +165,19 @@ internal class XLPivotCacheFieldTests
 
     [Test]
     [Issue("45")]
+    public void Items_of_base_field_of_group_field_are_not_supported()
+    {
+        // A new shared item of the base field makes the groups of the group field incorrect.
+        using var ms = CreateFileWithGroupField();
+        using var wb = new XLWorkbook(ms);
+        var pt = wb.Worksheet(1).PivotTable("pt");
+        var nameField = pt.RowLabels.Get("Name");
+
+        Assert.Throws<NotSupportedException>(() => nameField.StyleFormats.DataValuesFormat.AndWith(nameField, _ => true));
+    }
+
+    [Test]
+    [Issue("45")]
     public void Cache_without_database_fields_has_no_records()
     {
         using var wb = new XLWorkbook();

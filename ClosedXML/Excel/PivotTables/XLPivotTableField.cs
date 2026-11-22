@@ -256,12 +256,7 @@ internal class XLPivotTableField
         var index = _pivotTable.GetFieldIndex(this);
         var cache = _pivotTable.PivotCache;
         var cacheValues = cache.GetFieldValues(index);
-
-        // An item of a group field is an index into the group items of the field, not into the
-        // shared items. ClosedXML doesn't read the group items.
-        if (!cacheValues.IsDatabaseField)
-            throw new NotSupportedException("Items of a calculated field or a group field are not supported.");
-
+        cacheValues.ThrowIfItemsNotSupported();
         var sharedItemIndex = cacheValues.GetOrAddSharedItem(value);
 
         // Excel tries to repair workbook, when there are duplicates in pivotFields.Items
@@ -291,7 +286,9 @@ internal class XLPivotTableField
     internal List<XLPivotFieldItem> GetAllItems(Predicate<XLCellValue> predicate)
     {
         var fieldIndex = _pivotTable.GetFieldIndex(this);
-        var sharedItems = _pivotTable.PivotCache.GetFieldSharedItems(fieldIndex);
+        var cacheValues = _pivotTable.PivotCache.GetFieldValues(fieldIndex);
+        cacheValues.ThrowIfItemsNotSupported();
+        var sharedItems = cacheValues.SharedItems;
 
         var pivotFieldItems = Items
             .WhereNotNull(fieldItem => fieldItem.ItemIndex)

@@ -103,12 +103,7 @@ internal class XLPivotFieldItem
 
         var fieldIndex = _pivotTable.GetFieldIndex(_pivotField);
         var fieldValues = _pivotTable.PivotCache.GetFieldValues(fieldIndex);
-
-        // An item of a group field is an index into the group items of the field, not into the
-        // shared items. ClosedXML doesn't read the group items.
-        if (!fieldValues.IsDatabaseField)
-            throw new NotSupportedException("Items of a calculated field or a group field are not supported.");
-
+        fieldValues.ThrowIfItemsNotSupported();
         var sharedItems = fieldValues.SharedItems;
         var itemIndex = ItemIndex.Value;
         return sharedItems[checked((uint)itemIndex)];
