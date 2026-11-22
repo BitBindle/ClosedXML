@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Linq;
+using System.Numerics;
 using ClosedXML.Excel;
 using ClosedXML.IO;
 using NUnit.Framework;
@@ -96,6 +97,80 @@ internal class ExactNumberParserTests
         Assert.False(ExactNumberParser.TryParseExact(text, out _));
     }
 
+    [TestCase("2.7755575615628914E-17", 0x3C80000000000000UL)]
+    [TestCase("1.2345678901234567E+200", 0x6979CE4AE6F82488UL)]
+    [TestCase("4.9406564584124654E-320", 0x0000000000002710UL)]
+    [TestCase("1234567890123456789e-345", 0x0000000000000000UL)]
+    [TestCase("1e-342", 0x0000000000000000UL)]
+    [TestCase("1e-323", 0x0000000000000002UL)]
+    [Issue("47")]
+    public void TryParseExact_reads_nearest_double_with_large_scale(string text, ulong expectedBits)
+    {
+        Assert.True(ExactNumberParser.TryParseExact(text, out var value));
+        Assert.AreEqual(expectedBits, (ulong)BitConverter.DoubleToInt64Bits(value));
+    }
+
+    [TestCase(-342, 0xEEF453D6923BD65AUL, 0x113FAA2906A13B3FUL)]
+    [TestCase(-28, 0xFD87B5F28300CA0DUL, 0x8BCA9D6E188853FCUL)]
+    [TestCase(-27, 0x9E74D1B791E07E48UL, 0x775EA264CF55347EUL)]
+    [TestCase(-1, 0xCCCCCCCCCCCCCCCCUL, 0xCCCCCCCCCCCCCCCDUL)]
+    [TestCase(0, 0x8000000000000000UL, 0x0UL)]
+    [TestCase(1, 0xA000000000000000UL, 0x0UL)]
+    [TestCase(308, 0x8E679C2F5E44FF8FUL, 0x570F09EAA7EA7648UL)]
+    [Issue("47")]
+    public void PowersOfFive128_has_values_of_fast_float_table(int exponent, ulong high, ulong low)
+    {
+        // The error limits of the Eisel-Lemire method are valid only for the values of this table.
+        var index = 2 * (exponent + 342);
+
+        Assert.AreEqual(high, ExactNumberParser.PowersOfFive128.Values[index]);
+        Assert.AreEqual(low, ExactNumberParser.PowersOfFive128.Values[index + 1]);
+    }
+
+    [Test]
+    [Issue("47")]
+    public void TryParseExact_reads_nearest_double_of_text_near_midpoint()
+    {
+        // A text near the midpoint of two doubles needs the most precision. The expected value
+        // comes from the calculation with BigInteger, so the test is the same on each runtime.
+        var random = new Random(4747);
+        for (var i = 0; i < 5000; i++)
+        {
+            var biasedExponent = random.Next(0, 0x7FF);
+            var mantissa = ((ulong)(uint)random.Next() << 21 ^ (ulong)(uint)random.Next()) & ((1UL << 52) - 1);
+            var binaryExponent = -1074;
+            if (biasedExponent > 0)
+            {
+                mantissa |= 1UL << 52;
+                binaryExponent = biasedExponent - 1075;
+            }
+
+            // The midpoint above the double is (2 * mantissa + 1) * 2^(binaryExponent - 1).
+            var numerator = new BigInteger(2 * mantissa + 1) << Math.Max(binaryExponent - 1, 0);
+            var denominator = BigInteger.One << Math.Max(1 - binaryExponent, 0);
+            var exponent = (int)Math.Floor(BigInteger.Log10(numerator) - BigInteger.Log10(denominator)) - 18;
+            var integer = GetDecimalInteger(numerator, denominator, exponent);
+            if (integer >= BigInteger.Pow(10, 19))
+                integer = GetDecimalInteger(numerator, denominator, ++exponent);
+            else if (integer < BigInteger.Pow(10, 18))
+                integer = GetDecimalInteger(numerator, denominator, --exponent);
+
+            for (var offset = -1; offset <= 2; offset++)
+            {
+                var candidate = integer + offset;
+                var expected = exponent >= 0
+                    ? ExactNumberParser.RatioToDouble(candidate * BigInteger.Pow(10, exponent), BigInteger.One)
+                    : ExactNumberParser.RatioToDouble(candidate, BigInteger.Pow(10, -exponent));
+                if (double.IsInfinity(expected))
+                    continue;
+
+                var text = candidate.ToString(CultureInfo.InvariantCulture) + "e" + exponent.ToString(CultureInfo.InvariantCulture);
+                Assert.True(ExactNumberParser.TryParseExact(text, out var value), text);
+                Assert.AreEqual(BitConverter.DoubleToInt64Bits(expected), BitConverter.DoubleToInt64Bits(value), text);
+            }
+        }
+    }
+
     [TestCase("1.8e308")]
     [TestCase("1e400")]
     [TestCase("1e999999")]
@@ -149,5 +224,35 @@ internal class ExactNumberParserTests
             Assert.AreEqual(BitConverter.DoubleToInt64Bits(expected), BitConverter.DoubleToInt64Bits(parsed), text);
         }
     }
+    [Test]
+    [Issue("47")]
+    public void TryParseExact_does_not_allocate_for_text_with_large_scale()
+    {
+        // Excel writes such texts for the rounding errors of formulas. The parser is on the hot path of the load.
+        var texts = new[] { "2.7755575615628914E-17", "1.2345678901234567E+200", "4.9406564584124654E-320" };
+        foreach (var text in texts)
+            Assert.True(ExactNumberParser.TryParseExact(text, out _));
+
+        // The runtime can allocate a few bytes one time, for example for the tiered compilation.
+        // Thus the test measures more than one round and uses the smallest result.
+        var smallestAllocation = long.MaxValue;
+        for (var round = 0; round < 5; round++)
+        {
+            var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+            foreach (var text in texts)
+                ExactNumberParser.TryParseExact(text, out _);
+
+            smallestAllocation = Math.Min(smallestAllocation, GC.GetAllocatedBytesForCurrentThread() - allocatedBefore);
+        }
+
+        Assert.AreEqual(0L, smallestAllocation);
+    }
 #endif
+
+    private static BigInteger GetDecimalInteger(BigInteger numerator, BigInteger denominator, int exponent)
+    {
+        return exponent >= 0
+            ? numerator / (denominator * BigInteger.Pow(10, exponent))
+            : numerator * BigInteger.Pow(10, -exponent) / denominator;
+    }
 }
