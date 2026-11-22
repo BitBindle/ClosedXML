@@ -226,7 +226,12 @@ namespace ClosedXML.Excel.IO
                     ? ReadSharedItems(cacheField)
                     : new XLPivotCacheSharedItems();
 
-                var fieldValues = new XLPivotCacheValues(fieldSharedItems, fieldStats);
+                var fieldValues = new XLPivotCacheValues(fieldSharedItems, fieldStats)
+                {
+                    Formula = cacheField.Formula?.Value,
+                    IsDatabaseField = cacheField.DatabaseField?.Value ?? true,
+                    FieldGroupXml = cacheField.FieldGroup?.OuterXml,
+                };
                 pivotCache.AddCachedField(fieldName, fieldValues);
             }
         }

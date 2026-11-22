@@ -40,7 +40,22 @@ namespace ClosedXML.Excel
         /// </summary>
         internal int FieldCount => _fieldNames.Count;
 
-        internal int RecordCount => _fieldNames.Count > 0 ? _values[0].Count : 0;
+        /// <summary>
+        /// Number of records in the cache. Only a database field has a value for each record.
+        /// </summary>
+        internal int RecordCount
+        {
+            get
+            {
+                foreach (var fieldValues in _values)
+                {
+                    if (fieldValues.IsDatabaseField)
+                        return fieldValues.Count;
+                }
+
+                return 0;
+            }
+        }
 
         public IXLPivotCache Refresh()
         {
@@ -50,6 +65,17 @@ namespace ClosedXML.Excel
 
             Debug.Assert(sheet is not null && foundArea is not null);
             var oldFieldNames = _fieldNames.ToList();
+
+            // A calculated field uses names of other fields in its formula. The source doesn't
+            // contain it, so keep it. A group field depends on positions and values of the old
+            // records. The groups are not valid for the new records, so remove the group field.
+            var calculatedFields = new List<(String Name, XLPivotCacheValues Values)>();
+            for (var i = 0; i < _fieldNames.Count; ++i)
+            {
+                if (_values[i] is { IsDatabaseField: false, Formula: not null })
+                    calculatedFields.Add((_fieldNames[i], _values[i]));
+            }
+
             _fieldIndexes.Clear();
             _fieldNames.Clear();
             _values.Clear();
@@ -63,6 +89,13 @@ namespace ClosedXML.Excel
                 var fieldRecords = new XLPivotCacheValues(valueSlice, column, area);
 
                 AddField(AdjustedFieldName(header), fieldRecords);
+            }
+
+            foreach (var (name, values) in calculatedFields)
+            {
+                // Excel doesn't allow a calculated field with a name of a source field.
+                if (!ContainsField(name))
+                    AddField(name, values);
             }
 
             UpdatePivotTables();
@@ -146,8 +179,32 @@ namespace ClosedXML.Excel
         {
             foreach (var fieldValues in _values)
             {
-                fieldValues.AllocateCapacity(recordCount);
+                if (fieldValues.IsDatabaseField)
+                    fieldValues.AllocateCapacity(recordCount);
             }
+        }
+
+        /// <summary>
+        /// Get indexes of fields that have a value in each record, in the order of the values in a record.
+        /// </summary>
+        internal int[] GetDatabaseFieldIndexes()
+        {
+            var count = 0;
+            foreach (var fieldValues in _values)
+            {
+                if (fieldValues.IsDatabaseField)
+                    count++;
+            }
+
+            var indexes = new int[count];
+            var position = 0;
+            for (var fieldIndex = 0; fieldIndex < _values.Count; ++fieldIndex)
+            {
+                if (_values[fieldIndex].IsDatabaseField)
+                    indexes[position++] = fieldIndex;
+            }
+
+            return indexes;
         }
 
         private String AdjustedFieldName(String header)

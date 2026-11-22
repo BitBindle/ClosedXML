@@ -91,6 +91,23 @@ namespace ClosedXML.Excel
             }
         }
 
+        /// <summary>
+        /// The formula of a calculated field. Null, if the field is not a calculated field.
+        /// </summary>
+        internal string? Formula { get; init; }
+
+        /// <summary>
+        /// True, if each record has a value for the field. A calculated field and a group field
+        /// are not database fields. The records have no values for them.
+        /// </summary>
+        internal bool IsDatabaseField { get; init; } = true;
+
+        /// <summary>
+        /// The XML of the <c>fieldGroup</c> element of the field. ClosedXML does not use the groups,
+        /// but it writes the element back on save. Null, if the field has no groups.
+        /// </summary>
+        internal string? FieldGroupXml { get; init; }
+
         internal int Count => _values.Count;
 
         internal int SharedCount => _sharedItems.Count;

@@ -11,9 +11,15 @@ internal partial class PivotCacheRecordsReader
     private readonly XLPivotCache _pivotCache;
 
     /// <summary>
-    /// Index of current field that is read from the <c>r</c> element.
+    /// Position of the current value in the <c>r</c> element.
     /// </summary>
     private int _fieldIdx;
+
+    /// <summary>
+    /// Index of the cache field for each value position in the <c>r</c> element. A record has
+    /// values only for database fields.
+    /// </summary>
+    private int[] _databaseFieldIndexes = Array.Empty<int>();
 
     public PivotCacheRecordsReader(XmlTreeReader reader, XLPivotCache pivotCache)
     {
@@ -29,6 +35,7 @@ internal partial class PivotCacheRecordsReader
         _reader.Open("pivotCacheRecords", _ns);
         var recordCount = _reader.GetCount();
         _pivotCache.AllocateRecordCapacity(recordCount);
+        _databaseFieldIndexes = _pivotCache.GetDatabaseFieldIndexes();
 
         while (ParseRecord("r", _ns) is { IsSuccess: true })
             ;
@@ -43,9 +50,8 @@ internal partial class PivotCacheRecordsReader
 
     partial void OnRecordParsed()
     {
-        // Each record should have element for each field
-        var fieldsCount = _pivotCache.FieldCount;
-        if (_fieldIdx != fieldsCount)
+        // Each record should have element for each database field
+        if (_fieldIdx != _databaseFieldIndexes.Length)
             throw PartStructureException.IncorrectElementsCount();
 
         // Record was read, reset field index for next record.
@@ -102,9 +108,9 @@ internal partial class PivotCacheRecordsReader
 
     private XLPivotCacheValues GetFieldValues()
     {
-        if (_fieldIdx >= _pivotCache.FieldCount)
+        if (_fieldIdx >= _databaseFieldIndexes.Length)
             throw PartStructureException.IncorrectElementsCount();
 
-        return _pivotCache.GetFieldValues(_fieldIdx++);
+        return _pivotCache.GetFieldValues(_databaseFieldIndexes[_fieldIdx++]);
     }
 }
