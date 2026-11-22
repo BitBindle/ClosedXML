@@ -173,9 +173,33 @@ example ``ws.ColumnsUsed().Skip(1).AdjustToContents()``.
   rows of the sheet. The ``Width``, ``Height`` and ``Delete`` members change only the columns or
   rows in the result.
 * A ``Where`` with an index in the predicate still uses LINQ.
-* A class that implements one of these interfaces must implement the new methods.
+* A class that implements one of these interfaces must implement the new methods. This also
+  applies to the new ``AdjustToContents`` methods below.
 
 The ``IXLRangeColumn``, ``IXLRangeColumns``, ``IXLRangeRow`` and ``IXLRangeRows`` interfaces have
 new ``AdjustToContents`` methods. They change the width of the worksheet column or the height of the
 worksheet row. They use only the cells of the range. The start and end parameters are row or
 column numbers of the worksheet.
+
+**************
+Data bar fill
+**************
+
+A data bar has a solid fill or a gradient fill. The new ``IXLConditionalFormat.Gradient`` property
+gives the fill. The default value is ``true``, the gradient fill of Excel. Before, the save always
+wrote a gradient fill, also for a solid data bar from a file.
+
+The ``IXLCFDataBarMax`` methods ``Maximum`` and ``HighestValue`` now return the new
+``IXLCFDataBar`` interface, not ``void``. Use it to set the fill:
+
+.. code-block:: csharp
+
+   ws.Range("A1:A5").AddConditionalFormat()
+       .DataBar(XLColor.Red)
+       .LowestValue()
+       .HighestValue()
+       .SetGradient(false);
+
+Source code that calls these methods compiles as before. A compiled assembly that calls them must be
+compiled again. A class that implements ``IXLCFDataBarMax`` or ``IXLConditionalFormat`` must
+implement the changed and new members.

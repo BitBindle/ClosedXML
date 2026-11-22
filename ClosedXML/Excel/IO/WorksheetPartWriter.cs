@@ -707,7 +707,7 @@ namespace ClosedXML.Excel.IO
                     foreach (var xlConditionalFormat in cfGroup.CfList.Cast<XLConditionalFormat>())
                     {
                         var conditionalFormattingRule = conditionalFormattings.Descendants<DocumentFormat.OpenXml.Office2010.Excel.ConditionalFormattingRule>()
-                                .SingleOrDefault(r => r.Id == xlConditionalFormat.Id.WrapInBraces());
+                                .SingleOrDefault(r => String.Equals(r.Id?.Value, xlConditionalFormat.Id.WrapInBraces(), StringComparison.OrdinalIgnoreCase));
                         if (conditionalFormattingRule != null)
                         {
                             var conditionalFormat = conditionalFormattingRule.Ancestors<DocumentFormat.OpenXml.Office2010.Excel.ConditionalFormatting>().SingleOrDefault();

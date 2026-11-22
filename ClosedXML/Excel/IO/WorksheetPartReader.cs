@@ -692,11 +692,15 @@ internal class WorksheetPartReader
         {
             var xlConditionalFormat = ws.ConditionalFormats
                 .Cast<XLConditionalFormat>()
-                .SingleOrDefault(cf => cf.Id.WrapInBraces() == conditionalFormattingRule.Id);
+                .SingleOrDefault(cf => String.Equals(cf.Id.WrapInBraces(), conditionalFormattingRule.Id, StringComparison.OrdinalIgnoreCase));
             if (xlConditionalFormat != null)
             {
                 var negativeFillColor = conditionalFormattingRule.Descendants<X14.NegativeFillColor>().SingleOrDefault();
                 xlConditionalFormat.Colors.Add(negativeFillColor.ToClosedXMLColor());
+
+                // The schema default of the gradient attribute is true. Excel writes the attribute only for a solid fill.
+                var dataBar = conditionalFormattingRule.Elements<X14.DataBar>().FirstOrDefault();
+                xlConditionalFormat.Gradient = dataBar?.Gradient?.Value ?? true;
             }
         }
 
