@@ -11,11 +11,6 @@ namespace ClosedXML.Excel
     {
         private static readonly Regex RegexNewLine = new Regex(@"((?<!\r)\n|\r\n)", RegexOptions.Compiled);
 
-        public static Int32 CharCount(this String instance, Char c)
-        {
-            return instance.Length - instance.Replace(c.ToString(), "").Length;
-        }
-
         internal static string EscapeSheetName(this String sheetName)
         {
             if (String.IsNullOrEmpty(sheetName)) return sheetName;

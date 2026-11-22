@@ -28,6 +28,15 @@ internal class ReferenceShiftOnInsertRefModVisitor : CopyVisitor
         return ShiftFormulaReferences(ctx, range, ReadOnlySpan<char>.Empty, reference);
     }
 
+    public override TransformedSymbol Unary(ModContext ctx, SymbolRange range, UnaryOperation operation, TransformedSymbol arg)
+    {
+        // The spill of a removed reference is the error, not the error and a spill operator.
+        if (operation == UnaryOperation.SpillRange && arg.AsSpan().SequenceEqual(XLHelper.RefError))
+            return TransformedSymbol.ToText(ctx.Formula, range, XLHelper.RefError);
+
+        return base.Unary(ctx, range, operation, arg);
+    }
+
     // The referenceSheetName is empty, if the reference has no sheet.
     private TransformedSymbol ShiftFormulaReferences(ModContext ctx, SymbolRange range, ReadOnlySpan<char> referenceSheetName, ReferenceArea referenceToShift)
     {
