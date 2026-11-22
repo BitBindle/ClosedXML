@@ -52,7 +52,7 @@ internal class FormulaReferences
         var list = new XLRanges(workbook);
         foreach (var reference in SheetReferences)
         {
-            if (workbook.TryGetWorksheet(reference.Sheet, out XLWorksheet sheet))
+            if (workbook.TryGetWorksheet(reference.Sheet, out XLWorksheet? sheet))
             {
                 var rangeAddress = reference.Reference.ToRangeAddress(sheet, anchor);
                 list.Add(sheet.Range(rangeAddress));

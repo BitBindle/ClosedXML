@@ -1,4 +1,5 @@
 ﻿using ClosedXML.Utils;
+using ClosedXML.IO;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
 using System.Globalization;
@@ -6,14 +7,15 @@ using System.Linq;
 
 namespace ClosedXML.Excel.IO;
 
-#nullable disable
 internal class AutoFilterReader
 {
-    internal static void LoadAutoFilter(AutoFilter af, XLWorksheet ws)
+    internal static void LoadAutoFilter(AutoFilter? af, XLWorksheet ws)
     {
         if (af != null)
         {
-            ws.Range(af.Reference.Value).SetAutoFilter();
+            var reference = af.Reference?.Value ?? throw PartStructureException.MissingAttribute("ref");
+            var range = ws.Range(reference) ?? throw PartStructureException.InvalidAttributeFormat("ref", reference);
+            range.SetAutoFilter();
             var autoFilter = ws.AutoFilter;
             LoadAutoFilterSort(af, ws, autoFilter);
             LoadAutoFilterColumns(af, autoFilter);
@@ -24,7 +26,7 @@ internal class AutoFilterReader
     {
         foreach (var filterColumn in af.Elements<FilterColumn>())
         {
-            Int32 column = (int)filterColumn.ColumnId.Value + 1;
+            Int32 column = (int)(filterColumn.ColumnId?.Value ?? throw PartStructureException.MissingAttribute("colId")) + 1;
             var xlFilterColumn = autoFilter.Column(column);
             if (filterColumn.CustomFilters is { } customFilters)
             {
@@ -37,7 +39,8 @@ internal class AutoFilterReader
                     // There is no filter operation for equal of numbers (maybe combine >= and <=).
                     var op = filter.Operator is not null ? filter.Operator.Value.ToClosedXml() : XLFilterOperator.Equal;
                     XLFilter xlFilter;
-                    var filterValue = filter.Val.Value;
+                    // The value is optional. A filter without a value compares with an empty text.
+                    var filterValue = filter.Val?.Value ?? String.Empty;
                     switch (op)
                     {
                         case XLFilterOperator.Equal:
@@ -62,7 +65,8 @@ internal class AutoFilterReader
                 xlFilterColumn.FilterType = XLFilterType.Regular;
                 foreach (var filter in filters.OfType<Filter>())
                 {
-                    xlFilterColumn.AddFilter(XLFilter.CreateRegularFilter(filter.Val.Value));
+                    // The value is optional. A filter without a value is for an empty text.
+                    xlFilterColumn.AddFilter(XLFilter.CreateRegularFilter(filter.Val?.Value ?? String.Empty));
                 }
 
                 foreach (var dateGroupItem in filters.OfType<DateGroupItem>())
@@ -147,7 +151,7 @@ internal class AutoFilterReader
 
                 // Value contains how many percent or items, so it can only be int.
                 // Filter value is optional, so we don't rely on it.
-                var percentsOrItems = (int)top10.Val.Value;
+                var percentsOrItems = (int)(top10.Val?.Value ?? throw PartStructureException.MissingAttribute("val"));
                 xlFilterColumn.TopBottomValue = percentsOrItems;
                 xlFilterColumn.AddFilter(XLFilter.CreateTopBottom(takeTop, percentsOrItems));
             }
@@ -157,7 +161,8 @@ internal class AutoFilterReader
                 var dynamicType = dynamicFilter.Type is { } dynamicFilterType
                     ? dynamicFilterType.Value.ToClosedXml()
                     : XLFilterDynamicType.AboveAverage;
-                var dynamicValue = filterColumn.DynamicFilter.Val.Value;
+                // The value is optional. NaN is an average that is not calculated.
+                var dynamicValue = dynamicFilter.Val?.Value ?? Double.NaN;
 
                 xlFilterColumn.DynamicType = dynamicType;
                 xlFilterColumn.DynamicValue = dynamicValue;
@@ -174,7 +179,9 @@ internal class AutoFilterReader
             var condition = sort.Elements<SortCondition>().FirstOrDefault();
             if (condition != null)
             {
-                Int32 column = ws.Range(condition.Reference.Value).FirstCell().Address.ColumnNumber - autoFilter.Range.FirstCell().Address.ColumnNumber + 1;
+                var reference = condition.Reference?.Value ?? throw PartStructureException.MissingAttribute("ref");
+                var sortRange = ws.Range(reference) ?? throw PartStructureException.InvalidAttributeFormat("ref", reference);
+                Int32 column = sortRange.FirstCell().Address.ColumnNumber - autoFilter.RequiredRange.FirstCell().Address.ColumnNumber + 1;
                 autoFilter.SortColumn = column;
                 autoFilter.Sorted = true;
                 autoFilter.SortOrder = condition.Descending != null && condition.Descending.Value ? XLSortOrder.Descending : XLSortOrder.Ascending;

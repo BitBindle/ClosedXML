@@ -248,7 +248,7 @@ namespace ClosedXML.Excel.CalcEngine
             if (FirstSheet is not null || LastSheet is not null)
                 throw new InvalidOperationException("3D reference doesn't have a single sheet.");
 
-            if (!wb.TryGetWorksheet(Sheet, out XLWorksheet worksheet))
+            if (Sheet is null || !wb.TryGetWorksheet(Sheet, out XLWorksheet? worksheet))
                 return XLError.CellReference;
 
             return OneOf<IXLWorksheet, XLError>.FromT0(worksheet);
@@ -258,11 +258,12 @@ namespace ClosedXML.Excel.CalcEngine
         /// Get sheets of a 3D reference, from the first to the last sheet in the order of tabs.
         /// The order of <see cref="FirstSheet"/> and <see cref="LastSheet"/> doesn't matter.
         /// </summary>
-        /// <returns>The sheets or <c>null</c>, if the workbook doesn't contain one of the sheets.</returns>
+        /// <returns>The sheets or <c>null</c>, if the prefix is not for a 3D reference or the workbook doesn't contain one of the sheets.</returns>
         internal List<XLWorksheet>? GetWorksheets(XLWorkbook wb)
         {
-            if (!wb.TryGetWorksheet(FirstSheet!, out XLWorksheet firstSheet) ||
-                !wb.TryGetWorksheet(LastSheet!, out XLWorksheet lastSheet))
+            if (FirstSheet is null || LastSheet is null ||
+                !wb.TryGetWorksheet(FirstSheet, out XLWorksheet? firstSheet) ||
+                !wb.TryGetWorksheet(LastSheet, out XLWorksheet? lastSheet))
                 return null;
 
             var from = Math.Min(firstSheet.Position, lastSheet.Position);

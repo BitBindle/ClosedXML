@@ -1,4 +1,7 @@
 using ClosedXML.Excel;
+using ClosedXML.Tests.Utils;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using NUnit.Framework;
 using System;
 using System.IO;
@@ -489,6 +492,98 @@ namespace ClosedXML.Tests.Excel
             Assert.IsNull(unknownSheet);
             Assert.IsFalse(wb.TryGetWorksheet("Other", out IXLWorksheet worksheet));
             Assert.IsNull(worksheet);
+        }
+
+        [Test]
+        [Issue("64")]
+        public void ToString_names_the_source_of_the_workbook()
+        {
+            using var file = new TemporaryFile();
+            using (var wb = new XLWorkbook())
+            {
+                wb.AddWorksheet();
+                Assert.AreEqual("XLWorkbook(new)", wb.ToString());
+                wb.SaveAs(file.Path);
+            }
+
+            using (var wb = new XLWorkbook(file.Path))
+                Assert.AreEqual($"XLWorkbook({file.Path})", wb.ToString());
+
+            using var stream = File.OpenRead(file.Path);
+            using (var wb = new XLWorkbook(stream))
+                Assert.AreEqual($"XLWorkbook({stream})", wb.ToString());
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Save_to_a_stream_of_a_workbook_loaded_from_a_file_keeps_the_content()
+        {
+            using var file = new TemporaryFile();
+            using (var wb = new XLWorkbook())
+            {
+                wb.AddWorksheet("Sheet1").Cell("A1").Value = "old";
+                wb.SaveAs(file.Path);
+            }
+
+            using var stream = new MemoryStream();
+            using (var wb = new XLWorkbook(file.Path))
+            {
+                wb.Worksheet("Sheet1").Cell("A2").Value = "new";
+                wb.SaveAs(stream);
+            }
+
+            using (var wb = new XLWorkbook(stream))
+            {
+                var ws = wb.Worksheet("Sheet1");
+                Assert.AreEqual("old", ws.Cell("A1").GetText());
+                Assert.AreEqual("new", ws.Cell("A2").GetText());
+            }
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Protection_setter_with_null_throws()
+        {
+            IXLWorkbook wb = new XLWorkbook();
+            Assert.Throws<ArgumentNullException>(() => wb.Protection = null);
+        }
+
+        [Test]
+        [Issue("64")]
+        public void Save_after_delete_of_sheets_with_a_pivot_table_and_formulas_removes_their_parts()
+        {
+            using var stream = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var data = wb.AddWorksheet("Data");
+                data.Cell("A1").Value = "Name";
+                data.Cell("B1").Value = "Count";
+                data.Cell("A2").Value = "a";
+                data.Cell("B2").Value = 1;
+                data.Cell("C1").FormulaA1 = "B2*2";
+                var pivot = wb.AddWorksheet("Pivot");
+                pivot.PivotTables.Add("pt", pivot.Cell("A1"), data.Range("A1:B2")).RowLabels.Add("Name");
+                wb.AddWorksheet("Other").Cell("A1").FormulaA1 = "1+1";
+                wb.SaveAs(stream);
+            }
+
+            using (var wb = new XLWorkbook(stream))
+            {
+                wb.Worksheet("Pivot").Delete();
+                wb.Worksheet("Data").Delete();
+                wb.Save();
+            }
+
+            using (var document = SpreadsheetDocument.Open(stream, false))
+            {
+                var workbookPart = document.WorkbookPart;
+                Assert.IsEmpty(workbookPart.PivotTableCacheDefinitionParts);
+                Assert.IsNull(workbookPart.Workbook.PivotCaches);
+                Assert.AreEqual("Other", workbookPart.Workbook.Sheets.Elements<Sheet>().Single().Name.Value);
+            }
+
+            using (var wb = new XLWorkbook(stream))
+                Assert.AreEqual("1+1", wb.Worksheet("Other").Cell("A1").FormulaA1);
         }
     }
 }

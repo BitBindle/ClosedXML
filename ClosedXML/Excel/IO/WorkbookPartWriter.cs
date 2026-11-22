@@ -1,8 +1,7 @@
-﻿#nullable disable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using ClosedXML.IO;
 using ClosedXML.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -101,12 +100,12 @@ namespace ClosedXML.Excel.IO
                 workbook.Sheets = new Sheets();
 
             var worksheets = xlWorkbook.WorksheetsInternal;
-            workbook.Sheets.Elements<Sheet>().Where(s => worksheets.Deleted.Contains(s.Id)).ToList().ForEach(
+            workbook.Sheets.Elements<Sheet>().Where(s => s.Id?.Value is { } relId && worksheets.Deleted.Contains(relId)).ToList().ForEach(
                 s => s.Remove());
 
             foreach (var sheet in workbook.Sheets.Elements<Sheet>())
             {
-                var sheetId = (Int32)sheet.SheetId.Value;
+                var sheetId = (Int32)(sheet.SheetId?.Value ?? throw PartStructureException.MissingAttribute("sheetId"));
 
                 if (xlWorkbook.WorksheetsInternal.All<XLWorksheet>(w => w.SheetId != sheetId)) continue;
 
@@ -143,7 +142,7 @@ namespace ClosedXML.Excel.IO
             }
 
             var sheetElements = from sheet in workbook.Sheets.Elements<Sheet>()
-                                join worksheet in ((IEnumerable<XLWorksheet>)xlWorkbook.WorksheetsInternal) on sheet.Id.Value
+                                join worksheet in ((IEnumerable<XLWorksheet>)xlWorkbook.WorksheetsInternal) on sheet.Id?.Value
                                     equals worksheet.RelId
                                 orderby worksheet.Position
                                 select sheet;
@@ -161,7 +160,7 @@ namespace ClosedXML.Excel.IO
                     var sheet = sheetElements.ElementAt(p - xlWorkbook.UnsupportedSheets.Count(us => us.Position <= p) - 1);
                     workbook.Sheets.RemoveChild(sheet);
                     workbook.Sheets.AppendChild(sheet);
-                    var xlSheet = xlWorkbook.Worksheet(sheet.Name);
+                    var xlSheet = xlWorkbook.Worksheet(sheet.Name?.Value ?? throw PartStructureException.MissingAttribute("name"));
                     if (xlSheet.Visibility != XLWorksheetVisibility.Visible)
                         sheet.State = xlSheet.Visibility.ToOpenXml();
                     else
@@ -177,7 +176,7 @@ namespace ClosedXML.Excel.IO
                 else
                 {
                     var sheetId = xlWorkbook.UnsupportedSheets.First(us => us.Position == p).SheetId;
-                    var sheet = workbook.Sheets.Elements<Sheet>().First(s => s.SheetId == sheetId);
+                    var sheet = workbook.Sheets.Elements<Sheet>().First(s => s.SheetId?.Value == sheetId);
                     workbook.Sheets.RemoveChild(sheet);
                     workbook.Sheets.AppendChild(sheet);
                 }
@@ -224,7 +223,7 @@ namespace ClosedXML.Excel.IO
             {
                 var wsSheetId = worksheet.SheetId;
                 UInt32 sheetId = 0;
-                foreach (var s in workbook.Sheets.Elements<Sheet>().TakeWhile(s => s.SheetId != wsSheetId))
+                foreach (var s in workbook.Sheets.Elements<Sheet>().TakeWhile(s => s.SheetId?.Value != wsSheetId))
                 {
                     sheetId++;
                 }
@@ -251,15 +250,16 @@ namespace ClosedXML.Excel.IO
 
                 if (worksheet.AutoFilter.IsEnabled)
                 {
+                    var autoFilterRange = worksheet.AutoFilter.RequiredRange;
                     var definedName = new DefinedName
                     {
                         Name = "_xlnm._FilterDatabase",
                         LocalSheetId = sheetId,
                         Text = worksheet.Name.EscapeSheetName() + "!" +
-                               worksheet.AutoFilter.Range.RangeAddress.FirstAddress.ToStringFixed(
+                               autoFilterRange.RangeAddress.FirstAddress.ToStringFixed(
                                    XLReferenceStyle.A1) +
                                ":" +
-                               worksheet.AutoFilter.Range.RangeAddress.LastAddress.ToStringFixed(
+                               autoFilterRange.RangeAddress.LastAddress.ToStringFixed(
                                    XLReferenceStyle.A1),
                         Hidden = BooleanValue.FromBoolean(true)
                     };

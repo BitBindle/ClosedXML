@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using DocumentFormat.OpenXml.ExtendedProperties;
+﻿using DocumentFormat.OpenXml.ExtendedProperties;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.VariantTypes;
 using DocumentFormat.OpenXml;
@@ -120,7 +118,9 @@ namespace ClosedXML.Excel.IO
             {
                 if (e.Elements<VTLPSTR>().Any(e2 => e2.Text == property))
                 {
-                    vTVector.ElementAt(targetIndex + 1).GetFirstChild<VTInt32>().Text = text;
+                    var countVariant = vTVector.ElementAt(targetIndex + 1);
+                    var count = countVariant.GetFirstChild<VTInt32>() ?? countVariant.AppendChild(new VTInt32());
+                    count.Text = text;
                     break;
                 }
                 targetIndex++;

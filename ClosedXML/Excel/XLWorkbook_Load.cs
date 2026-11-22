@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -93,15 +91,16 @@ namespace ClosedXML.Excel
             ShapeIdManager = new XLIdManager();
             SetProperties(dSpreadsheet);
 
-            var workbookPart = dSpreadsheet.WorkbookPart;
+            var workbookPart = dSpreadsheet.WorkbookPart ?? throw PartStructureException.RequiredElementIsMissing("workbook");
+            var workbook = workbookPart.Workbook ?? throw PartStructureException.RequiredElementIsMissing("workbook");
 
-            LoadWorkbookTheme(workbookPart?.ThemePart, this);
+            LoadWorkbookTheme(workbookPart.ThemePart, this);
 
-            if (dSpreadsheet.CustomFilePropertiesPart != null)
+            if (dSpreadsheet.CustomFilePropertiesPart?.Properties is { } customFileProperties)
             {
-                foreach (var m in dSpreadsheet.CustomFilePropertiesPart.Properties.Elements<CustomDocumentProperty>())
+                foreach (var m in customFileProperties.Elements<CustomDocumentProperty>())
                 {
-                    String name = m.Name?.Value;
+                    String? name = m.Name?.Value;
 
                     if (string.IsNullOrWhiteSpace(name))
                         continue;
@@ -124,20 +123,20 @@ namespace ClosedXML.Excel
                 }
             }
 
-            var wbProps = workbookPart.Workbook.WorkbookProperties;
+            var wbProps = workbook.WorkbookProperties;
             if (wbProps != null)
                 Use1904DateSystem = OpenXmlHelper.GetBooleanValueAsBool(wbProps.Date1904, false);
 
-            var wbFilesharing = workbookPart.Workbook.FileSharing;
+            var wbFilesharing = workbook.FileSharing;
             if (wbFilesharing != null)
             {
                 FileSharing.ReadOnlyRecommended = OpenXmlHelper.GetBooleanValueAsBool(wbFilesharing.ReadOnlyRecommended, false);
                 FileSharing.UserName = wbFilesharing.UserName?.Value;
             }
 
-            LoadWorkbookProtection(workbookPart.Workbook.WorkbookProtection, this);
+            LoadWorkbookProtection(workbook.WorkbookProtection, this);
 
-            var calculationProperties = workbookPart.Workbook.CalculationProperties;
+            var calculationProperties = workbook.CalculationProperties;
             if (calculationProperties != null)
             {
                 var calculateMode = calculationProperties.CalculationMode;
@@ -168,11 +167,11 @@ namespace ClosedXML.Excel
             var efp = dSpreadsheet.ExtendedFilePropertiesPart;
             if (efp != null && efp.Properties != null)
             {
-                if (efp.Properties.Elements<Company>().Any())
-                    Properties.Company = efp.Properties.GetFirstChild<Company>().Text;
+                if (efp.Properties.GetFirstChild<Company>() is { } company)
+                    Properties.Company = company.Text;
 
-                if (efp.Properties.Elements<Manager>().Any())
-                    Properties.Manager = efp.Properties.GetFirstChild<Manager>().Text;
+                if (efp.Properties.GetFirstChild<Manager>() is { } manager)
+                    Properties.Manager = manager.Text;
             }
 
             // Styles part is optional and each workbook must have a default style
@@ -205,15 +204,16 @@ namespace ClosedXML.Excel
             // We do this mainly because it skips a very costly calculation invalidation step, but it also make things more consistent,
             // e.g. when reading calculations that reference other sheets, we know that those sheets always already exist.
             // That consistency point isn't required yet but could be taken advantage of in the future.
-            var sheets = workbookPart.Workbook.Sheets;
+            var sheets = workbook.Sheets ?? throw PartStructureException.RequiredElementIsMissing("sheets");
             Int32 position = 0;
             foreach (var dSheet in sheets.OfType<Sheet>())
             {
                 position++;
-                var sheetName = dSheet.Name;
-                var sheetId = dSheet.SheetId.Value;
+                var sheetName = dSheet.Name?.Value ?? throw PartStructureException.MissingAttribute("name");
+                var sheetId = dSheet.SheetId?.Value ?? throw PartStructureException.MissingAttribute("sheetId");
+                var sheetRelId = dSheet.Id?.Value;
 
-                if (string.IsNullOrEmpty(dSheet.Id))
+                if (string.IsNullOrEmpty(sheetRelId))
                 {
                     // Some non-Excel producers create sheets with empty relId.
                     var emptySheet = WorksheetsInternal.Add(sheetName, position, sheetId);
@@ -226,7 +226,7 @@ namespace ClosedXML.Excel
                 // Although relationship to worksheet is most common, there can be other types
                 // than worksheet, e.g. chartSheet. Since we can't load them, add them to list
                 // of unsupported sheets and copy them when saving. See Codeplex #6932.
-                var worksheetPart = workbookPart.GetPartById(dSheet.Id) as WorksheetPart;
+                var worksheetPart = workbookPart.GetPartById(sheetRelId) as WorksheetPart;
                 if (worksheetPart == null)
                 {
                     UnsupportedSheets.Add(new UnsupportedSheet { SheetId = sheetId, Position = position });
@@ -234,20 +234,18 @@ namespace ClosedXML.Excel
                 }
 
                 var ws = WorksheetsInternal.Add(sheetName, position, sheetId);
-                ws.RelId = dSheet.Id;
+                ws.RelId = sheetRelId;
 
                 if (dSheet.State != null)
                     ws.Visibility = dSheet.State.Value.ToClosedXml();
             }
 
-            position = 0;
             foreach (var dSheet in sheets.OfType<Sheet>())
             {
-                position++;
-                var sheetName = dSheet.Name;
-                var sheetId = dSheet.SheetId.Value;
+                var sheetName = dSheet.Name?.Value ?? throw PartStructureException.MissingAttribute("name");
+                var sheetRelId = dSheet.Id?.Value;
 
-                if (string.IsNullOrEmpty(dSheet.Id))
+                if (string.IsNullOrEmpty(sheetRelId))
                 {
                     // Some non-Excel producers create sheets with empty relId.
                     continue;
@@ -256,7 +254,7 @@ namespace ClosedXML.Excel
                 // Although relationship to worksheet is most common, there can be other types
                 // than worksheet, e.g. chartSheet. Since we can't load them, add them to list
                 // of unsupported sheets and copy them when saving. See Codeplex #6932.
-                var worksheetPart = workbookPart.GetPartById(dSheet.Id) as WorksheetPart;
+                var worksheetPart = workbookPart.GetPartById(sheetRelId) as WorksheetPart;
                 if (worksheetPart == null)
                 {
                     continue;
@@ -278,21 +276,23 @@ namespace ClosedXML.Excel
                 foreach (var tableDefinitionPart in worksheetPart.TableDefinitionParts)
                 {
                     var relId = worksheetPart.GetIdOfPart(tableDefinitionPart);
-                    var dTable = tableDefinitionPart.Table;
+                    var dTable = tableDefinitionPart.Table ?? throw PartStructureException.RequiredElementIsMissing("table");
 
-                    String reference = dTable.Reference.Value;
-                    String tableName = dTable.Name ?? dTable.DisplayName ?? string.Empty;
+                    String reference = dTable.Reference?.Value ?? throw PartStructureException.MissingAttribute("ref");
+                    String tableName = dTable.Name?.Value ?? dTable.DisplayName?.Value ?? string.Empty;
                     if (String.IsNullOrWhiteSpace(tableName))
                         throw new InvalidDataException("The table name is missing.");
 
                     // Other producers can write a name that breaks a rule of Excel. Keep it as it is.
-                    var xlTable = (XLTable)ws.Table((XLRange)ws.Range(reference), tableName, addToTables: true, setAutofilter: false, checkExcelNameRules: false);
+                    var tableRange = ws.Range(reference) ?? throw PartStructureException.InvalidAttributeFormat("ref", reference);
+                    var xlTable = (XLTable)ws.Table(tableRange, tableName, addToTables: true, setAutofilter: false, checkExcelNameRules: false);
+                    var tableColumns = dTable.TableColumns ?? throw PartStructureException.RequiredElementIsMissing("tableColumns");
                     xlTable.RelId = relId;
 
                     // Add columns to the table
-                    foreach (TableColumn tableColumn in dTable.TableColumns)
+                    foreach (TableColumn tableColumn in tableColumns)
                     {
-                        var fieldName = GetTableColumnName(tableColumn.Name.Value);
+                        var fieldName = GetTableColumnName(tableColumn.Name?.Value ?? throw PartStructureException.MissingAttribute("name"));
                         var xlField = xlTable.AddField(fieldName);
 
                         if (tableColumn.HeaderRowDifferentialFormattingId is { } headerDxfId)
@@ -327,13 +327,13 @@ namespace ClosedXML.Excel
                             xlTable.ShowRowStripes = dTable.TableStyleInfo.ShowRowStripes.Value;
                         if (dTable.TableStyleInfo.ShowColumnStripes != null)
                             xlTable.ShowColumnStripes = dTable.TableStyleInfo.ShowColumnStripes.Value;
-                        if (dTable.TableStyleInfo.Name != null)
+                        if (dTable.TableStyleInfo.Name?.Value is { } themeName)
                         {
-                            var theme = XLTableTheme.FromName(dTable.TableStyleInfo.Name.Value);
+                            var theme = XLTableTheme.FromName(themeName);
                             if (theme != null)
                                 xlTable.Theme = theme;
                             else
-                                xlTable.Theme = new XLTableTheme(dTable.TableStyleInfo.Name.Value);
+                                xlTable.Theme = new XLTableTheme(themeName);
                         }
                         else
                             xlTable.Theme = XLTableTheme.None;
@@ -349,9 +349,9 @@ namespace ClosedXML.Excel
 
                     if (xlTable.ShowTotalsRow)
                     {
-                        foreach (var tableColumn in dTable.TableColumns.Cast<TableColumn>())
+                        foreach (var tableColumn in tableColumns.Cast<TableColumn>())
                         {
-                            var tableColumnName = GetTableColumnName(tableColumn.Name.Value);
+                            var tableColumnName = GetTableColumnName(tableColumn.Name?.Value ?? throw PartStructureException.MissingAttribute("name"));
                             if (tableColumn.TotalsRowFunction != null)
                                 xlTable.Field(tableColumnName).TotalsRowFunction =
                                     tableColumn.TotalsRowFunction.Value.ToClosedXml();
@@ -380,9 +380,11 @@ namespace ClosedXML.Excel
 
                 if (worksheetPart.WorksheetCommentsPart != null)
                 {
-                    var root = worksheetPart.WorksheetCommentsPart.Comments;
-                    var authors = root.GetFirstChild<Authors>().ChildElements.OfType<Author>().ToList();
-                    var comments = root.GetFirstChild<CommentList>().ChildElements.OfType<Comment>().ToList();
+                    var root = worksheetPart.WorksheetCommentsPart.Comments ?? throw PartStructureException.RequiredElementIsMissing("comments");
+                    var authorsElement = root.GetFirstChild<Authors>() ?? throw PartStructureException.RequiredElementIsMissing("authors");
+                    var commentList = root.GetFirstChild<CommentList>() ?? throw PartStructureException.RequiredElementIsMissing("commentList");
+                    var authors = authorsElement.ChildElements.OfType<Author>().ToList();
+                    var comments = commentList.ChildElements.OfType<Comment>().ToList();
 
                     // **** MAYBE FUTURE SHAPE SIZE SUPPORT
                     var shapes = GetCommentShapes(worksheetPart);
@@ -391,12 +393,13 @@ namespace ClosedXML.Excel
                     {
                         var c = comments[i];
 
-                        XElement shape = null;
+                        XElement? shape = null;
                         if (i < shapes.Count)
                             shape = shapes[i];
 
                         // find cell by reference
-                        var cell = ws.Cell(c.Reference);
+                        var commentReference = c.Reference?.Value ?? throw PartStructureException.MissingAttribute("ref");
+                        var cell = ws.Cell(commentReference) ?? throw PartStructureException.InvalidAttributeFormat("ref", commentReference);
 
                         var shapeIdString = shape?.Attribute("id")?.Value;
                         if (shapeIdString?.StartsWith("_x0000_s") ?? false)
@@ -405,14 +408,17 @@ namespace ClosedXML.Excel
                         int? shapeId = int.TryParse(shapeIdString, out int sid) ? (int?)sid : null;
                         var xlComment = cell.CreateComment(shapeId);
 
-                        xlComment.Author = authors[(int)c.AuthorId.Value].InnerText;
+                        var authorId = c.AuthorId?.Value ?? throw PartStructureException.MissingAttribute("authorId");
+                        xlComment.Author = authors[(int)authorId].InnerText;
                         ShapeIdManager.Add(xlComment.ShapeId);
 
-                        var runs = c.GetFirstChild<CommentText>().Elements<Run>();
+                        var commentText = c.GetFirstChild<CommentText>() ?? throw PartStructureException.RequiredElementIsMissing("text");
+                        var runs = commentText.Elements<Run>();
                         foreach (var run in runs)
                         {
                             var runProperties = run.RunProperties;
-                            String text = run.Text.InnerText.FixNewLines();
+                            var runText = run.Text ?? throw PartStructureException.RequiredElementIsMissing("t");
+                            String text = runText.InnerText.FixNewLines();
                             var rt = xlComment.AddText(text);
                             OpenXmlHelper.LoadFont(runProperties, rt);
                         }
@@ -443,8 +449,6 @@ namespace ClosedXML.Excel
                 #endregion LoadComments
             }
 
-            var workbook = workbookPart.Workbook;
-
             var bookViews = workbook.BookViews;
             if (bookViews != null && bookViews.FirstOrDefault() is WorkbookView workbookView)
             {
@@ -454,7 +458,7 @@ namespace ClosedXML.Excel
                 }
                 else
                 {
-                    UnsupportedSheet unsupportedSheet =
+                    UnsupportedSheet? unsupportedSheet =
                         UnsupportedSheets.FirstOrDefault(us => us.Position == (Int32)(workbookView.ActiveTab.Value + 1));
                     if (unsupportedSheet != null)
                         unsupportedSheet.IsActive = true;
@@ -481,18 +485,20 @@ namespace ClosedXML.Excel
             // Delay loading of pivot tables until all sheets have been loaded
             foreach (var dSheet in sheets.OfType<Sheet>())
             {
-                if (string.IsNullOrEmpty(dSheet.Id))
+                var sheetRelId = dSheet.Id?.Value;
+                if (string.IsNullOrEmpty(sheetRelId))
                 {
                     // Some non-Excel producers create sheets with empty relId.
                     continue;
                 }
 
                 // The referenced sheet can also be ChartsheetPart. Only look for pivot tables in normal sheet parts.
-                var worksheetPart = workbookPart.GetPartById(dSheet.Id) as WorksheetPart;
+                var worksheetPart = workbookPart.GetPartById(sheetRelId) as WorksheetPart;
 
                 if (worksheetPart is not null)
                 {
-                    var ws = (XLWorksheet)WorksheetsInternal.Worksheet(dSheet.Name);
+                    var sheetName = dSheet.Name?.Value ?? throw PartStructureException.MissingAttribute("name");
+                    var ws = (XLWorksheet)WorksheetsInternal.Worksheet(sheetName);
 
                     foreach (var pivotTablePart in worksheetPart.PivotTableParts)
                     {
@@ -504,12 +510,12 @@ namespace ClosedXML.Excel
 
         private void LoadDrawings(WorksheetPart wsPart, XLWorksheet ws)
         {
-            if (wsPart.DrawingsPart != null)
+            if (wsPart.DrawingsPart?.WorksheetDrawing is { } worksheetDrawing)
             {
                 var drawingsPart = wsPart.DrawingsPart;
                 var unnamedPictures = new List<XLPicture>();
 
-                foreach (var anchor in drawingsPart.WorksheetDrawing.ChildElements)
+                foreach (var anchor in worksheetDrawing.ChildElements)
                 {
                     var imgId = GetImageRelIdFromAnchor(anchor);
 
@@ -521,9 +527,10 @@ namespace ClosedXML.Excel
                     using (var ms = new MemoryStream())
                     {
                         stream.CopyTo(ms);
-                        var vsdp = GetPropertiesFromAnchor(anchor);
+                        var vsdp = GetPropertiesFromAnchor(anchor) ?? throw PartStructureException.RequiredElementIsMissing("cNvPr");
+                        var pictureId = vsdp.Id?.Value ?? throw PartStructureException.MissingAttribute("id");
 
-                        var picture = ws.AddPicture(ms, vsdp.Name, Convert.ToInt32(vsdp.Id.Value)) as XLPicture;
+                        var picture = (XLPicture)ws.AddPicture(ms, vsdp.Name?.Value ?? String.Empty, Convert.ToInt32(pictureId));
                         picture.RelId = imgId;
                         if (String.IsNullOrEmpty(vsdp.Name))
                             unnamedPictures.Add(picture);
@@ -531,31 +538,29 @@ namespace ClosedXML.Excel
                         Xdr.ShapeProperties spPr = anchor.Descendants<Xdr.ShapeProperties>().First();
                         picture.Placement = XLPicturePlacement.FreeFloating;
 
-                        if (spPr?.Transform2D?.Extents?.Cx.HasValue ?? false)
-                            picture.Width = ConvertFromEnglishMetricUnits(spPr.Transform2D.Extents.Cx, ws.Workbook.DpiX);
+                        if (spPr.Transform2D?.Extents?.Cx?.Value is { } cx)
+                            picture.Width = ConvertFromEnglishMetricUnits(cx, ws.Workbook.DpiX);
 
-                        if (spPr?.Transform2D?.Extents?.Cy.HasValue ?? false)
-                            picture.Height = ConvertFromEnglishMetricUnits(spPr.Transform2D.Extents.Cy, ws.Workbook.DpiY);
+                        if (spPr.Transform2D?.Extents?.Cy?.Value is { } cy)
+                            picture.Height = ConvertFromEnglishMetricUnits(cy, ws.Workbook.DpiY);
 
-                        if (anchor is Xdr.AbsoluteAnchor)
+                        if (anchor is Xdr.AbsoluteAnchor absoluteAnchor)
                         {
-                            var absoluteAnchor = anchor as Xdr.AbsoluteAnchor;
+                            var position = absoluteAnchor.Position ?? throw PartStructureException.RequiredElementIsMissing("pos");
                             picture.MoveTo(
-                                ConvertFromEnglishMetricUnits(absoluteAnchor.Position.X.Value, ws.Workbook.DpiX),
-                                ConvertFromEnglishMetricUnits(absoluteAnchor.Position.Y.Value, ws.Workbook.DpiY)
+                                ConvertFromEnglishMetricUnits(position.X?.Value ?? throw PartStructureException.MissingAttribute("x"), ws.Workbook.DpiX),
+                                ConvertFromEnglishMetricUnits(position.Y?.Value ?? throw PartStructureException.MissingAttribute("y"), ws.Workbook.DpiY)
                             );
                         }
-                        else if (anchor is Xdr.OneCellAnchor)
+                        else if (anchor is Xdr.OneCellAnchor oneCellAnchor)
                         {
-                            var oneCellAnchor = anchor as Xdr.OneCellAnchor;
-                            var from = LoadMarker(ws, oneCellAnchor.FromMarker);
+                            var from = LoadMarker(ws, oneCellAnchor.FromMarker ?? throw PartStructureException.RequiredElementIsMissing("from"));
                             picture.MoveTo(from.Cell, from.Offset);
                         }
-                        else if (anchor is Xdr.TwoCellAnchor)
+                        else if (anchor is Xdr.TwoCellAnchor twoCellAnchor)
                         {
-                            var twoCellAnchor = anchor as Xdr.TwoCellAnchor;
-                            var from = LoadMarker(ws, twoCellAnchor.FromMarker);
-                            var to = LoadMarker(ws, twoCellAnchor.ToMarker);
+                            var from = LoadMarker(ws, twoCellAnchor.FromMarker ?? throw PartStructureException.RequiredElementIsMissing("from"));
+                            var to = LoadMarker(ws, twoCellAnchor.ToMarker ?? throw PartStructureException.RequiredElementIsMissing("to"));
 
                             if (twoCellAnchor.EditAs == null || !twoCellAnchor.EditAs.HasValue || twoCellAnchor.EditAs.Value == Xdr.EditAsValues.TwoCell)
                             {
@@ -564,11 +569,11 @@ namespace ClosedXML.Excel
                             else if (twoCellAnchor.EditAs.Value == Xdr.EditAsValues.Absolute)
                             {
                                 var shapeProperties = twoCellAnchor.Descendants<Xdr.ShapeProperties>().FirstOrDefault();
-                                if (shapeProperties != null)
+                                if (shapeProperties?.Transform2D?.Offset is { X.Value: var offsetX, Y.Value: var offsetY })
                                 {
                                     picture.MoveTo(
-                                        ConvertFromEnglishMetricUnits(spPr.Transform2D.Offset.X, ws.Workbook.DpiX),
-                                        ConvertFromEnglishMetricUnits(spPr.Transform2D.Offset.Y, ws.Workbook.DpiY)
+                                        ConvertFromEnglishMetricUnits(offsetX, ws.Workbook.DpiX),
+                                        ConvertFromEnglishMetricUnits(offsetY, ws.Workbook.DpiY)
                                     );
                                 }
                             }
@@ -592,15 +597,20 @@ namespace ClosedXML.Excel
 
         private static XLMarker LoadMarker(XLWorksheet ws, Xdr.MarkerType marker)
         {
-            var row = Math.Min(XLHelper.MaxRowNumber, Math.Max(1, Convert.ToInt32(marker.RowId.InnerText) + 1));
-            var column = Math.Min(XLHelper.MaxColumnNumber, Math.Max(1, Convert.ToInt32(marker.ColumnId.InnerText) + 1));
+            var row = Math.Min(XLHelper.MaxRowNumber, Math.Max(1, MarkerValue(marker.RowId, "row") + 1));
+            var column = Math.Min(XLHelper.MaxColumnNumber, Math.Max(1, MarkerValue(marker.ColumnId, "col") + 1));
             return new XLMarker(
                 ws.Cell(row, column),
                 new System.Drawing.Point(
-                    ConvertFromEnglishMetricUnits(Convert.ToInt32(marker.ColumnOffset.InnerText), ws.Workbook.DpiX),
-                    ConvertFromEnglishMetricUnits(Convert.ToInt32(marker.RowOffset.InnerText), ws.Workbook.DpiY)
+                    ConvertFromEnglishMetricUnits(MarkerValue(marker.ColumnOffset, "colOff"), ws.Workbook.DpiX),
+                    ConvertFromEnglishMetricUnits(MarkerValue(marker.RowOffset, "rowOff"), ws.Workbook.DpiY)
                 )
             );
+
+            static Int32 MarkerValue(OpenXmlLeafTextElement? element, String elementName)
+            {
+                return Convert.ToInt32((element ?? throw PartStructureException.RequiredElementIsMissing(elementName)).InnerText);
+            }
         }
 
         #region Comment Helpers
@@ -616,7 +626,7 @@ namespace ClosedXML.Excel
                     if (xdoc == null)
                         continue;
 
-                    var root = xdoc.Root.Element("xml") ?? xdoc.Root;
+                    var root = xdoc.Root?.Element("xml") ?? xdoc.Root;
 
                     if (root == null)
                         continue;
@@ -884,10 +894,10 @@ namespace ClosedXML.Excel
 
         private void LoadShapeProperties<T>(IXLDrawing<T> xlDrawing, XElement shape)
         {
-            if (shape.Attribute("style") == null)
+            if (shape.Attribute("style") is not { } style)
                 return;
 
-            foreach (var attributePair in shape.Attribute("style").Value.Split(';'))
+            foreach (var attributePair in style.Value.Split(';'))
             {
                 var split = attributePair.Split(':');
                 if (split.Length != 2) continue;
@@ -954,7 +964,7 @@ namespace ClosedXML.Excel
 
             foreach (var definedName in workbook.DefinedNames.OfType<DefinedName>())
             {
-                var name = definedName.Name;
+                var name = definedName.Name?.Value ?? throw PartStructureException.MissingAttribute("name");
                 var visible = true;
                 if (definedName.Hidden != null) visible = !BooleanValue.ToBoolean(definedName.Hidden);
 
@@ -1078,7 +1088,7 @@ namespace ClosedXML.Excel
         }
 
 
-        private static void LoadWorkbookTheme(ThemePart tp, XLWorkbook wb)
+        private static void LoadWorkbookTheme(ThemePart? tp, XLWorkbook wb)
         {
             if (tp is null)
                 return;
@@ -1149,7 +1159,7 @@ namespace ClosedXML.Excel
             }
         }
 
-        private static void LoadWorkbookProtection(WorkbookProtection wp, XLWorkbook wb)
+        private static void LoadWorkbookProtection(WorkbookProtection? wp, XLWorkbook wb)
         {
             if (wp == null) return;
 

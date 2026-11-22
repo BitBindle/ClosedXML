@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using DocumentFormat.OpenXml.Packaging;
+﻿using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Vml.Office;
 using DocumentFormat.OpenXml.Vml.Spreadsheet;
 using DocumentFormat.OpenXml;
@@ -61,9 +59,13 @@ namespace ClosedXML.Excel.IO
                 if (ms.Length > 0)
                 {
                     ms.Position = 0;
+                    // The writer does not copy old VML content that is not valid XML.
                     var xdoc = XDocumentExtensions.Load(ms);
-                    xdoc.Root.Elements().ForEach(e => writer.WriteRaw(e.ToStringCrLf()));
-                    hasAnyVmlElements |= xdoc.Root.HasElements;
+                    if (xdoc?.Root is { } root)
+                    {
+                        root.Elements().ForEach(e => writer.WriteRaw(e.ToStringCrLf()));
+                        hasAnyVmlElements |= root.HasElements;
+                    }
                 }
 
                 writer.WriteEndElement();

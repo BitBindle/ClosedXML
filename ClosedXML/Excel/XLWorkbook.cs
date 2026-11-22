@@ -1,5 +1,3 @@
-#nullable disable
-
 using ClosedXML.Excel.CalcEngine;
 using ClosedXML.Graphics;
 using DocumentFormat.OpenXml;
@@ -384,6 +382,7 @@ namespace ClosedXML.Excel
             get { return false; }
         }
 
+        [MemberNotNull(nameof(Theme))]
         private void InitializeTheme()
         {
             Theme = new XLTheme
@@ -403,7 +402,6 @@ namespace ClosedXML.Excel
             };
         }
 
-#nullable enable
         [Obsolete($"Use {nameof(DefinedName)} instead.")]
         public IXLDefinedName? NamedRange(String name) => DefinedName(name);
 
@@ -417,7 +415,7 @@ namespace ClosedXML.Excel
                 var first = split[0];
                 var wsName = first.StartsWith("'") ? first.Substring(1, first.Length - 2) : first;
                 var sheetlessName = split[1];
-                if (TryGetWorksheet(wsName, out XLWorksheet ws))
+                if (TryGetWorksheet(wsName, out XLWorksheet? ws))
                 {
                     if (ws.DefinedNames.TryGetScopedValue(sheetlessName, out var sheetDefinedName))
                         return sheetDefinedName;
@@ -428,12 +426,11 @@ namespace ClosedXML.Excel
 
             return DefinedNamesInternal.TryGetScopedValue(name, out var definedName) ? definedName : null;
         }
-#nullable disable
 
-        public Boolean TryGetWorksheet(String name, out IXLWorksheet worksheet)
+        public Boolean TryGetWorksheet(String name, [NotNullWhen(true)] out IXLWorksheet? worksheet)
         {
             ThrowIfDisposed();
-            if (TryGetWorksheet(name, out XLWorksheet foundSheet))
+            if (TryGetWorksheet(name, out XLWorksheet? foundSheet))
             {
                 worksheet = foundSheet;
                 return true;
@@ -443,13 +440,13 @@ namespace ClosedXML.Excel
             return false;
         }
 
-        internal Boolean TryGetWorksheet(String name, [NotNullWhen(true)] out XLWorksheet worksheet)
+        internal Boolean TryGetWorksheet(String name, [NotNullWhen(true)] out XLWorksheet? worksheet)
         {
             ThrowIfDisposed();
             return WorksheetsInternal.TryGetWorksheet(name, out worksheet);
         }
 
-        public IXLRange RangeFromFullAddress(String rangeAddress, out IXLWorksheet ws)
+        public IXLRange? RangeFromFullAddress(String rangeAddress, out IXLWorksheet? ws)
         {
             ThrowIfDisposed();
             if (!rangeAddress.Contains('!'))
@@ -460,7 +457,7 @@ namespace ClosedXML.Excel
 
             var split = rangeAddress.Split('!');
             var wsName = split[0].UnescapeSheetName();
-            if (TryGetWorksheet(wsName, out XLWorksheet sheet))
+            if (TryGetWorksheet(wsName, out XLWorksheet? sheet))
             {
                 ws = sheet;
                 return sheet.Range(split[1]);
@@ -470,7 +467,7 @@ namespace ClosedXML.Excel
             return null;
         }
 
-        public IXLCell CellFromFullAddress(String cellAddress, out IXLWorksheet ws)
+        public IXLCell? CellFromFullAddress(String cellAddress, out IXLWorksheet? ws)
         {
             ThrowIfDisposed();
             if (!cellAddress.Contains('!'))
@@ -481,7 +478,7 @@ namespace ClosedXML.Excel
 
             var split = cellAddress.Split('!');
             var wsName = split[0].UnescapeSheetName();
-            if (TryGetWorksheet(wsName, out XLWorksheet sheet))
+            if (TryGetWorksheet(wsName, out XLWorksheet? sheet))
             {
                 ws = sheet;
                 return sheet.Cell(split[1]);
@@ -527,10 +524,10 @@ namespace ClosedXML.Excel
 
             if (_loadSource == XLLoadSource.Stream)
             {
-                CreatePackage(_originalStream, false, _spreadsheetDocumentType, options);
+                CreatePackage(OriginalStream, false, _spreadsheetDocumentType, options);
             }
             else
-                CreatePackage(_originalFile, _spreadsheetDocumentType, options);
+                CreatePackage(OriginalFile, _spreadsheetDocumentType, options);
         }
 
         /// <summary>
@@ -583,9 +580,9 @@ namespace ClosedXML.Excel
             }
             else if (_loadSource == XLLoadSource.File)
             {
-                if (String.Compare(_originalFile.Trim(), file.Trim(), true) != 0)
+                if (String.Compare(OriginalFile.Trim(), file.Trim(), true) != 0)
                 {
-                    File.Copy(_originalFile, file, true);
+                    File.Copy(OriginalFile, file, true);
                     File.SetAttributes(file, FileAttributes.Normal);
                 }
 
@@ -593,11 +590,11 @@ namespace ClosedXML.Excel
             }
             else if (_loadSource == XLLoadSource.Stream)
             {
-                _originalStream.Position = 0;
+                OriginalStream.Position = 0;
 
                 using (var fileStream = File.Create(file))
                 {
-                    CopyStream(_originalStream, fileStream);
+                    CopyStream(OriginalStream, fileStream);
                     CreatePackage(fileStream, false, _spreadsheetDocumentType, options);
                 }
             }
@@ -697,7 +694,7 @@ namespace ClosedXML.Excel
             }
             else if (_loadSource == XLLoadSource.File)
             {
-                using (var fileStream = new FileStream(_originalFile, FileMode.Open, FileAccess.Read))
+                using (var fileStream = new FileStream(OriginalFile, FileMode.Open, FileAccess.Read))
                 {
                     CopyStream(fileStream, stream);
                 }
@@ -705,9 +702,9 @@ namespace ClosedXML.Excel
             }
             else if (_loadSource == XLLoadSource.Stream)
             {
-                _originalStream.Position = 0;
-                if (_originalStream != stream)
-                    CopyStream(_originalStream, stream);
+                OriginalStream.Position = 0;
+                if (OriginalStream != stream)
+                    CopyStream(OriginalStream, stream);
 
                 CreatePackage(stream, false, _spreadsheetDocumentType, options);
             }
@@ -742,7 +739,7 @@ namespace ClosedXML.Excel
         /// <summary>
         /// Try to find a table with <paramref name="tableName"/> in a workbook.
         /// </summary>
-        internal bool TryGetTable(string tableName, out XLTable table, StringComparison comparisonType = StringComparison.OrdinalIgnoreCase)
+        internal bool TryGetTable(string tableName, [NotNullWhen(true)] out XLTable? table, StringComparison comparisonType = StringComparison.OrdinalIgnoreCase)
         {
             ThrowIfDisposed();
             table = WorksheetsInternal
@@ -755,7 +752,7 @@ namespace ClosedXML.Excel
         /// <summary>
         /// Try to find a table that covers same area as the <paramref name="area"/> in a workbook.
         /// </summary>
-        internal bool TryGetTable(SheetArea area, out XLTable foundTable)
+        internal bool TryGetTable(SheetArea area, [NotNullWhen(true)] out XLTable? foundTable)
         {
             ThrowIfDisposed();
             foreach (var sheet in WorksheetsInternal)
@@ -820,7 +817,7 @@ namespace ClosedXML.Excel
             foreach (XLWorksheet ws in WorksheetsInternal)
             {
                 foreach (IXLRow row in Enumerable.Where(ws.Rows(), predicate))
-                    rows.Add(row as XLRow);
+                    rows.Add((XLRow)row);
             }
             return rows;
         }
@@ -832,7 +829,7 @@ namespace ClosedXML.Excel
             foreach (XLWorksheet ws in WorksheetsInternal)
             {
                 foreach (IXLColumn column in Enumerable.Where(ws.Columns(), predicate))
-                    columns.Add(column as XLColumn);
+                    columns.Add((XLColumn)column);
             }
             return columns;
         }
@@ -856,9 +853,13 @@ namespace ClosedXML.Excel
         #region Fields
 
         private XLLoadSource _loadSource = XLLoadSource.New;
-        private String _originalFile;
-        private Stream _originalStream;
+        private String? _originalFile;
+        private Stream? _originalStream;
         private XLWorkbookProtection _workbookProtection;
+
+        private String OriginalFile => _originalFile ?? throw new InvalidOperationException("The workbook does not have an original file.");
+
+        private Stream OriginalStream => _originalStream ?? throw new InvalidOperationException("The workbook does not have an original stream.");
 
         #endregion Fields
 
@@ -893,7 +894,7 @@ namespace ClosedXML.Excel
         {
             _loadSource = XLLoadSource.File;
             _originalFile = file;
-            _spreadsheetDocumentType = GetSpreadsheetDocumentType(_originalFile);
+            _spreadsheetDocumentType = GetSpreadsheetDocumentType(file);
             Styles = new XLWorkbookStyles();
             Load(file);
 
@@ -975,7 +976,7 @@ namespace ClosedXML.Excel
 
         #endregion Nested type: UnsupportedSheet
 
-        public IXLCell Cell(String namedCell)
+        public IXLCell? Cell(String namedCell)
         {
             ThrowIfDisposed();
             var namedRange = DefinedName(namedCell);
@@ -993,7 +994,7 @@ namespace ClosedXML.Excel
             return Ranges(namedCells).Cells();
         }
 
-        public IXLRange Range(String range)
+        public IXLRange? Range(String range)
         {
             ThrowIfDisposed();
             var namedRange = DefinedName(range);
@@ -1008,7 +1009,7 @@ namespace ClosedXML.Excel
             ThrowIfDisposed();
             var retVal = new XLRanges(this);
             var rangePairs = ranges.Split(',');
-            foreach (var range in rangePairs.Select(r => Range(r.Trim())).Where(range => range != null))
+            foreach (var range in rangePairs.Select(r => Range(r.Trim())).OfType<IXLRange>())
             {
                 retVal.Add(range);
             }
@@ -1107,7 +1108,7 @@ namespace ClosedXML.Excel
             return Worksheets.Add(dataTable, sheetName, tableName);
         }
 
-        private XLCalcEngine _calcEngine;
+        private XLCalcEngine? _calcEngine;
 
         internal XLCalcEngine CalcEngine
         {
@@ -1147,7 +1148,7 @@ namespace ClosedXML.Excel
                 sheet.Internals.CellsCollection.FormulaSlice.MarkDirty(Area.Full);
         }
 
-        private static XLCalcEngine _calcEngineExpr;
+        private static XLCalcEngine? _calcEngineExpr;
         private SpreadsheetDocumentType _spreadsheetDocumentType;
 
         private static XLCalcEngine CalcEngineExpr
@@ -1233,7 +1234,8 @@ namespace ClosedXML.Excel
             set
             {
                 ThrowIfDisposed();
-                Protection = value as XLWorkbookProtection;
+                ArgumentNullException.ThrowIfNull(value);
+                Protection = (XLWorkbookProtection)value;
             }
         }
 
@@ -1243,6 +1245,7 @@ namespace ClosedXML.Excel
             {
                 ThrowIfDisposed();
                 return _workbookProtection; }
+            [MemberNotNull(nameof(_workbookProtection))]
             set
             {
                 ThrowIfDisposed();
@@ -1340,7 +1343,8 @@ namespace ClosedXML.Excel
         internal void NotifyWorksheetAdded(XLWorksheet newSheet)
         {
             ThrowIfDisposed();
-            _calcEngine.OnAddedSheet(newSheet);
+            // A calculation engine that does not exist yet has no state to purge.
+            _calcEngine?.OnAddedSheet(newSheet);
         }
 
         /// <summary>
@@ -1349,7 +1353,7 @@ namespace ClosedXML.Excel
         internal void NotifyWorksheetDeleting(XLWorksheet sheet)
         {
             ThrowIfDisposed();
-            _calcEngine.OnDeletingSheet(sheet);
+            _calcEngine?.OnDeletingSheet(sheet);
         }
 
         /// <summary>
@@ -1358,7 +1362,7 @@ namespace ClosedXML.Excel
         internal void NotifyWorksheetMoved(XLWorksheet sheet)
         {
             ThrowIfDisposed();
-            _calcEngine.OnMovedSheet(sheet);
+            _calcEngine?.OnMovedSheet(sheet);
         }
 
         public override string ToString()
@@ -1370,10 +1374,10 @@ namespace ClosedXML.Excel
                     return "XLWorkbook(new)";
 
                 case XLLoadSource.File:
-                    return String.Format("XLWorkbook({0})", _originalFile);
+                    return String.Format("XLWorkbook({0})", OriginalFile);
 
                 case XLLoadSource.Stream:
-                    return String.Format("XLWorkbook({0})", _originalStream.ToString());
+                    return String.Format("XLWorkbook({0})", OriginalStream.ToString());
 
                 default:
                     throw new NotImplementedException();

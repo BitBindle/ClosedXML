@@ -2,7 +2,7 @@ namespace ClosedXML.Excel
 {
     internal class XLOutline:IXLOutline
     {
-        public XLOutline(IXLOutline outline)
+        public XLOutline(IXLOutline? outline)
         {
             if (outline != null)
             {

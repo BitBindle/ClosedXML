@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using DocumentFormat.OpenXml.Packaging;
+﻿using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
 using System.Linq;
@@ -12,29 +10,26 @@ namespace ClosedXML.Excel.IO
     {
         internal static void GenerateContent(WorkbookPart workbookPart, XLWorkbook workbook, SaveContext context)
         {
-            if (workbookPart.CalculationChainPart == null)
-                workbookPart.AddNewPart<CalculationChainPart>(context.RelIdGenerator.GetNext(RelType.Workbook));
-
-            if (workbookPart.CalculationChainPart.CalculationChain == null)
-                workbookPart.CalculationChainPart.CalculationChain = new CalculationChain();
-
-            var calculationChain = workbookPart.CalculationChainPart.CalculationChain;
+            var calculationChainPart = workbookPart.CalculationChainPart ??
+                                       workbookPart.AddNewPart<CalculationChainPart>(context.RelIdGenerator.GetNext(RelType.Workbook));
+            var calculationChain = calculationChainPart.CalculationChain ??= new CalculationChain();
             calculationChain.RemoveAllChildren<CalculationCell>();
 
             foreach (var worksheet in workbook.WorksheetsInternal)
             {
-                foreach (var c in worksheet.Internals.CellsCollection.GetCells().Where(c => c.HasFormula))
+                foreach (var c in worksheet.Internals.CellsCollection.GetCells())
                 {
-                    if (c.Formula.Type == FormulaType.DataTable)
+                    if (c.Formula is not { } formula)
+                        continue;
+
+                    if (formula.Type == FormulaType.DataTable)
                     {
                         // Do nothing, Excel doesn't generate calc chain for data table
                     }
                     else if (c.HasArrayFormula)
                     {
-                        if (c.FormulaReference == null)
-                            c.FormulaReference = c.AsRange().RangeAddress;
-
-                        if (c.FormulaReference.FirstAddress.Equals(c.Address))
+                        var formulaReference = c.FormulaReference ??= c.AsRange().RangeAddress;
+                        if (formulaReference.FirstAddress.Equals(c.Address))
                         {
                             var cc = new CalculationCell
                             {
@@ -45,7 +40,7 @@ namespace ClosedXML.Excel.IO
                             cc.Array = true;
                             calculationChain.AppendChild(cc);
 
-                            foreach (var childCell in worksheet.Range(c.FormulaReference).Cells())
+                            foreach (var childCell in worksheet.Range(formulaReference).Cells())
                             {
                                 calculationChain.AppendChild(new CalculationCell
                                 {
@@ -67,7 +62,7 @@ namespace ClosedXML.Excel.IO
             }
 
             if (!calculationChain.Any())
-                workbookPart.DeletePart(workbookPart.CalculationChainPart);
+                workbookPart.DeletePart(calculationChainPart);
         }
     }
 }
