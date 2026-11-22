@@ -1318,6 +1318,10 @@ namespace ClosedXML.Excel.IO
                 var xlPictures = xlWorksheet.Pictures as Drawings.XLPictures;
                 foreach (var removedPicture in xlPictures.Deleted)
                 {
+                    // An anchor that refers to a deleted image part makes a corrupt file for Excel.
+                    if (worksheetPart.DrawingsPart.WorksheetDrawing is not null)
+                        GetAnchorFromImageId(worksheetPart.DrawingsPart, removedPicture)?.Remove();
+
                     worksheetPart.DrawingsPart.DeletePart(removedPicture);
                 }
                 xlPictures.Deleted.Clear();
@@ -1341,11 +1345,11 @@ namespace ClosedXML.Excel.IO
             }
 
             // Instead of saving a file with an empty Drawings.xml file, rather remove the .xml file
-            var hasCharts = worksheetPart.DrawingsPart is not null && worksheetPart.DrawingsPart.Parts.Any();
             if (worksheetPart.DrawingsPart is not null && // There is a drawing part for the sheet that could be deleted
                 xlWorksheet.LegacyDrawingId is null && // and sheet doesn't contain any form controls or comments or other shapes
                 xlWorksheet.Pictures.Count == 0 && // and also no pictures.
-                !hasCharts) // and no charts
+                !worksheetPart.DrawingsPart.Parts.Any() && // and no charts
+                !HasAnchors(worksheetPart.DrawingsPart)) // and no shapes or other anchors.
             {
                 var id = worksheetPart.GetIdOfPart(worksheetPart.DrawingsPart);
                 worksheet.RemoveChild(worksheet.OfType<Drawing>().FirstOrDefault(p => p.Id == id));
@@ -1720,6 +1724,19 @@ namespace ClosedXML.Excel.IO
         private static Int64 ConvertToEnglishMetricUnits(Int32 pixels, Double resolution)
         {
             return Convert.ToInt64(914400L * pixels / resolution);
+        }
+
+        /// <summary>
+        /// Check if the drawing part has an anchor. ClosedXML does not load shapes, and a shape has no child part.
+        /// </summary>
+        private static bool HasAnchors(DrawingsPart drawingsPart)
+        {
+            if (drawingsPart.IsRootElementLoaded)
+                return drawingsPart.WorksheetDrawing.HasChildren;
+
+            // The reader does not load the DOM. The save writes each part with a loaded DOM again.
+            using var reader = OpenXmlReader.Create(drawingsPart);
+            return reader.Read() && reader.ReadFirstChild();
         }
 
         private static void AddPictureAnchor(WorksheetPart worksheetPart, Drawings.IXLPicture picture, SaveContext context)

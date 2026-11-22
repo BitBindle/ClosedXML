@@ -298,6 +298,132 @@ namespace ClosedXML.Tests
         }
 
         [Test]
+        [Issue("ClosedXML/ClosedXML#1252")]
+        public void Deleted_picture_removes_its_anchor_from_drawing()
+        {
+            // An anchor that points to a deleted image part makes a corrupt file for Excel.
+            using var ms = new MemoryStream();
+            int originalCount;
+            using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\ImageHandling\ImageAnchors.xlsx")))
+            using (var wb = new XLWorkbook(stream))
+            {
+                var ws = wb.Worksheets.First();
+                originalCount = ws.Pictures.Count;
+                ws.Pictures.Delete(ws.Pictures.First());
+                wb.SaveAs(ms);
+            }
+
+            using (var document = SpreadsheetDocument.Open(ms, false))
+            {
+                var workbookPart = document.WorkbookPart!;
+                var firstSheet = workbookPart.Workbook.Sheets!.Elements<DocumentFormat.OpenXml.Spreadsheet.Sheet>().First();
+                var drawingsPart = ((WorksheetPart)workbookPart.GetPartById(firstSheet.Id!.Value!)).DrawingsPart!;
+                var embeds = drawingsPart.WorksheetDrawing
+                    .Descendants<DocumentFormat.OpenXml.Drawing.Blip>()
+                    .Select(blip => blip.Embed!.Value!)
+                    .ToList();
+                Assert.AreEqual(originalCount - 1, embeds.Count);
+                var partIds = drawingsPart.Parts.Select(part => part.RelationshipId).ToList();
+                CollectionAssert.IsSubsetOf(embeds, partIds);
+            }
+
+            using (var wb = new XLWorkbook(ms))
+            {
+                Assert.AreEqual(originalCount - 1, wb.Worksheets.First().Pictures.Count);
+            }
+        }
+
+        [Test]
+        [Issue("ClosedXML/ClosedXML#1252")]
+        public void Drawing_with_only_shapes_is_kept_on_save()
+        {
+            // ClosedXML does not load shapes. A shape has no child part, but the drawing part
+            // still holds it, so the save must not remove the drawing part.
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                wb.AddWorksheet("Sheet1");
+                wb.SaveAs(ms);
+            }
+
+            using (var document = SpreadsheetDocument.Open(ms, true))
+            {
+                var worksheetPart = document.WorkbookPart!.WorksheetParts.Single();
+                var drawingsPart = worksheetPart.AddNewPart<DrawingsPart>("rIdDrawing1");
+                drawingsPart.WorksheetDrawing = new Xdr.WorksheetDrawing(CreateRectangleAnchor(2U));
+                var worksheet = worksheetPart.Worksheet;
+                worksheet.AppendChild(new DocumentFormat.OpenXml.Spreadsheet.Drawing { Id = "rIdDrawing1" });
+            }
+
+            using (var wb = new XLWorkbook(ms))
+            {
+                wb.Worksheet("Sheet1").Cell("A1").Value = "Text";
+                wb.Save();
+            }
+
+            using (var document = SpreadsheetDocument.Open(ms, false))
+            {
+                var worksheetPart = document.WorkbookPart!.WorksheetParts.Single();
+                Assert.NotNull(worksheetPart.DrawingsPart);
+                var drawingId = worksheetPart.GetIdOfPart(worksheetPart.DrawingsPart!);
+                Assert.AreEqual(drawingId, worksheetPart.Worksheet.Elements<DocumentFormat.OpenXml.Spreadsheet.Drawing>().Single().Id!.Value);
+                var shape = worksheetPart.DrawingsPart!.WorksheetDrawing.Descendants<Xdr.Shape>().Single();
+                Assert.AreEqual("Rectangle 1", shape.NonVisualShapeProperties!.NonVisualDrawingProperties!.Name!.Value);
+            }
+        }
+
+        [Test]
+        [Issue("ClosedXML/ClosedXML#1252")]
+        public void Deleted_picture_keeps_shapes_of_drawing()
+        {
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet("Sheet1");
+                using var image = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Images\SampleImagePng.png"));
+                ws.AddPicture(image, "Picture 1").MoveTo(ws.Cell("E5"));
+                wb.SaveAs(ms);
+            }
+
+            using (var document = SpreadsheetDocument.Open(ms, true))
+            {
+                var worksheetDrawing = document.WorkbookPart!.WorksheetParts.Single().DrawingsPart!.WorksheetDrawing;
+                worksheetDrawing.AppendChild(CreateRectangleAnchor(100U));
+            }
+
+            using (var wb = new XLWorkbook(ms))
+            {
+                var ws = wb.Worksheet("Sheet1");
+                ws.Pictures.Delete("Picture 1");
+                wb.Save();
+            }
+
+            using (var document = SpreadsheetDocument.Open(ms, false))
+            {
+                var drawingsPart = document.WorkbookPart!.WorksheetParts.Single().DrawingsPart;
+                Assert.NotNull(drawingsPart);
+                CollectionAssert.IsEmpty(drawingsPart!.ImageParts);
+                var anchor = drawingsPart.WorksheetDrawing.Elements<Xdr.TwoCellAnchor>().Single();
+                Assert.AreEqual("Rectangle 1", anchor.Descendants<Xdr.NonVisualDrawingProperties>().Single().Name!.Value);
+            }
+        }
+
+        private static Xdr.TwoCellAnchor CreateRectangleAnchor(uint shapeId)
+        {
+            return new Xdr.TwoCellAnchor(
+                new Xdr.FromMarker(new Xdr.ColumnId("1"), new Xdr.ColumnOffset("0"), new Xdr.RowId("1"), new Xdr.RowOffset("0")),
+                new Xdr.ToMarker(new Xdr.ColumnId("3"), new Xdr.ColumnOffset("0"), new Xdr.RowId("4"), new Xdr.RowOffset("0")),
+                new Xdr.Shape(
+                    new Xdr.NonVisualShapeProperties(
+                        new Xdr.NonVisualDrawingProperties { Id = shapeId, Name = "Rectangle 1" },
+                        new Xdr.NonVisualShapeDrawingProperties()),
+                    new Xdr.ShapeProperties(
+                        new DocumentFormat.OpenXml.Drawing.PresetGeometry(new DocumentFormat.OpenXml.Drawing.AdjustValueList())
+                        { Preset = DocumentFormat.OpenXml.Drawing.ShapeTypeValues.Rectangle })),
+                new Xdr.ClientData());
+        }
+
+        [Test]
         public void PictureRenameTests()
         {
             using (var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\ImageHandling\ImageAnchors.xlsx")))

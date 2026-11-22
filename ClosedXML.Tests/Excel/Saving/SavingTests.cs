@@ -883,7 +883,7 @@ namespace ClosedXML.Tests.Excel.Saving
             // Issue 2080: Drawing was loading the workbook DOM from the worksheet part and
             // the OpenXML SDK was ignoring worksheet changes saved through streaming, but used
             // the eager loaded DOM instead.
-            // Saved file doesn't contain shape because it's not yet supported (#1252)
+            // ClosedXML does not load shapes, but the save keeps the drawing part that holds the shape.
             TestHelper.LoadModifyAndCompare(
                 @"Other\Parts\WorksheetWithDrawingCanBeModified-input.xlsx",
                 wb =>
