@@ -101,6 +101,21 @@ internal class XmlTreeReaderAttributesTests
         Assert.That(readValue, Is.EqualTo(expectedValue));
     }
 
+    [TestCase("9007199254740991.5", 0x4340000000000000UL)]
+    [TestCase("0.84551240822557006", 0x3FEB0E7009B61CE0UL)]
+    [TestCase(" -1.5E+3 ", 0xC097700000000000UL)]
+    [TestCase("-0", 0x8000000000000000UL)]
+    [Issue("46")]
+    public void GetOptionalDouble_reads_nearest_double(string xmlText, ulong expectedBits)
+    {
+        // The parser of .NET Framework reads 9007199254740991.5 as 0x433FFFFFFFFFFFFF.
+        using var reader = CreateReader(xmlText);
+
+        var readValue = reader.GetOptionalDouble(AttributeName);
+
+        Assert.AreEqual(expectedBits, (ulong)BitConverter.DoubleToInt64Bits(readValue!.Value));
+    }
+
     [TestCase("2025-10-25", "2025-10-25T00:00:00")]
     [TestCase("2004-04-12T13:20:00Z", "2004-04-12T13:20:00Z")]
     [TestCase("today", null)]

@@ -335,7 +335,7 @@ public sealed class XmlTreeReader : IDisposable
         {
             try
             {
-                number = XmlConvert.ToDouble(value);
+                number = ToDouble(value);
             }
             catch (OverflowException e)
             {
@@ -358,6 +358,19 @@ public sealed class XmlTreeReader : IDisposable
         }
 
         return number;
+    }
+
+    /// <summary>
+    /// Converts an <c>xsd:double</c> text to the nearest <see cref="double"/>.
+    /// </summary>
+    private static double ToDouble(string value)
+    {
+#if !NETSTANDARD2_1_OR_GREATER
+        // The parser of .NET Framework can give a different double than .NET for the same text.
+        if (ExactNumberParser.TryParseExact(value, out var number))
+            return number;
+#endif
+        return XmlConvert.ToDouble(value);
     }
 
     /// <summary>

@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using ClosedXML.Excel.CalcEngine;
 using ClosedXML.Excel.IO;
+using ClosedXML.IO;
 using ClosedXML.Utils;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -114,7 +115,17 @@ namespace ClosedXML.Excel
                                                                  CultureInfo.InvariantCulture));
                     }
                     else if (m.VTDouble != null)
-                        CustomProperties.Add(name, Double.Parse(m.VTDouble.Text, CultureInfo.InvariantCulture));
+                    {
+#if NETSTANDARD2_1_OR_GREATER
+                        var number = Double.Parse(m.VTDouble.Text, CultureInfo.InvariantCulture);
+#else
+                        // The parser of .NET Framework can give a different double than .NET for the same text.
+                        var number = ExactNumberParser.TryParseExact(m.VTDouble.Text, out var exactNumber)
+                            ? exactNumber
+                            : Double.Parse(m.VTDouble.Text, CultureInfo.InvariantCulture);
+#endif
+                        CustomProperties.Add(name, number);
+                    }
                     else if (m.VTBool != null)
                         CustomProperties.Add(name, m.VTBool.Text == "true");
                 }

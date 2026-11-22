@@ -53,4 +53,9 @@
   <ItemGroup>
     <ProjectReference Include="..\ClosedXML.IO\ClosedXML.IO.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- ClosedXML.IO and ClosedXML both read number texts. Each assembly has an internal copy of the parser. -->
+    <Compile Include="..\ClosedXML.IO\ExactNumberParser.cs" Link="Utils\ExactNumberParser.cs" />
+  </ItemGroup>
 </Project>

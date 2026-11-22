@@ -239,8 +239,8 @@ namespace ClosedXML.Excel.IO
             var containsBlank = OpenXmlHelper.GetBooleanValueAsBool(sharedItems?.ContainsBlank, false);
             var containsNumber = OpenXmlHelper.GetBooleanValueAsBool(sharedItems?.ContainsNumber, false);
             var containsOnlyInteger = OpenXmlHelper.GetBooleanValueAsBool(sharedItems?.ContainsInteger, false);
-            var minValue = sharedItems?.MinValue?.Value;
-            var maxValue = sharedItems?.MaxValue?.Value;
+            var minValue = GetDouble(sharedItems?.MinValue);
+            var maxValue = GetDouble(sharedItems?.MaxValue);
             var containsDate = OpenXmlHelper.GetBooleanValueAsBool(sharedItems?.ContainsDate, false);
             var minDate = sharedItems?.MinDate?.Value;
             var maxDate = sharedItems?.MaxDate?.Value;
@@ -259,6 +259,23 @@ namespace ClosedXML.Excel.IO
                 containsDate,
                 minDate,
                 maxDate);
+        }
+
+        /// <summary>
+        /// Gets the nearest <see cref="double"/> of the text of an attribute.
+        /// </summary>
+        private static double? GetDouble(DoubleValue? attribute)
+        {
+            if (attribute is null)
+                return null;
+
+#if !NETSTANDARD2_1_OR_GREATER
+            // The SDK parses with the parser of .NET Framework. That parser can give a
+            // different double than .NET for the same text.
+            if (attribute.InnerText is { } text && ExactNumberParser.TryParseExact(text, out var number))
+                return number;
+#endif
+            return attribute.Value;
         }
 
         private static XLPivotCacheSharedItems ReadSharedItems(CacheField cacheField)
@@ -282,7 +299,7 @@ namespace ClosedXML.Excel.IO
                         break;
 
                     case NumberItem numberItem:
-                        if (numberItem.Val?.Value is not { } number)
+                        if (GetDouble(numberItem.Val) is not { } number)
                             throw PartStructureException.MissingAttribute();
 
                         sharedItems.AddNumber(number);
