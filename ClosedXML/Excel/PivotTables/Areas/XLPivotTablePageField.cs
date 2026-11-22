@@ -172,7 +172,7 @@ internal class XLPivotTablePageField : IXLPivotField
     {
         get
         {
-            // A single selected item is in the page field, and the items of the pivot field are not hidden.
+            // The page field holds a single selected item. The items of the pivot field are not hidden then.
             if (TryGetSingleSelectedItem(out var singleItem))
             {
                 var singleValue = singleItem.GetValue();
