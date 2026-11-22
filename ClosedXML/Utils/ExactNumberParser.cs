@@ -403,22 +403,17 @@ internal static class ExactNumberParser
     }
 
     /// <summary>
-    /// Gets a positive finite value as <paramref name="mantissa"/> * 2^<paramref name="binaryExponent"/>.
+    /// Gets a positive normal value as <paramref name="mantissa"/> * 2^<paramref name="binaryExponent"/>.
     /// </summary>
+    /// <remarks>
+    /// The candidates of <see cref="MultiplyByPowerOfTen"/> are between 1e-27 and 1e47, so they are never subnormal.
+    /// </remarks>
     private static void GetBinary(double absValue, out ulong mantissa, out int binaryExponent)
     {
         var bits = (ulong)BitConverter.DoubleToInt64Bits(absValue);
         var biasedExponent = (int)(bits >> MantissaBits);
-        mantissa = bits & ((1UL << MantissaBits) - 1);
-        if (biasedExponent == 0)
-        {
-            binaryExponent = MinBinaryExponent;
-        }
-        else
-        {
-            mantissa |= 1UL << MantissaBits;
-            binaryExponent = biasedExponent - ExponentBias;
-        }
+        mantissa = (bits & ((1UL << MantissaBits) - 1)) | (1UL << MantissaBits);
+        binaryExponent = biasedExponent - ExponentBias;
     }
 
     /// <summary>
@@ -576,6 +571,13 @@ internal static class ExactNumberParser
     private static class BigPowersOfTen
     {
         private static readonly BigInteger[] Cache = Create(350);
+
+        /// <summary>
+        /// A static constructor stops the runtime from creating the cache before the first use.
+        /// </summary>
+        static BigPowersOfTen()
+        {
+        }
 
         internal static BigInteger Get(int exponent)
         {

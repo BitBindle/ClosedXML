@@ -30,6 +30,9 @@ internal class ExactNumberParserTests
     [TestCase("1234567890123456789e27", 0x494BAE1279C66306UL)]
     [TestCase("9999999999999999999e-27", 0x3E45798EE2308C3AUL)]
     [TestCase("1.7976931348623157E+308", 0x7FEFFFFFFFFFFFFFUL)]
+    [TestCase("8.9884656743115794E+307", 0x7FE0000000000000UL)]
+    [TestCase("9007199254740991.9999999999999999999", 0x4340000000000000UL)]
+    [TestCase("1.1102230246251565E-16", 0x3CA0000000000000UL)]
     [TestCase("2.2250738585072014E-308", 0x0010000000000000UL)]
     [TestCase("2.2250738585072011E-308", 0x000FFFFFFFFFFFFFUL)]
     [TestCase("4.9406564584124654E-324", 0x0000000000000001UL)]
@@ -43,6 +46,7 @@ internal class ExactNumberParserTests
     [TestCase(".5", 0x3FE0000000000000UL)]
     [TestCase("5.", 0x4014000000000000UL)]
     [TestCase("-00012.50e-1", 0xBFF4000000000000UL)]
+    [Issue("38")]
     public void TryParse_reads_nearest_double(string text, ulong expectedBits)
     {
         Assert.True(ExactNumberParser.TryParse(text, out var value));
@@ -50,6 +54,7 @@ internal class ExactNumberParserTests
     }
 
     [Test]
+    [Issue("38")]
     public void TryParse_uses_all_digits_of_long_text()
     {
         // The parser keeps 800 significant digits. A non-zero digit after them decides a tie.
@@ -75,6 +80,7 @@ internal class ExactNumberParserTests
     [TestCase("1,5")]
     [TestCase("1.5x")]
     [TestCase("- 1")]
+    [Issue("38")]
     public void TryParse_rejects_text_that_is_not_number(string text)
     {
         Assert.False(ExactNumberParser.TryParse(text, out _));
@@ -84,6 +90,7 @@ internal class ExactNumberParserTests
     [TestCase("1e400")]
     [TestCase("1e999999")]
     [TestCase("NaN")]
+    [Issue("38")]
     public void TryParse_gives_result_of_runtime_outside_exact_range(string text)
     {
         // An overflow and the symbols of the culture have the result of the runtime.
@@ -99,6 +106,7 @@ internal class ExactNumberParserTests
     // .NET Core 3.0 and later parse exactly, so the runtime gives the expected results.
 
     [Test]
+    [Issue("38")]
     public void TryParse_gives_same_value_as_runtime()
     {
         var random = new Random(12345);
@@ -115,6 +123,7 @@ internal class ExactNumberParserTests
     }
 
     [Test]
+    [Issue("38")]
     public void TryParse_gives_same_value_as_runtime_for_text_that_excel_writes()
     {
         // Excel writes 17 significant digits. The integer of 16 to 19 digits is larger than 2^53 in most cases.
