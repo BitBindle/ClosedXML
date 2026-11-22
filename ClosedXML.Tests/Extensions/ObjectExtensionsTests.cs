@@ -115,5 +115,15 @@ namespace ClosedXML.Tests.Extensions
         {
             Assert.AreEqual(expectedText, ObjectExtensions.ToRoundTripString(value));
         }
+
+        [Test]
+        [Issue("60")]
+        public void Invariant_text_of_other_struct_is_ToString_text()
+        {
+            // A struct without a special format gives the text of its ToString method.
+            var guid = new Guid("0f8fad5b-d9cb-469f-a165-70867728950e");
+
+            Assert.AreEqual("0f8fad5b-d9cb-469f-a165-70867728950e", guid.ToInvariantString());
+        }
     }
 }
