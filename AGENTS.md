@@ -12,7 +12,7 @@ ClosedXML is a .NET library that reads and writes Excel files (`.xlsx`, `.xlsm`)
 | `ClosedXML` | The library. Targets `netstandard2.0` and `netstandard2.1`. |
 | `ClosedXML.IO` | Low-level readers and writers for the package parts. |
 | `ClosedXML.IO.CodeGen` | Code generator for `ClosedXML.IO`. |
-| `ClosedXML.Tests` | NUnit tests. Target `net8.0` and `net462`. |
+| `ClosedXML.Tests` | NUnit tests. Target `net10.0` and `net462`. |
 | `ClosedXML.Examples` | Examples. Some tests use them. |
 | `ClosedXML.Sandbox` | Console application for manual experiments. |
 
@@ -28,10 +28,10 @@ Do these steps before the review gate. The commands are based on `.github/workfl
    dotnet build ClosedXML.slnx --configuration Release
    ```
 
-2. Run the tests with coverage. On Linux, use `net8.0` and skip the `OLEDB` category, because it needs a Windows driver:
+2. Run the tests with coverage. On Linux, use `net10.0` and skip the `OLEDB` category, because it needs a Windows driver:
 
    ```bash
-   dotnet test ClosedXML.Tests/ClosedXML.Tests.csproj --configuration Release --no-build --framework net8.0 --filter "TestCategory!=OLEDB" --collect "Code Coverage;Format=cobertura" --results-directory test-results
+   dotnet test ClosedXML.Tests/ClosedXML.Tests.csproj --configuration Release --no-build --framework net10.0 --filter "TestCategory!=OLEDB" --collect "Code Coverage;Format=cobertura" --results-directory test-results
    ```
 
 3. Measure the line coverage of the new code from the Cobertura report. For example, use `diff-cover` against `origin/develop`.
