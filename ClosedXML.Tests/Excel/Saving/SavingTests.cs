@@ -1107,5 +1107,36 @@ namespace ClosedXML.Tests.Excel.Saving
 
             await Assert.ThatAsync(() => wb.SaveAsAsync(null!), Throws.ArgumentNullException);
         }
+
+        [Test]
+        [Issue("77")]
+        public void Save_writes_merged_cells_and_sequences_of_references()
+        {
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet("Sheet1");
+                ws.Range("B2:C3").Merge();
+                ws.Range("5:6").Merge();
+                var conditionalFormat = ws.Range("D8:D9").AddConditionalFormat();
+                conditionalFormat.WhenEquals(1).Fill.SetBackgroundColor(XLColor.Red);
+                conditionalFormat.Ranges = ws.Ranges("D8:D9,F8:F9");
+                ws.Ranges("H8:H9,J8").CreateDataValidation().WholeNumber.Between(1, 5);
+                wb.SaveAs(ms);
+            }
+
+            using var package = SpreadsheetDocument.Open(ms, false);
+            var worksheet = package.WorkbookPart!.WorksheetParts.Single().Worksheet!;
+            var mergedCells = worksheet.Descendants<DocumentFormat.OpenXml.Spreadsheet.MergeCell>()
+                .Select(m => m.Reference!.Value)
+                .OrderBy(r => r)
+                .ToArray();
+            var conditionalFormatting = worksheet.Descendants<DocumentFormat.OpenXml.Spreadsheet.ConditionalFormatting>().Single();
+            var dataValidation = worksheet.Descendants<DocumentFormat.OpenXml.Spreadsheet.DataValidation>().Single();
+
+            CollectionAssert.AreEqual(new[] { "A5:XFD6", "B2:C3" }, mergedCells);
+            Assert.AreEqual("D8:D9 F8:F9", conditionalFormatting.SequenceOfReferences!.InnerText);
+            Assert.AreEqual("H8:H9 J8:J8", dataValidation.SequenceOfReferences!.InnerText);
+        }
     }
 }

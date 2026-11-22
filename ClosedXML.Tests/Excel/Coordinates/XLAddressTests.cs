@@ -200,5 +200,32 @@ namespace ClosedXML.Tests
             Assert.Throws<InvalidOperationException>(() => address.ToStringRelative(true));
             Assert.Throws<InvalidOperationException>(() => address.ToStringFixed(XLReferenceStyle.A1, true));
         }
+
+        [TestCase(false, false, "XFD1048576")]
+        [TestCase(false, true, "XFD$1048576")]
+        [TestCase(true, false, "$XFD1048576")]
+        [TestCase(true, true, "$XFD$1048576")]
+        [Issue("77")]
+        public void Address_text_has_a_dollar_sign_before_a_fixed_column_and_a_fixed_row(bool fixedColumn, bool fixedRow, string expectedText)
+        {
+            var address = new XLAddress(XLHelper.MaxRowNumber, XLHelper.MaxColumnNumber, fixedRow, fixedColumn);
+
+            Assert.AreEqual(expectedText, address.ToString());
+            Assert.AreEqual("XFD1048576", address.GetTrimmedAddress());
+            Assert.AreEqual("XFD1048576", address.ToStringRelative(false));
+            Assert.AreEqual("XFD1048576", address.ToString(XLReferenceStyle.A1));
+            Assert.AreEqual("$XFD$1048576", address.ToStringFixed(XLReferenceStyle.A1));
+            Assert.AreEqual("R1048576C16384", address.ToStringFixed(XLReferenceStyle.R1C1));
+            Assert.AreEqual("R1048576C16384", address.ToString(XLReferenceStyle.R1C1));
+        }
+
+        [Test]
+        [Issue("77")]
+        public void Trimmed_address_keeps_a_row_number_that_is_not_valid()
+        {
+            var address = new XLAddress(int.MinValue, XLHelper.MaxColumnNumber, true, true);
+
+            Assert.AreEqual("XFD-2147483648", address.GetTrimmedAddress());
+        }
     }
 }

@@ -183,6 +183,68 @@ namespace ClosedXML.Tests
         }
 
         [Test]
+        [Issue("77")]
+        public void Range_text_of_rows_columns_and_sheet()
+        {
+            using var wb = new XLWorkbook();
+            var ws = (XLWorksheet)wb.AddWorksheet("Sheet1");
+            var rows = new XLRangeAddress(
+                new XLAddress(ws, 2, 1, true, true),
+                new XLAddress(ws, 15, XLHelper.MaxColumnNumber, false, false));
+            var columns = new XLRangeAddress(
+                new XLAddress(ws, 1, 2, false, false),
+                new XLAddress(ws, XLHelper.MaxRowNumber, 4, true, true));
+            var sheet = new XLRangeAddress(
+                new XLAddress(ws, 1, 1, false, false),
+                new XLAddress(ws, XLHelper.MaxRowNumber, XLHelper.MaxColumnNumber, false, false));
+
+            Assert.AreEqual("2:15", rows.ToString());
+            Assert.AreEqual("2:15", rows.ToStringRelative());
+            Assert.AreEqual("Sheet1!2:15", rows.ToStringRelative(true));
+            Assert.AreEqual("B:D", columns.ToString());
+            Assert.AreEqual("B:D", columns.ToStringRelative());
+            Assert.AreEqual("1:1048576", sheet.ToString());
+            Assert.AreEqual("1:1048576", sheet.ToStringRelative());
+
+            ws.Delete();
+
+            Assert.AreEqual("#REF!$A$2:XFD15", rows.ToString());
+            Assert.AreEqual("#REF!2:15", rows.ToStringRelative());
+            Assert.AreEqual("#REF!B1:$D$1048576", columns.ToString());
+        }
+
+        [Test]
+        [Issue("77")]
+        public void Longest_range_text_fits_in_the_buffer()
+        {
+            using var wb = new XLWorkbook();
+            var ws = (XLWorksheet)wb.AddWorksheet("Sheet1");
+            var address = new XLRangeAddress(
+                new XLAddress(ws, XLHelper.MaxRowNumber - 1, XLHelper.MaxColumnNumber - 1, true, true),
+                new XLAddress(ws, XLHelper.MaxRowNumber, XLHelper.MaxColumnNumber, true, true));
+
+            Assert.AreEqual("$XFC$1048575:$XFD$1048576", address.ToString());
+            Assert.AreEqual("XFC1048575:XFD1048576", address.ToStringRelative());
+
+            ws.Delete();
+
+            Assert.AreEqual("#REF!$XFC$1048575:$XFD$1048576", address.ToString());
+            Assert.AreEqual("#REF!XFC1048575:XFD1048576", address.ToStringRelative());
+        }
+
+        [Test]
+        [Issue("77")]
+        public void Cells_text_has_a_reference_error_for_a_cell_that_is_not_valid()
+        {
+            var address = new XLRangeAddress(new XLAddress(1, 1, true, true), new XLAddress(0, 2, false, false));
+            var text = new char[XLRangeAddress.MaxTextLength];
+
+            var length = address.FormatCells(text);
+
+            Assert.AreEqual("$A$1:#REF!", new string(text, 0, length));
+        }
+
+        [Test]
         public void FullSpanAddressCannotChange()
         {
             using (var wb = new XLWorkbook())

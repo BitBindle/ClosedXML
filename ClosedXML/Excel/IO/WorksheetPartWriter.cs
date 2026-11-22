@@ -9,9 +9,11 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Break = DocumentFormat.OpenXml.Spreadsheet.Break;
 using Column = DocumentFormat.OpenXml.Spreadsheet.Column;
 using Columns = DocumentFormat.OpenXml.Spreadsheet.Columns;
@@ -589,10 +591,12 @@ namespace ClosedXML.Excel.IO
                 cm.SetElement(XLWorksheetContents.MergeCells, mergeCells);
                 mergeCells.RemoveAllChildren<MergeCell>();
 
-                foreach (var mergeCell in xlWorksheet.Internals.MergedRanges.Select<XLRange, string>(
-                    m => m.RangeAddress.FirstAddress.ToString() + ":" + m.RangeAddress.LastAddress.ToString()).Select(
-                        merged => new MergeCell { Reference = merged }))
-                    mergeCells.AppendChild(mergeCell);
+                Span<char> reference = stackalloc char[XLRangeAddress.MaxTextLength];
+                foreach (var mergedRange in xlWorksheet.Internals.MergedRanges)
+                {
+                    var length = mergedRange.RangeAddress.FormatCells(reference);
+                    mergeCells.AppendChild(new MergeCell { Reference = reference[..length].ToString() });
+                }
 
                 mergeCells.Count = (UInt32)mergeCells.Count();
             }
@@ -634,7 +638,7 @@ namespace ClosedXML.Excel.IO
                     .GroupBy(
                         c => new
                         {
-                            SeqRefs = string.Join(" ", c.Ranges.Select(r => r.RangeAddress.ToStringRelative(false))),
+                            SeqRefs = GetSequenceOfReferences(c.Ranges, relative: true),
                             IsPivot = xlSheetPivotCfs.Contains(c),
                         },
                         c => c,
@@ -684,7 +688,7 @@ namespace ClosedXML.Excel.IO
 
                 foreach (var cfGroup in exlst
                     .GroupBy(
-                        c => string.Join(" ", c.Ranges.Select(r => r.RangeAddress.ToStringRelative(false))),
+                        c => GetSequenceOfReferences(c.Ranges, relative: true),
                         c => c,
                         (key, g) => new { RangeId = key, CfList = g.ToList<IXLConditionalFormat>() }
                         )
@@ -904,7 +908,7 @@ namespace ClosedXML.Excel.IO
 
                 foreach (var (dv, minValue, maxValue) in dataValidationsStandard)
                 {
-                    var sequence = string.Join(" ", dv.Ranges.Select(x => x.RangeAddress));
+                    var sequence = GetSequenceOfReferences(dv.Ranges, relative: false);
                     var dataValidation = new DataValidation
                     {
                         AllowBlank = dv.IgnoreBlanks,
@@ -982,7 +986,7 @@ namespace ClosedXML.Excel.IO
 
                 foreach (var (dv, minValue, maxValue) in dataValidationsExtension)
                 {
-                    var sequence = string.Join(" ", dv.Ranges.Select(x => x.RangeAddress));
+                    var sequence = GetSequenceOfReferences(dv.Ranges, relative: false);
                     var dataValidation = new X14.DataValidation
                     {
                         AllowBlank = dv.IgnoreBlanks,
@@ -1393,6 +1397,32 @@ namespace ClosedXML.Excel.IO
             #endregion LegacyDrawingHeaderFooter
 
             return worksheet;
+        }
+
+        /// <summary>
+        /// Get the text of a sequence of references (<c>sqref</c>). A space separates the ranges.
+        /// </summary>
+        /// <param name="ranges">The ranges.</param>
+        /// <param name="relative">Write the ranges without a <c>$</c> before a fixed row or column.</param>
+        private static string GetSequenceOfReferences(IEnumerable<IXLRange> ranges, bool relative)
+        {
+            var sequence = new StringBuilder();
+            Span<char> address = stackalloc char[XLRangeAddress.MaxTextLength];
+            foreach (var range in ranges)
+            {
+                var rangeAddress = ((XLRangeBase)range).RangeAddress;
+
+                // The relative text has no sheet prefix. The ranges are on the sheet that the writer
+                // saves, so the sheet is not deleted and the text needs no "#REF!" prefix.
+                Debug.Assert(!relative || rangeAddress.Worksheet is not { IsDeleted: true }, "The sheet of the range is deleted.");
+                var length = relative ? rangeAddress.FormatRelative(address) : rangeAddress.Format(address);
+                if (sequence.Length > 0)
+                    sequence.Append(' ');
+
+                sequence.Append(address[..length]);
+            }
+
+            return sequence.ToString();
         }
 
         private static void WriteCellValue(XmlWriter w, XLCell xlCell, SaveContext context)
