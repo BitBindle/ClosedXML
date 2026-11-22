@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using ClosedXML.Excel.CalcEngine.Visitors;
 using ClosedXML.Excel.Formatting;
+using ClosedXML.Parser;
 
 namespace ClosedXML.Excel
 {
@@ -1014,11 +1015,8 @@ namespace ClosedXML.Excel
                 throw new ArgumentOutOfRangeException(nameof(numberOfColumns),
                     $"Number of columns to insert must be a positive number no more than {XLHelper.MaxColumnNumber}");
 
-            foreach (XLWorksheet ws in Worksheet.Workbook.WorksheetsInternal)
-            {
-                foreach (XLCell cell in ws.Internals.CellsCollection.GetCells(c => c.Formula is not null))
-                    cell.ShiftFormulaColumns(AsRange(), numberOfColumns);
-            }
+            var insertedColumns = Area.FromRangeAddress(RangeAddress).SliceFromLeft(1).ExtendRight(numberOfColumns - 1);
+            ShiftFormulaReferences(new ReferenceShiftOnInsertRefModVisitor(new SheetArea(Worksheet.Name, insertedColumns), shiftDown: false));
 
             // Inserting and shifting of whole columns is rather inconsistent across the codebase. In some places, the columns collection
             // is shifted before this method is called and thus the we can't shift column properties again. In others, the code relies on
@@ -1198,12 +1196,8 @@ namespace ClosedXML.Excel
                 throw new ArgumentOutOfRangeException(nameof(numberOfRows),
                     $"Number of rows to insert must be a positive number no more than {XLHelper.MaxRowNumber}");
 
-            var asRange = AsRange();
-            foreach (XLWorksheet ws in Worksheet.Workbook.WorksheetsInternal)
-            {
-                foreach (XLCell cell in ws.Internals.CellsCollection.GetCells(c => c.Formula is not null))
-                    cell.ShiftFormulaRows(asRange, numberOfRows);
-            }
+            var insertedRows = Area.FromRangeAddress(RangeAddress).SliceFromTop(1).ExtendBelow(numberOfRows - 1);
+            ShiftFormulaReferences(new ReferenceShiftOnInsertRefModVisitor(new SheetArea(Worksheet.Name, insertedRows), shiftDown: true));
 
             if (!onlyUsedCells)
             {
@@ -1280,6 +1274,18 @@ namespace ClosedXML.Excel
             return rangeToReturn;
         }
 
+        /// <summary>
+        /// Shift the references in the formula of each formula cell of the workbook.
+        /// </summary>
+        private void ShiftFormulaReferences(CopyVisitor refMod)
+        {
+            foreach (var sheet in Worksheet.Workbook.WorksheetsInternal)
+            {
+                foreach (var cell in sheet.Internals.CellsCollection.GetCells(c => c.Formula is not null))
+                    cell.ShiftFormulaReferences(refMod);
+            }
+        }
+
         private void ClearMerged()
         {
             var mergeToDelete = Worksheet.Internals.MergedRanges.GetIntersectedRanges(RangeAddress).ToList();
@@ -1310,27 +1316,9 @@ namespace ClosedXML.Excel
 
             Worksheet.SparklineGroups.Remove(this);
 
-            IXLRange shiftedRangeFormula = Worksheet.Range(
-                RangeAddress.FirstAddress.RowNumber,
-                RangeAddress.FirstAddress.ColumnNumber,
-                RangeAddress.LastAddress.RowNumber,
-                RangeAddress.LastAddress.ColumnNumber);
-
             // Shift formulas first
-            foreach (var cell in Worksheet
-                .Workbook
-                .Worksheets
-                .Cast<XLWorksheet>()
-                .SelectMany(ws => ws
-                    .Internals
-                    .CellsCollection
-                    .GetCells(c => c.HasFormula)))
-            {
-                if (shiftDeleteCells == XLShiftDeletedCells.ShiftCellsUp)
-                    cell.ShiftFormulaRows((XLRange)shiftedRangeFormula, numberOfRows * -1);
-                else
-                    cell.ShiftFormulaColumns((XLRange)shiftedRangeFormula, numberOfColumns * -1);
-            }
+            var deletedArea = new SheetArea(Worksheet.Name, Area.FromRangeAddress(RangeAddress));
+            ShiftFormulaReferences(new ReferenceShiftOnDeleteRefModVisitor(deletedArea, shiftDeleteCells));
 
             // Range to shift...
             Int32 columnModifier = 0;

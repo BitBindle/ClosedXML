@@ -20,39 +20,6 @@ namespace ClosedXML.Excel
     [DebuggerDisplay("{Address}")]
     internal sealed class XLCell : IXLCell, IXLFormatContainer
     {
-        public static readonly Regex A1SimpleRegex = new Regex(
-            //  @"(?<=\W)" // Start with non word
-            @"(?<Reference>" // Start Group to pick
-            + @"(?<Sheet>" // Start Sheet Name, optional
-            + @"("
-            + @"\'([^\[\]\*/\\\?:\']+|\'\')\'"
-            // Sheet name with special characters, surrounding apostrophes are required
-            + @"|"
-            + @"\'?\w+\'?" // Sheet name with letters and numbers, surrounding apostrophes are optional
-            + @")"
-            + @"!)?" // End Sheet Name, optional
-            + @"(?<Range>" // Start range
-            + @"(?<![\w\d])" // Preceded by anything but a letter or a number
-            + @"\$?[a-zA-Z]{1,3}\$?\d{1,7}" // A1 Address 1
-            + @"(?<RangeEnd>:\$?[a-zA-Z]{1,3}\$?\d{1,7})?" // A1 Address 2, optional
-            + @"(?![\w\d])" // followed by anything but a letter or a number
-            + @"|"
-            + @"(?<ColumnNumbers>\$?\d{1,7}:\$?\d{1,7})" // 1:1
-            + @"|"
-            + @"(?<ColumnLetters>\$?[a-zA-Z]{1,3}:\$?[a-zA-Z]{1,3})" // A:A
-            + @")" // End Range
-            + @")" // End Group to pick
-                   //+ @"(?=\W)" // End with non word
-            , RegexOptions.Compiled);
-
-        private static readonly Regex A1RowRegex = new Regex(
-            @"(\$?\d{1,7}:\$?\d{1,7})" // 1:1
-            , RegexOptions.Compiled);
-
-        private static readonly Regex A1ColumnRegex = new Regex(
-            @"(\$?[a-zA-Z]{1,3}:\$?[a-zA-Z]{1,3})" // A:A
-            , RegexOptions.Compiled);
-
         private static readonly Regex utfPattern = new Regex(@"(?<!_x005F)_x(?!005F)([0-9A-F]{4})_", RegexOptions.Compiled);
 
 
@@ -1351,316 +1318,37 @@ namespace ClosedXML.Excel
             thisDv.MaxValue = GetFormulaA1(otherCell.GetFormulaR1C1(otherDv.MaxValue));
         }
 
-        internal void ShiftFormulaRows(XLRange shiftedRange, int rowsShifted)
+        /// <summary>
+        /// Shift the references in the formula of the cell, after an insert or a delete of cells.
+        /// </summary>
+        /// <param name="refMod">The visitor that shifts each reference.</param>
+        internal void ShiftFormulaReferences(CopyVisitor refMod)
         {
-            FormulaA1 = ShiftFormulaRows(FormulaA1, Worksheet, shiftedRange, rowsShifted);
-        }
+            if (Formula is not { } formula)
+                return;
 
-        internal static String ShiftFormulaRows(String formulaA1, XLWorksheet worksheetInAction, XLRange shiftedRange,
-                                                int rowsShifted)
-        {
-            if (String.IsNullOrWhiteSpace(formulaA1)) return String.Empty;
-
-            var value = formulaA1;
-
-            var regex = A1SimpleRegex;
-
-            var sb = new StringBuilder();
-            var lastIndex = 0;
-
-            var shiftedWsName = shiftedRange.Worksheet.Name;
-            foreach (var match in regex.Matches(value).Cast<Match>())
+            var formulaA1 = formula.A1;
+            string shiftedFormulaA1;
+            try
             {
-                var matchString = match.Value;
-                var matchIndex = match.Index;
-                if (value.Substring(0, matchIndex).CharCount('"') % 2 == 0)
-                {
-                    // Check that the match is not between quotes
-                    sb.Append(value.Substring(lastIndex, matchIndex - lastIndex));
-                    string sheetName;
-                    var useSheetName = false;
-                    if (matchString.Contains('!'))
-                    {
-                        sheetName = matchString.Substring(0, matchString.IndexOf('!'));
-                        if (sheetName[0] == '\'')
-                            sheetName = sheetName.Substring(1, sheetName.Length - 2);
-                        useSheetName = true;
-                    }
-                    else
-                        sheetName = worksheetInAction.Name;
-
-                    if (String.Compare(sheetName, shiftedWsName, true) == 0)
-                    {
-                        var rangeAddress = matchString.Substring(matchString.IndexOf('!') + 1);
-                        if (!A1ColumnRegex.IsMatch(rangeAddress))
-                        {
-                            var matchRange = worksheetInAction.Workbook.Worksheet(sheetName).Range(rangeAddress);
-                            if (shiftedRange.RangeAddress.FirstAddress.RowNumber <= matchRange.RangeAddress.LastAddress.RowNumber
-                                && shiftedRange.RangeAddress.FirstAddress.ColumnNumber <= matchRange.RangeAddress.FirstAddress.ColumnNumber
-                                && shiftedRange.RangeAddress.LastAddress.ColumnNumber >= matchRange.RangeAddress.LastAddress.ColumnNumber)
-                            {
-                                if (useSheetName)
-                                {
-                                    sb.Append(sheetName.EscapeSheetName());
-                                    sb.Append('!');
-                                }
-
-                                if (A1RowRegex.IsMatch(rangeAddress))
-                                {
-                                    var rows = rangeAddress.Split(':');
-                                    var row1String = rows[0];
-                                    var row2String = rows[1];
-                                    string row1;
-                                    if (row1String[0] == '$')
-                                    {
-                                        row1 = "$" +
-                                                (XLHelper.TrimRowNumber(Int32.Parse(row1String.Substring(1)) + rowsShifted)).ToInvariantString();
-                                    }
-                                    else
-                                        row1 = (XLHelper.TrimRowNumber(Int32.Parse(row1String) + rowsShifted)).ToInvariantString();
-
-                                    string row2;
-                                    if (row2String[0] == '$')
-                                    {
-                                        row2 = "$" +
-                                                (XLHelper.TrimRowNumber(Int32.Parse(row2String.Substring(1)) + rowsShifted)).ToInvariantString();
-                                    }
-                                    else
-                                        row2 = (XLHelper.TrimRowNumber(Int32.Parse(row2String) + rowsShifted)).ToInvariantString();
-
-                                    sb.Append(row1);
-                                    sb.Append(':');
-                                    sb.Append(row2);
-                                }
-                                else if (shiftedRange.RangeAddress.FirstAddress.RowNumber <=
-                                            matchRange.RangeAddress.FirstAddress.RowNumber)
-                                {
-                                    if (rangeAddress.Contains(':'))
-                                    {
-                                        sb.Append(
-                                            new XLAddress(
-                                                worksheetInAction,
-                                                XLHelper.TrimRowNumber(matchRange.RangeAddress.FirstAddress.RowNumber + rowsShifted),
-                                                matchRange.RangeAddress.FirstAddress.ColumnLetter,
-                                                matchRange.RangeAddress.FirstAddress.FixedRow,
-                                                matchRange.RangeAddress.FirstAddress.FixedColumn));
-                                        sb.Append(':');
-                                        sb.Append(
-                                            new XLAddress(
-                                                worksheetInAction,
-                                                XLHelper.TrimRowNumber(matchRange.RangeAddress.LastAddress.RowNumber + rowsShifted),
-                                                matchRange.RangeAddress.LastAddress.ColumnLetter,
-                                                matchRange.RangeAddress.LastAddress.FixedRow,
-                                                matchRange.RangeAddress.LastAddress.FixedColumn));
-                                    }
-                                    else
-                                    {
-                                        sb.Append(
-                                            new XLAddress(
-                                                worksheetInAction,
-                                                XLHelper.TrimRowNumber(matchRange.RangeAddress.FirstAddress.RowNumber + rowsShifted),
-                                                matchRange.RangeAddress.FirstAddress.ColumnLetter,
-                                                matchRange.RangeAddress.FirstAddress.FixedRow,
-                                                matchRange.RangeAddress.FirstAddress.FixedColumn));
-                                    }
-                                }
-                                else
-                                {
-                                    sb.Append(matchRange.RangeAddress.FirstAddress);
-                                    sb.Append(':');
-                                    sb.Append(
-                                        new XLAddress(
-                                            worksheetInAction,
-                                            XLHelper.TrimRowNumber(matchRange.RangeAddress.LastAddress.RowNumber + rowsShifted),
-                                            matchRange.RangeAddress.LastAddress.ColumnLetter,
-                                            matchRange.RangeAddress.LastAddress.FixedRow,
-                                            matchRange.RangeAddress.LastAddress.FixedColumn));
-                                }
-                            }
-                            else
-                                sb.Append(matchString);
-                        }
-                        else
-                            sb.Append(matchString);
-                    }
-                    else
-                        sb.Append(matchString);
-                }
-                else
-                    sb.Append(value.Substring(lastIndex, matchIndex - lastIndex + matchString.Length));
-
-                lastIndex = matchIndex + matchString.Length;
+                shiftedFormulaA1 = FormulaConverter.ModifyA1(formulaA1, Worksheet.Name, _rowNumber, _columnNumber, refMod);
+            }
+            catch (ParsingException)
+            {
+                // The parser cannot find the references of an unparsable formula. The formula stays the same.
+                shiftedFormulaA1 = formulaA1;
             }
 
-            if (lastIndex < value.Length)
-                sb.Append(value.Substring(lastIndex));
-
-            return sb.ToString();
-        }
-
-        internal void ShiftFormulaColumns(XLRange shiftedRange, int columnsShifted)
-        {
-            FormulaA1 = ShiftFormulaColumns(FormulaA1, Worksheet, shiftedRange, columnsShifted);
-        }
-
-        internal static String ShiftFormulaColumns(String formulaA1, XLWorksheet worksheetInAction, XLRange shiftedRange,
-                                                   int columnsShifted)
-        {
-            if (String.IsNullOrWhiteSpace(formulaA1)) return String.Empty;
-
-            var value = formulaA1;
-
-            var regex = A1SimpleRegex;
-
-            var sb = new StringBuilder();
-            var lastIndex = 0;
-
-            foreach (var match in regex.Matches(value).Cast<Match>())
+            // Do not create a new formula for a normal formula without a change. The setter
+            // changes an array formula to a normal formula, so an array formula always goes
+            // through the setter. The setter also marks the formula as dirty, so do that here too.
+            if (formula.Type == FormulaType.Normal && shiftedFormulaA1 == formulaA1)
             {
-                var matchString = match.Value;
-                var matchIndex = match.Index;
-                if (value.Substring(0, matchIndex).CharCount('"') % 2 == 0)
-                {
-                    // Check that the match is not between quotes
-                    sb.Append(value.Substring(lastIndex, matchIndex - lastIndex));
-                    string sheetName;
-                    var useSheetName = false;
-                    if (matchString.Contains('!'))
-                    {
-                        sheetName = matchString.Substring(0, matchString.IndexOf('!'));
-                        if (sheetName[0] == '\'')
-                            sheetName = sheetName.Substring(1, sheetName.Length - 2);
-                        useSheetName = true;
-                    }
-                    else
-                        sheetName = worksheetInAction.Name;
-
-                    if (String.Compare(sheetName, shiftedRange.Worksheet.Name, true) == 0)
-                    {
-                        var rangeAddress = matchString.Substring(matchString.IndexOf('!') + 1);
-                        if (!A1RowRegex.IsMatch(rangeAddress))
-                        {
-                            var matchRange = worksheetInAction.Workbook.Worksheet(sheetName).Range(rangeAddress);
-
-                            if (shiftedRange.RangeAddress.FirstAddress.ColumnNumber <=
-                                matchRange.RangeAddress.LastAddress.ColumnNumber
-                                &&
-                                shiftedRange.RangeAddress.FirstAddress.RowNumber <=
-                                matchRange.RangeAddress.FirstAddress.RowNumber
-                                &&
-                                shiftedRange.RangeAddress.LastAddress.RowNumber >=
-                                matchRange.RangeAddress.LastAddress.RowNumber)
-                            {
-                                if (useSheetName)
-                                {
-                                    sb.Append(sheetName.EscapeSheetName());
-                                    sb.Append('!');
-                                }
-
-                                if (A1ColumnRegex.IsMatch(rangeAddress))
-                                {
-                                    var columns = rangeAddress.Split(':');
-                                    var column1String = columns[0];
-                                    var column2String = columns[1];
-                                    string column1;
-                                    if (column1String[0] == '$')
-                                    {
-                                        column1 = "$" +
-                                                    XLHelper.GetColumnLetterFromNumber(
-                                                        XLHelper.GetColumnNumberFromLetter(
-                                                            column1String.Substring(1)) + columnsShifted, true);
-                                    }
-                                    else
-                                    {
-                                        column1 =
-                                            XLHelper.GetColumnLetterFromNumber(
-                                                XLHelper.GetColumnNumberFromLetter(column1String) +
-                                                columnsShifted, true);
-                                    }
-
-                                    string column2;
-                                    if (column2String[0] == '$')
-                                    {
-                                        column2 = "$" +
-                                                    XLHelper.GetColumnLetterFromNumber(
-                                                        XLHelper.GetColumnNumberFromLetter(
-                                                            column2String.Substring(1)) + columnsShifted, true);
-                                    }
-                                    else
-                                    {
-                                        column2 =
-                                            XLHelper.GetColumnLetterFromNumber(
-                                                XLHelper.GetColumnNumberFromLetter(column2String) +
-                                                columnsShifted, true);
-                                    }
-
-                                    sb.Append(column1);
-                                    sb.Append(':');
-                                    sb.Append(column2);
-                                }
-                                else if (shiftedRange.RangeAddress.FirstAddress.ColumnNumber <=
-                                            matchRange.RangeAddress.FirstAddress.ColumnNumber)
-                                {
-                                    if (rangeAddress.Contains(':'))
-                                    {
-                                        sb.Append(
-                                            new XLAddress(
-                                                worksheetInAction,
-                                                matchRange.RangeAddress.FirstAddress.RowNumber,
-                                                XLHelper.TrimColumnNumber(matchRange.RangeAddress.FirstAddress.ColumnNumber + columnsShifted),
-                                                matchRange.RangeAddress.FirstAddress.FixedRow,
-                                                matchRange.RangeAddress.FirstAddress.FixedColumn));
-                                        sb.Append(':');
-                                        sb.Append(
-                                            new XLAddress(
-                                                worksheetInAction,
-                                                matchRange.RangeAddress.LastAddress.RowNumber,
-                                                XLHelper.TrimColumnNumber(matchRange.RangeAddress.LastAddress.ColumnNumber + columnsShifted),
-                                                matchRange.RangeAddress.LastAddress.FixedRow,
-                                                matchRange.RangeAddress.LastAddress.FixedColumn));
-                                    }
-                                    else
-                                    {
-                                        sb.Append(
-                                            new XLAddress(
-                                                worksheetInAction,
-                                                matchRange.RangeAddress.FirstAddress.RowNumber,
-                                                XLHelper.TrimColumnNumber(matchRange.RangeAddress.FirstAddress.ColumnNumber + columnsShifted),
-                                                matchRange.RangeAddress.FirstAddress.FixedRow,
-                                                matchRange.RangeAddress.FirstAddress.FixedColumn));
-                                    }
-                                }
-                                else
-                                {
-                                    sb.Append(matchRange.RangeAddress.FirstAddress);
-                                    sb.Append(':');
-                                    sb.Append(
-                                        new XLAddress(
-                                            worksheetInAction,
-                                            matchRange.RangeAddress.LastAddress.RowNumber,
-                                            XLHelper.TrimColumnNumber(matchRange.RangeAddress.LastAddress.ColumnNumber + columnsShifted),
-                                            matchRange.RangeAddress.LastAddress.FixedRow,
-                                            matchRange.RangeAddress.LastAddress.FixedColumn));
-                                }
-                            }
-                            else
-                                sb.Append(matchString);
-                        }
-                        else
-                            sb.Append(matchString);
-                    }
-                    else
-                        sb.Append(matchString);
-                }
-                else
-                    sb.Append(value.Substring(lastIndex, matchIndex - lastIndex + matchString.Length));
-                lastIndex = matchIndex + matchString.Length;
+                InvalidateFormula();
+                return;
             }
 
-            if (lastIndex < value.Length)
-                sb.Append(value.Substring(lastIndex));
-
-            return sb.ToString();
+            FormulaA1 = shiftedFormulaA1;
         }
 
         private XLCell CellShift(Int32 rowsToShift, Int32 columnsToShift)

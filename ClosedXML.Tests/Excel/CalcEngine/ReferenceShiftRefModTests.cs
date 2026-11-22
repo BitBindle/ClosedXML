@@ -188,4 +188,15 @@ public class ReferenceShiftRefModTests
 
         Assert.AreEqual(expected, result);
     }
+
+    [Test]
+    [Issue("75")]
+    public void Spill_of_a_deleted_reference_is_a_reference_error()
+    {
+        var deleted = new SheetArea("Sheet", new Area(5, 3, 5, 3));
+
+        var result = FormulaConverter.ModifyA1("SUM(C5#)+C6#", "Sheet", 1, 1, new ReferenceShiftOnDeleteRefModVisitor(deleted, XLShiftDeletedCells.ShiftCellsUp));
+
+        Assert.AreEqual("SUM(#REF!)+C5#", result);
+    }
 }
