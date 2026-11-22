@@ -1734,7 +1734,7 @@ namespace ClosedXML.Excel.IO
             if (drawingsPart.IsRootElementLoaded)
                 return drawingsPart.WorksheetDrawing.HasChildren;
 
-            // The reader does not load the DOM. The save writes each part with a loaded DOM again.
+            // Use a reader, because a loaded DOM makes the save write the part again.
             using var reader = OpenXmlReader.Create(drawingsPart);
             return reader.Read() && reader.ReadFirstChild();
         }

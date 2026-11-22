@@ -888,8 +888,8 @@ namespace ClosedXML.Excel
             else
                 HeadersRow().CopyTo(targetRange.FirstRow());
 
-            String tableName = Name;
-            var newTable = (XLTable)targetSheet.Table(targetRange, tableName, true);
+            // The name belongs to an existing table. A name from a file can break a rule of Excel.
+            var newTable = (XLTable)targetSheet.Table(targetRange, Name, addToTables: true, setAutofilter: true, checkExcelNameRules: false);
 
             newTable.RelId = null;
             newTable.EmphasizeFirstColumn = EmphasizeFirstColumn;

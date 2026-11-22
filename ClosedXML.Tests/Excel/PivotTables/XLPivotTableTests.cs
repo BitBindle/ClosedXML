@@ -277,6 +277,27 @@ namespace ClosedXML.Tests
             }
         }
 
+        [Test]
+        public void Copy_keeps_custom_style_only_in_same_workbook()
+        {
+            // Another workbook does not have the custom pivot styles of the source workbook.
+            using var stream = TestHelper.GetStreamFromResource(TestHelper.GetResourcePath(@"Examples\PivotTables\PivotTables.xlsx"));
+            using var wb = new XLWorkbook(stream);
+            var pt = (XLPivotTable)wb.Worksheet("pvt1").PivotTables.First();
+            pt.CustomStyleName = "MyPivotStyle";
+            pt.ShowLastColumn = true;
+
+            var sameWorkbookCopy = (XLPivotTable)pt.CopyTo(wb.AddWorksheet("Copy").FirstCell());
+            Assert.AreEqual("MyPivotStyle", sameWorkbookCopy.CustomStyleName);
+            Assert.IsTrue(sameWorkbookCopy.ShowLastColumn);
+
+            using var otherWorkbook = new XLWorkbook();
+            wb.Worksheet("PastrySalesData").CopyTo(otherWorkbook);
+            var otherWorkbookCopy = (XLPivotTable)pt.CopyTo(otherWorkbook.AddWorksheet("pvt").FirstCell());
+            Assert.IsNull(otherWorkbookCopy.CustomStyleName);
+            Assert.IsTrue(otherWorkbookCopy.ShowLastColumn);
+        }
+
         private void AssertPivotTablesAreEqual(XLPivotTable original, XLPivotTable copy, Boolean compareName)
         {
             Assert.AreEqual(compareName, original.Name.Equals(copy.Name));

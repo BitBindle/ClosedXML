@@ -107,7 +107,39 @@ namespace ClosedXML.Tests.Excel.Tables
         public void Load_keeps_table_name_with_a_space()
         {
             // Excel does not write such a name, but other producers can. The load must not fail.
-            using var ms = new MemoryStream();
+            using var ms = CreateFileWithTableName("My sales");
+            using var loaded = new XLWorkbook(ms);
+            Assert.AreEqual("My sales", loaded.Worksheets.Single().Tables.Single().Name);
+        }
+
+        [Test]
+        public void Copy_keeps_table_name_from_file()
+        {
+            // The copy takes the name of an existing table. The name rules apply only to a new name.
+            using var ms = CreateFileWithTableName("My sales");
+            using var wb = new XLWorkbook(ms);
+            var source = wb.Worksheets.Single();
+            var table = source.Tables.Single();
+
+            var tableCopy = table.CopyTo(wb.AddWorksheet("Table copy"));
+            var sheetCopy = source.CopyTo("Sheet copy");
+            using var otherWorkbook = new XLWorkbook();
+            var otherSheet = source.CopyTo(otherWorkbook);
+            using var addWorkbook = new XLWorkbook();
+            addWorkbook.AddWorksheet(source);
+
+            Assert.AreEqual("My sales", tableCopy.Name);
+            Assert.AreEqual("My sales", sheetCopy.Tables.Single().Name);
+            Assert.AreEqual("My sales", otherSheet.Tables.Single().Name);
+            Assert.AreEqual("My sales", addWorkbook.Worksheets.Single().Tables.Single().Name);
+        }
+
+        /// <summary>
+        /// Create a file with one table that has the name <paramref name="tableName"/>, without the name rules of Excel.
+        /// </summary>
+        private static MemoryStream CreateFileWithTableName(string tableName)
+        {
+            var ms = new MemoryStream();
             using (var wb = new XLWorkbook())
             {
                 CreateTable(wb.AddWorksheet()).Name = "Sales";
@@ -117,14 +149,13 @@ namespace ClosedXML.Tests.Excel.Tables
             using (var package = SpreadsheetDocument.Open(ms, true))
             {
                 var table = package.WorkbookPart!.WorksheetParts.Single().TableDefinitionParts.Single().Table;
-                table.Name = "My sales";
-                table.DisplayName = "My sales";
+                table.Name = tableName;
+                table.DisplayName = tableName;
                 table.Save();
             }
 
             ms.Position = 0;
-            using var loaded = new XLWorkbook(ms);
-            Assert.AreEqual("My sales", loaded.Worksheets.Single().Tables.Single().Name);
+            return ms;
         }
 
         private static IXLTable CreateTable(IXLWorksheet ws)

@@ -233,7 +233,13 @@ namespace ClosedXML.Excel
             newPivotTable.ShowColumnHeaders = ShowColumnHeaders;
             newPivotTable.ShowRowStripes = ShowRowStripes;
             newPivotTable.ShowColumnStripes = ShowColumnStripes;
+            newPivotTable.ShowLastColumn = ShowLastColumn;
             newPivotTable.Theme = Theme;
+
+            // Another workbook does not have the custom styles of this workbook.
+            if (targetSheet.Workbook == Worksheet.Workbook)
+                newPivotTable.CustomStyleName = CustomStyleName;
+
             // TODO: Copy Styleformats
 
             return newPivotTable;
