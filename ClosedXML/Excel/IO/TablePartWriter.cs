@@ -179,7 +179,9 @@ namespace ClosedXML.Excel.IO
 
         private static string GetTableName(String originalTableName, SaveContext context)
         {
-            var tableName = originalTableName.RemoveSpecialCharacters();
+            // The name rules of the setter make each new name valid. A name from a file stays as it is,
+            // because the formulas and the pivot sources of the file use that name.
+            var tableName = originalTableName;
             var name = tableName;
             if (context.TableNames.Contains(name))
             {

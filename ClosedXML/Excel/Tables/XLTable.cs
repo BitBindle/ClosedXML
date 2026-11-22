@@ -246,6 +246,13 @@ namespace ClosedXML.Excel
                 return false;
             }
 
+            // Excel accepts only letters, digits, periods and underscores after the first character.
+            if (name.Skip(1).Any(static c => !Char.IsLetterOrDigit(c) && c != '.' && c != '_'))
+            {
+                message = $"The table name '{name}' contains a character that is not a letter, a digit, a period or an underscore.";
+                return false;
+            }
+
             if (XLHelper.IsValidA1Address(name) || XLHelper.IsValidRCAddress(name))
             {
                 message = $"The table name '{name}' is a cell reference.";
