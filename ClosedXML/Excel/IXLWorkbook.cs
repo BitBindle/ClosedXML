@@ -298,10 +298,26 @@ namespace ClosedXML.Excel
         /// Saves the current workbook to a stream.
         /// </summary>
         /// <remarks>
-        /// The package code must read and seek the stream. If the <paramref name="stream"/> cannot do one
-        /// of these operations (read, seek or write), for example the response body of a web server, the
-        /// method makes the package in memory and then copies it to the <paramref name="stream"/>. Such a stream does not become the
-        /// source of the workbook, because a later save cannot read it.
+        /// <para>
+        /// The method makes the package in memory and then copies it to the <paramref name="stream"/>.
+        /// The workbook keeps the package in memory as its source, because the next save must start
+        /// from the last saved package. The workbook does not read from the
+        /// <paramref name="stream"/>. You can dispose the <paramref name="stream"/> after the save.
+        /// One case is different: if the workbook was loaded from the <paramref name="stream"/>, the
+        /// method changes the package in the <paramref name="stream"/>.
+        /// </para>
+        /// <para>
+        /// If the <paramref name="stream"/> can read, seek and write, a later <see cref="Save()"/>
+        /// writes the full workbook to the <paramref name="stream"/> again. A stream that cannot do
+        /// one of these operations, for example the response body of a web server, does not change
+        /// the target of <see cref="Save()"/>.
+        /// </para>
+        /// <para>
+        /// A save to the same <paramref name="stream"/> again starts at position 0 and removes all
+        /// data in the <paramref name="stream"/>. If you dispose the <paramref name="stream"/>, a later
+        /// <see cref="Save()"/> throws <see cref="ObjectDisposedException"/>. Then use one of the
+        /// <c>SaveAs</c> methods.
+        /// </para>
         /// </remarks>
         void SaveAs(Stream stream, SaveOptions options);
 

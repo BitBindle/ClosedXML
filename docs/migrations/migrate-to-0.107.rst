@@ -19,9 +19,25 @@ a stream that cannot read or seek, for example the response body of a web server
 ``OpenXmlPackageException``. The method makes the package in memory and then copies it to the
 stream. A new workbook already did this.
 
-A stream that cannot do one of these operations (read, seek or write) does not become the source
-of the workbook. A later ``Save()`` or ``SaveAs(Stream)`` uses the source from before. Before, the
-stream became the source, and a later save threw an exception.
+``SaveAs(Stream)`` now makes the package in memory and then copies it to the stream. The workbook
+keeps the package in memory as its source, because the next save must start from the last saved
+package. The workbook does not read from the stream. You can dispose the stream after the save.
+Before, the stream became the source, and a save after the dispose threw
+``ObjectDisposedException``. The copy in memory uses memory that is the size of the saved file.
+
+If the stream can read, seek and write, a later ``Save()`` writes the full workbook to the stream
+again. This was also the behavior before. A stream that cannot do one of these operations does not
+change the target of ``Save()``. A later ``Save()`` writes to the file or the stream from before.
+A save to the same stream again starts at position 0 and removes all data in the stream. If you
+dispose the stream, a later ``Save()`` throws ``ObjectDisposedException``. Then use one of the
+``SaveAs`` methods.
+
+``SaveAs(String)`` of a workbook that you loaded from a stream now gets the document type from the
+file extension. A workbook that you loaded from a file already did this. Before, the save kept the
+document type of the stream.
+
+A workbook that you loaded from a stream changes the package in that stream on ``SaveAs`` to the
+same stream. This was also the behavior before.
 
 **********************************
 Load and save a stream with async

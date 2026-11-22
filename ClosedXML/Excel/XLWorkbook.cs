@@ -520,18 +520,28 @@ namespace ClosedXML.Excel
         {
             ThrowIfDisposed();
             checkForWorksheetsPresent();
-            if (_loadSource == XLLoadSource.New)
-                throw new InvalidOperationException("This is a new file. Please use one of the 'SaveAs' methods.");
-
-            if (_loadSource == XLLoadSource.Stream)
+            if (_saveFile is not null)
             {
-                if (_originalStreamIsCopy)
-                    throw new InvalidOperationException("The source of the workbook is a copy of a stream that cannot seek. Please use one of the 'SaveAs' methods.");
-
-                CreatePackage(OriginalStream, false, _spreadsheetDocumentType, options);
+                if (_loadSource == XLLoadSource.File && _originalFile == _saveFile)
+                    CreatePackage(_saveFile, _spreadsheetDocumentType, options);
+                else
+                    SaveAs(_saveFile, options);
+            }
+            else if (_saveStream is not null)
+            {
+                if (_loadSource == XLLoadSource.Stream && _originalStream == _saveStream)
+                    CreatePackage(_saveStream, false, _spreadsheetDocumentType, options);
+                else
+                    SaveAs(_saveStream, options);
+            }
+            else if (_loadSource == XLLoadSource.New)
+            {
+                throw new InvalidOperationException("This is a new file. Please use one of the 'SaveAs' methods.");
             }
             else
-                CreatePackage(OriginalFile, _spreadsheetDocumentType, options);
+            {
+                throw new InvalidOperationException("The workbook has no file or stream that a save can write to. Please use one of the 'SaveAs' methods.");
+            }
         }
 
         /// <summary>
@@ -597,16 +607,18 @@ namespace ClosedXML.Excel
                 OriginalStream.Position = 0;
 
                 using (var fileStream = File.Create(file))
-                {
                     OriginalStream.CopyTo(fileStream);
-                    CreatePackage(fileStream, false, _spreadsheetDocumentType, options);
-                }
+
+                // The extension of the file sets the document type, for example a macro-enabled workbook.
+                CreatePackage(file, GetSpreadsheetDocumentType(file), options);
             }
 
+            ReleaseSourceCopy();
             _loadSource = XLLoadSource.File;
             _originalFile = file;
             _originalStream = null;
-            _originalStreamIsCopy = false;
+            _saveFile = file;
+            _saveStream = null;
         }
 
         private static SpreadsheetDocumentType GetSpreadsheetDocumentType(string filePath)
@@ -669,21 +681,26 @@ namespace ClosedXML.Excel
         {
             ThrowIfDisposed();
             checkForWorksheetsPresent();
-            if (stream.CanRead && stream.CanSeek && stream.CanWrite)
+            if (_loadSource == XLLoadSource.Stream && stream == _originalStream && !_originalStreamIsCopy)
             {
+                // The stream is the source of the workbook. The save changes the package in the stream.
                 SavePackage(stream, options);
+                return;
+            }
 
-                _loadSource = XLLoadSource.Stream;
-                _originalStream = stream;
-                _originalStreamIsCopy = false;
-                _originalFile = null;
-            }
-            else
+            var package = SaveToMemory(options);
+            UseAsSource(package);
+            if (stream == _saveStream)
             {
-                using var ms = SaveToMemory(options);
-                ms.CopyTo(stream);
-                stream.Flush();
+                // A save to the same stream replaces the workbook from the last save.
+                stream.Position = 0;
+                stream.SetLength(0);
             }
+
+            package.CopyTo(stream);
+            RemoveDataAfterPackage(stream);
+            stream.Flush();
+            SetSaveStream(stream);
         }
 
         /// <summary>
@@ -697,8 +714,7 @@ namespace ClosedXML.Excel
         /// <para>
         /// If the <paramref name="stream"/> can read, seek and write, the method calls
         /// <see cref="SaveAs(Stream, SaveOptions)"/>. Then the method writes to the
-        /// <paramref name="stream"/> synchronously. The <paramref name="stream"/> becomes the source
-        /// of the workbook.
+        /// <paramref name="stream"/> synchronously.
         /// </para>
         /// <para>
         /// A stream can fail to do one of these operations. An example is the response body of a web
@@ -726,9 +742,60 @@ namespace ClosedXML.Excel
             }
 
             checkForWorksheetsPresent();
-            using var ms = SaveToMemory(options);
-            await ms.CopyToAsync(stream, cancellationToken).ConfigureAwait(false);
+            var package = SaveToMemory(options);
+            UseAsSource(package);
+            await package.CopyToAsync(stream, cancellationToken).ConfigureAwait(false);
+            RemoveDataAfterPackage(stream);
             await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            SetSaveStream(stream);
+        }
+
+        /// <summary>
+        /// Use the saved <paramref name="package"/> as the source of the workbook. The model of the
+        /// workbook keeps the relationship IDs of the last saved package. For this reason, the next
+        /// save must start from that package. The workbook does not read from the stream of the
+        /// caller, because the caller owns it and can dispose it.
+        /// </summary>
+        private void UseAsSource(MemoryStream package)
+        {
+            ReleaseSourceCopy();
+            _loadSource = XLLoadSource.Stream;
+            _originalStream = package;
+            _originalStreamIsCopy = true;
+            _originalFile = null;
+        }
+
+        /// <summary>
+        /// Make <paramref name="stream"/> the target of <see cref="Save(SaveOptions)"/>. A stream that
+        /// cannot read, seek or write does not change the target.
+        /// </summary>
+        private void SetSaveStream(Stream stream)
+        {
+            if (stream.CanRead && stream.CanSeek && stream.CanWrite)
+            {
+                _saveStream = stream;
+                _saveFile = null;
+            }
+        }
+
+        /// <summary>
+        /// Remove the data of the stream after the package, for example from an earlier save.
+        /// Otherwise the stream does not hold a valid package.
+        /// </summary>
+        private static void RemoveDataAfterPackage(Stream stream)
+        {
+            // Stream has no asynchronous SetLength. For this reason, SaveAsAsync also uses this
+            // synchronous call. A stream that cannot seek, for example a response body, skips it.
+            if (stream.CanSeek && stream.Length > stream.Position)
+                stream.SetLength(stream.Position);
+        }
+
+        private void ReleaseSourceCopy()
+        {
+            if (_originalStreamIsCopy)
+                _originalStream?.Dispose();
+
+            _originalStreamIsCopy = false;
         }
 
         /// <summary>
@@ -903,10 +970,22 @@ namespace ClosedXML.Excel
         private Stream? _originalStream;
 
         /// <summary>
-        /// True when <see cref="_originalStream"/> is a memory copy of a stream that cannot seek.
-        /// <see cref="Save(SaveOptions)"/> cannot write back to such a stream.
+        /// True when <see cref="_originalStream"/> is a copy in memory that only the workbook uses.
+        /// The copy is of a stream that cannot seek, or of the package from the last save to a stream.
         /// </summary>
         private Boolean _originalStreamIsCopy;
+
+        /// <summary>
+        /// The file that <see cref="Save(SaveOptions)"/> writes to. It is null when
+        /// <see cref="Save(SaveOptions)"/> writes to a stream or cannot save.
+        /// </summary>
+        private String? _saveFile;
+
+        /// <summary>
+        /// The stream that <see cref="Save(SaveOptions)"/> writes to. It is the loaded stream, or the
+        /// stream of the last <see cref="SaveAs(Stream, SaveOptions)"/> that can read, seek and write.
+        /// </summary>
+        private Stream? _saveStream;
 
         private XLWorkbookProtection _workbookProtection;
 
@@ -947,6 +1026,7 @@ namespace ClosedXML.Excel
         {
             _loadSource = XLLoadSource.File;
             _originalFile = file;
+            _saveFile = file;
             _spreadsheetDocumentType = GetSpreadsheetDocumentType(file);
             Styles = new XLWorkbookStyles();
             Load(file);
@@ -969,6 +1049,7 @@ namespace ClosedXML.Excel
         {
             _loadSource = XLLoadSource.Stream;
             _originalStream = stream;
+            _saveStream = stream;
             Styles = new XLWorkbookStyles();
             Load(stream);
 
@@ -1017,7 +1098,8 @@ namespace ClosedXML.Excel
             ms.Position = 0;
             return new XLWorkbook(ms, loadOptions)
             {
-                _originalStreamIsCopy = true
+                _originalStreamIsCopy = true,
+                _saveStream = null
             };
         }
 
@@ -1136,6 +1218,7 @@ namespace ClosedXML.Excel
             foreach (var worksheet in WorksheetsInternal)
                 worksheet.Cleanup();
 
+            ReleaseSourceCopy();
             _disposed = true;
         }
 

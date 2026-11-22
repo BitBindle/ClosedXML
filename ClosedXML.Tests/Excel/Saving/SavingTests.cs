@@ -1007,7 +1007,7 @@ namespace ClosedXML.Tests.Excel.Saving
 
         [Test]
         [Issue("71")]
-        public void Save_to_a_write_only_stream_keeps_the_source_of_the_workbook()
+        public void Save_to_a_write_only_stream_keeps_the_target_of_save()
         {
             using var source = new MemoryStream();
             using (var original = new XLWorkbook())
@@ -1028,6 +1028,221 @@ namespace ClosedXML.Tests.Excel.Saving
             wb.Save();
             using var saved = new XLWorkbook(source);
             Assert.AreEqual("second", saved.Worksheet("Sheet1").Cell("A1").GetText());
+        }
+
+        [Test]
+        [Issue("86")]
+        public void Dispose_of_the_stream_after_a_save_does_not_stop_the_next_save()
+        {
+            using var wb = new XLWorkbook();
+            wb.AddWorksheet("Sheet1").Cell("A1").Value = "first";
+            using (var first = new MemoryStream())
+                wb.SaveAs(first);
+
+            wb.Worksheet("Sheet1").Cell("A1").Value = "second";
+            using var second = new MemoryStream();
+            wb.SaveAs(second);
+
+            AssertA1(second, "second");
+        }
+
+        [Test]
+        [Issue("86")]
+        public void Save_after_a_save_to_a_stream_writes_the_full_workbook_to_the_stream()
+        {
+            using var wb = new XLWorkbook();
+            wb.AddWorksheet("Sheet1").Cell("A1").Value = "first";
+            using var target = new MemoryStream();
+            wb.SaveAs(target);
+
+            wb.Worksheet("Sheet1").Cell("A1").Value = "second";
+            wb.Save();
+
+            AssertA1(target, "second");
+        }
+
+        [Test]
+        [Issue("86")]
+        public void Save_to_the_same_stream_two_times_replaces_the_workbook()
+        {
+            using var wb = new XLWorkbook();
+            wb.AddWorksheet("Sheet1").Cell("A1").Value = "first";
+            using var target = new MemoryStream();
+            wb.SaveAs(target);
+
+            wb.Worksheet("Sheet1").Cell("A1").Value = "second";
+            wb.SaveAs(target);
+
+            AssertA1(target, "second");
+        }
+
+        [Test]
+        [Issue("86")]
+        public void Save_to_a_stream_does_not_change_the_loaded_file()
+        {
+            using var file = new TemporaryFile();
+            using (var original = new XLWorkbook())
+            {
+                original.AddWorksheet("Sheet1").Cell("A1").Value = "old";
+                original.SaveAs(file.Path);
+            }
+
+            using var wb = new XLWorkbook(file.Path);
+            wb.Worksheet("Sheet1").Cell("A1").Value = "new";
+            using (var target = new MemoryStream())
+                wb.SaveAs(target);
+
+            using var saved = new XLWorkbook(file.Path);
+            Assert.AreEqual("old", saved.Worksheet("Sheet1").Cell("A1").GetText());
+        }
+
+        [Test]
+        [Issue("86")]
+        public void Save_to_the_loaded_stream_changes_the_loaded_stream()
+        {
+            using var source = new MemoryStream();
+            using (var original = new XLWorkbook())
+            {
+                original.AddWorksheet("Sheet1").Cell("A1").Value = "old";
+                original.SaveAs(source);
+            }
+
+            using var wb = new XLWorkbook(source);
+            wb.Worksheet("Sheet1").Cell("A1").Value = "new";
+            wb.SaveAs(source);
+            wb.Worksheet("Sheet1").Cell("A1").Value = "newer";
+            wb.Save();
+
+            AssertA1(source, "newer");
+        }
+
+        [Test]
+        [Issue("100")]
+        public void Save_after_a_save_of_a_new_pivot_table_to_a_write_only_stream_writes_the_workbook()
+        {
+            using var wb = new XLWorkbook();
+            AddPivotTable(wb);
+            wb.SaveAs(new WriteOnlyStream());
+
+            var target = new WriteOnlyStream();
+            wb.SaveAs(target);
+
+            using var written = target.GetWrittenBytes();
+            using var saved = new XLWorkbook(written);
+            Assert.AreEqual(1, saved.Worksheet("Pivot").PivotTables.Count());
+        }
+
+        [Test]
+        [Issue("100")]
+        public void Save_after_a_save_to_a_write_only_stream_writes_to_the_loaded_file()
+        {
+            using var file = new TemporaryFile();
+            using (var original = new XLWorkbook())
+            {
+                original.AddWorksheet("Data");
+                original.SaveAs(file.Path);
+            }
+
+            using (var wb = new XLWorkbook(file.Path))
+            {
+                AddPivotTable(wb);
+                wb.SaveAs(new WriteOnlyStream());
+                wb.Save();
+                wb.Save();
+            }
+
+            using var saved = new XLWorkbook(file.Path);
+            Assert.AreEqual(1, saved.Worksheet("Pivot").PivotTables.Count());
+        }
+
+        [Test]
+        [Issue("100")]
+        public async Task Save_after_an_async_save_to_a_write_only_stream_writes_to_the_loaded_stream()
+        {
+            using var source = new MemoryStream();
+            using (var original = new XLWorkbook())
+            {
+                original.AddWorksheet("Data");
+                original.SaveAs(source);
+            }
+
+            using (var wb = new XLWorkbook(source))
+            {
+                AddPivotTable(wb);
+                await wb.SaveAsAsync(new WriteOnlyStream { AllowSynchronousIO = false });
+                wb.Save();
+            }
+
+            using var saved = new XLWorkbook(source);
+            Assert.AreEqual(1, saved.Worksheet("Pivot").PivotTables.Count());
+        }
+
+        [TestCase(".xlsm", SpreadsheetDocumentType.MacroEnabledWorkbook)]
+        [TestCase(".xltx", SpreadsheetDocumentType.Template)]
+        [Issue("100")]
+        public void Save_to_a_file_after_a_save_to_a_stream_uses_the_document_type_of_the_extension(string extension, SpreadsheetDocumentType expected)
+        {
+            using var file = new TemporaryFile(Path.Combine(Path.GetTempPath(), Guid.NewGuid() + extension));
+            using (var wb = new XLWorkbook())
+            {
+                wb.AddWorksheet("Sheet1");
+                wb.SaveAs(new WriteOnlyStream());
+                wb.SaveAs(file.Path);
+            }
+
+            using var document = SpreadsheetDocument.Open(file.Path, false);
+            Assert.AreEqual(expected, document.DocumentType);
+        }
+
+        [Test]
+        [Issue("86")]
+        public void Save_to_a_stream_with_longer_data_removes_the_old_data()
+        {
+            using var wb = new XLWorkbook();
+            wb.AddWorksheet("Sheet1").Cell("A1").Value = "new";
+            using var target = new MemoryStream();
+            target.Write(new byte[1_000_000]);
+            target.Position = 0;
+
+            wb.SaveAs(target);
+
+            Assert.AreEqual(target.Position, target.Length);
+            AssertA1(target, "new");
+        }
+
+        [Test]
+        [Issue("100")]
+        public void Save_of_a_new_workbook_after_a_save_to_a_write_only_stream_throws()
+        {
+            using var wb = new XLWorkbook();
+            wb.AddWorksheet("Sheet1");
+            wb.SaveAs(new WriteOnlyStream());
+
+            Assert.Throws<InvalidOperationException>(() => wb.Save());
+        }
+
+        private static void AddPivotTable(XLWorkbook wb)
+        {
+            var data = wb.Worksheets.TryGetWorksheet("Data", out var existing) ? existing : wb.AddWorksheet("Data");
+            data.Cell("A1").Value = "Name";
+            data.Cell("B1").Value = "Quantity";
+            data.Cell("A2").Value = "a";
+            data.Cell("B2").Value = 1;
+            data.Cell("A3").Value = "b";
+            data.Cell("B3").Value = 2;
+            var table = data.Range("A1:B3").CreateTable("Sales");
+
+            var pivotSheet = wb.AddWorksheet("Pivot");
+            var pivotTable = pivotSheet.PivotTables.Add("PivotTable", pivotSheet.Cell("A1"), table);
+            pivotTable.RowLabels.Add("Name");
+            pivotTable.Values.Add("Quantity");
+        }
+
+        private static void AssertA1(MemoryStream target, string expected)
+        {
+            target.Position = 0;
+            using var wb = new XLWorkbook(target);
+            Assert.AreEqual(expected, wb.Worksheet("Sheet1").Cell("A1").GetText());
         }
 
         private static void AssertA1(WriteOnlyStream target, string expected)
