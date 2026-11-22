@@ -284,7 +284,7 @@ namespace ClosedXML.Tests.Excel.Comments
         [Test]
         [SetCulture("tr-TR")]
         [Issue("77")]
-        public void Comment_is_saved_with_invariant_alignment_names()
+        public void Comment_alignment_round_trip_ignores_the_culture()
         {
             using var ms = new MemoryStream();
             using (var wb = new XLWorkbook())
@@ -297,6 +297,21 @@ namespace ClosedXML.Tests.Excel.Comments
 
             using var loaded = new XLWorkbook(ms);
             Assert.AreEqual(XLDrawingHorizontalAlignment.Justify, loaded.Worksheets.Single().Cell("A1").GetComment().Style.Alignment.Horizontal);
+        }
+
+        [Test]
+        [Issue("77")]
+        public void Comment_inset_ignores_lengths_after_the_fourth()
+        {
+            using var ms = SaveCommentWithEditedShape(shape =>
+                shape.Descendants().Single(e => e.Name.LocalName == "textbox").SetAttributeValue("inset", "1in,2in,3in,4in,5in"));
+
+            using var wb = new XLWorkbook(ms);
+            var margins = wb.Worksheets.Single().Cell("A1").GetComment().Style.Margins;
+            Assert.AreEqual(1, margins.Left);
+            Assert.AreEqual(2, margins.Top);
+            Assert.AreEqual(3, margins.Right);
+            Assert.AreEqual(4, margins.Bottom);
         }
 
         [TestCase("1,2,3")]

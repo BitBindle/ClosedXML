@@ -401,11 +401,11 @@ namespace ClosedXML.Excel
                         var commentReference = c.Reference?.Value ?? throw PartStructureException.MissingAttribute("ref");
                         var cell = ws.Cell(commentReference) ?? throw PartStructureException.InvalidAttributeFormat("ref", commentReference);
 
-                        var shapeIdString = shape?.Attribute("id")?.Value;
-                        if (shapeIdString?.StartsWith("_x0000_s") ?? false)
-                            shapeIdString = shapeIdString.Substring(8);
+                        var shapeIdText = (shape?.Attribute("id")?.Value).AsSpan();
+                        if (shapeIdText.StartsWith("_x0000_s", StringComparison.Ordinal))
+                            shapeIdText = shapeIdText[8..];
 
-                        int? shapeId = int.TryParse(shapeIdString, out int sid) ? (int?)sid : null;
+                        int? shapeId = int.TryParse(shapeIdText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var sid) ? sid : null;
                         var xlComment = cell.CreateComment(shapeId);
 
                         var authorId = c.AuthorId?.Value ?? throw PartStructureException.MissingAttribute("authorId");
@@ -737,8 +737,8 @@ namespace ClosedXML.Excel
             {
                 var span = opacity.AsSpan();
                 return span.EndsWith('f')
-                    ? double.Parse(span[..^1], NumberStyles.Float, CultureInfo.InvariantCulture) / 65536.0
-                    : double.Parse(span, NumberStyles.Float, CultureInfo.InvariantCulture);
+                    ? double.Parse(span[..^1], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture) / 65536.0
+                    : double.Parse(span, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
             }
         }
 
@@ -754,7 +754,8 @@ namespace ClosedXML.Excel
         private void LoadTextBoxInset<T>(IXLDrawing<T> xlDrawing, XAttribute attInset)
         {
             var inset = attInset.Value.AsSpan();
-            Span<Range> split = stackalloc Range[4];
+            // The fifth range takes all the text after the fourth value.
+            Span<Range> split = stackalloc Range[5];
             if (inset.Split(split, ',') < 4)
                 throw PartStructureException.InvalidAttributeFormat("inset", attInset.Value);
 
