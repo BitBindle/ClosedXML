@@ -204,9 +204,10 @@ namespace ClosedXML.Excel
         /// </summary>
         /// <param name="value">The new name.</param>
         /// <param name="checkExcelRules">
-        /// If true, the method also applies the rules of Excel: no whitespace, only letters, digits,
-        /// periods and underscores after the first character, not a cell reference and not the name
-        /// of a defined name. The load gives false, because other producers can write such names.
+        /// If true, the method also applies the name rules of Excel. The name has no whitespace. After
+        /// the first character, the name has only letters, digits, periods and underscores. The name is
+        /// not a cell reference and not the name of a defined name. The load gives false, because other
+        /// producers can write such names.
         /// </param>
         internal void SetName(String value, Boolean checkExcelRules)
         {

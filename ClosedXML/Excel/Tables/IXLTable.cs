@@ -19,9 +19,14 @@ namespace ClosedXML.Excel
         /// Change the name of a table. Structural references to the table are not updated.
         /// </summary>
         /// <exception cref="ArgumentException">
-        /// The new name is the name of another table in the sheet. Or the new name breaks a name rule of Excel:
-        /// it contains whitespace, it has a character other than a letter, a digit, a period or an underscore
-        /// after the first character, it is a cell reference, or it is the name of a defined name.
+        /// The new name breaks a name rule:
+        /// <list type="bullet">
+        /// <item>The name is the name of another table in the sheet.</item>
+        /// <item>The name contains whitespace.</item>
+        /// <item>After the first character, the name has a character that is not a letter, a digit, a period or an underscore.</item>
+        /// <item>The name is a cell reference.</item>
+        /// <item>The name is the name of a defined name.</item>
+        /// </list>
         /// </exception>
         string Name { get; set; }
         Boolean ShowAutoFilter { get; set; }
