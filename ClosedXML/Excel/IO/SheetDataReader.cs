@@ -6,6 +6,7 @@ using ClosedXML.Excel.Formatting;
 using ClosedXML.Extensions;
 using ClosedXML.IO;
 using ClosedXML.Parser;
+using ClosedXML.Utils;
 using DocumentFormat.OpenXml.Spreadsheet;
 using StringItem = ClosedXML.Excel.CalcEngine.OneOf<string, ClosedXML.Excel.XLImmutableRichText>;
 
@@ -334,7 +335,13 @@ internal partial class SheetDataReader
         if (dataType == CellValues.Number)
         {
             // XLCell is by default blank, so no need to set it.
-            if (double.TryParse(cellValue, XLHelper.NumberStyle, XLHelper.ParseCulture, out var number))
+#if NETSTANDARD2_1_OR_GREATER
+            var isNumber = double.TryParse(cellValue, XLHelper.NumberStyle, XLHelper.ParseCulture, out var number);
+#else
+            // The parser of .NET Framework can give a different double than .NET for the same text.
+            var isNumber = ExactNumberParser.TryParse(cellValue, out var number);
+#endif
+            if (isNumber)
             {
                 var numberDataType = format.NumberFormat.GetNumberDataType();
                 var cellNumber = numberDataType switch
