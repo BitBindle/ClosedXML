@@ -310,6 +310,136 @@ namespace ClosedXML.Tests.Excel
         }
 
         [Test]
+        [Issue("123")]
+        public void Header_format_is_loaded_when_column_name_differs_from_header_cell()
+        {
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                ws.Cell("A1").SetValue("_x0041_");
+                ws.Cell("A2").SetValue(1);
+                ws.Range("A1:A2").CreateTable();
+                wb.SaveAs(ms);
+            }
+
+            using (var document = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(ms, true))
+            {
+                var stylesheet = document.WorkbookPart!.WorkbookStylesPart!.Stylesheet;
+                stylesheet.DifferentialFormats ??= new DocumentFormat.OpenXml.Spreadsheet.DifferentialFormats();
+                var dxfId = (uint)stylesheet.DifferentialFormats.ChildElements.Count;
+                stylesheet.DifferentialFormats.AppendChild(new DocumentFormat.OpenXml.Spreadsheet.DifferentialFormat(
+                    new DocumentFormat.OpenXml.Spreadsheet.Font(new DocumentFormat.OpenXml.Spreadsheet.Bold())));
+                stylesheet.DifferentialFormats.Count = dxfId + 1;
+                stylesheet.Save();
+
+                var tablePart = document.WorkbookPart!.WorksheetParts.Single().TableDefinitionParts.Single();
+                var tableColumn = tablePart.Table.TableColumns!.Elements<DocumentFormat.OpenXml.Spreadsheet.TableColumn>().Single();
+                tableColumn.HeaderRowDifferentialFormattingId = dxfId;
+                tableColumn.Name = "_x0041_";
+            }
+
+            using var loaded = new XLWorkbook(ms);
+            var field = (XLTableField)loaded.Worksheet(1).Table(0).Field(0);
+            Assert.AreEqual("_x0041_", field.Name);
+            Assert.IsNotNull(field.HeaderFormatValue);
+
+            // The save writes the format of the header again.
+            using var saved = new MemoryStream();
+            loaded.SaveAs(saved);
+            using var savedDocument = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(saved, false);
+            var savedColumn = savedDocument.WorkbookPart!.WorksheetParts.Single().TableDefinitionParts.Single()
+                .Table.TableColumns!.Elements<DocumentFormat.OpenXml.Spreadsheet.TableColumn>().Single();
+            Assert.IsNotNull(savedColumn.HeaderRowDifferentialFormattingId);
+        }
+
+        [Test]
+        [Issue("123")]
+        public void Load_accepts_table_part_with_more_columns_than_the_range()
+        {
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                ws.Cell("A1").SetValue("Name");
+                ws.Cell("A2").SetValue(1);
+                ws.Range("A1:A2").CreateTable();
+                wb.SaveAs(ms);
+            }
+
+            using (var document = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(ms, true))
+            {
+                var tablePart = document.WorkbookPart!.WorksheetParts.Single().TableDefinitionParts.Single();
+                var tableColumns = tablePart.Table.TableColumns!;
+                tableColumns.AppendChild(new DocumentFormat.OpenXml.Spreadsheet.TableColumn { Id = 2, Name = "Extra" });
+                tableColumns.Count = 2;
+            }
+
+            using var loaded = new XLWorkbook(ms);
+            Assert.AreEqual("Name", loaded.Worksheet(1).Table(0).Field(0).Name);
+        }
+
+        [Test]
+        [Issue("123")]
+        public void Load_accepts_table_with_same_text_in_two_header_cells()
+        {
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                ws.Cell("A1").SetValue("Name");
+                ws.Cell("B1").SetValue("Other");
+                ws.Range("A1:B2").CreateTable();
+                wb.SaveAs(ms);
+            }
+
+            using (var document = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(ms, true))
+            {
+                var worksheet = document.WorkbookPart!.WorksheetParts.Single().Worksheet;
+                var cell = worksheet.Descendants<DocumentFormat.OpenXml.Spreadsheet.Cell>().Single(c => c.CellReference == "B1");
+                cell.DataType = DocumentFormat.OpenXml.Spreadsheet.CellValues.InlineString;
+                cell.CellValue = null;
+                cell.InlineString = new DocumentFormat.OpenXml.Spreadsheet.InlineString(new DocumentFormat.OpenXml.Spreadsheet.Text("Name"));
+                worksheet.Save();
+            }
+
+            using var loaded = new XLWorkbook(ms);
+            var ws2 = loaded.Worksheet(1);
+            Assert.AreEqual(1, ws2.Tables.Count());
+            Assert.AreEqual("Name", ws2.Cell("B1").GetText());
+        }
+
+        [Test]
+        [Issue("123")]
+        public void Table_column_names_that_decode_to_the_same_name_are_kept()
+        {
+            // An earlier version wrote the text "_x0041_" in a column name without an escape.
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                ws.Cell("A1").SetValue("_x0041_");
+                ws.Cell("B1").SetValue("A");
+                var table = ws.Range("A1:B2").CreateTable();
+                table.ShowHeaderRow = false;
+                wb.SaveAs(ms);
+            }
+
+            using (var document = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(ms, true))
+            {
+                var tablePart = document.WorkbookPart!.WorksheetParts.Single().TableDefinitionParts.Single();
+                var tableColumns = tablePart.Table.TableColumns!.Elements<DocumentFormat.OpenXml.Spreadsheet.TableColumn>().ToList();
+                tableColumns[0].Name = "_x0041_";
+                tableColumns[1].Name = "A";
+            }
+
+            using var loaded = new XLWorkbook(ms);
+            var table2 = loaded.Worksheet(1).Table(0);
+            Assert.AreEqual("_x0041_", table2.Field(0).Name);
+            Assert.AreEqual("A", table2.Field(1).Name);
+        }
+
+        [Test]
         public void TableCreatedFromEmptyDataTable()
         {
             var dt = new DataTable("sheet1");

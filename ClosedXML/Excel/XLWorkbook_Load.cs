@@ -290,11 +290,10 @@ namespace ClosedXML.Excel
                     xlTable.RelId = relId;
 
                     // Add columns to the table
-                    foreach (TableColumn tableColumn in tableColumns)
-                    {
-                        var fieldName = GetTableColumnName(tableColumn.Name?.Value ?? throw PartStructureException.MissingAttribute("name"));
-                        xlTable.AddField(fieldName);
-                    }
+                    var hasHeaderRow = dTable.HeaderRowCount is null || dTable.HeaderRowCount.Value != 0;
+                    var xlFields = GetTableColumnNames(tableColumns, xlTable, hasHeaderRow)
+                        .Select(xlTable.AddField)
+                        .ToList();
 
                     if (dTable.HeaderRowCount != null && dTable.HeaderRowCount == 0)
                     {
@@ -305,9 +304,9 @@ namespace ClosedXML.Excel
                         xlTable.InitializeAutoFilter();
                     }
 
-                    // The load finds each field by its position. With a header row, the field names come
-                    // from the header cells, and the name in the table part can be different.
-                    var fieldsAndColumns = xlTable.Fields.Zip(tableColumns.Cast<TableColumn>()).ToList();
+                    // The load finds each field by its position, because the name of a field can be
+                    // different from the name in the table part.
+                    var fieldsAndColumns = xlFields.Zip(tableColumns.Cast<TableColumn>()).ToList();
                     foreach (var (xlField, tableColumn) in fieldsAndColumns)
                     {
                         if (tableColumn.HeaderRowDifferentialFormattingId is { } headerDxfId)
@@ -657,9 +656,36 @@ namespace ClosedXML.Excel
 
         #endregion Comment Helpers
 
-        private static String GetTableColumnName(string name)
+        /// <summary>
+        /// Gets the names of the table fields, in the order of the table columns.
+        /// </summary>
+        /// <remarks>
+        /// With a header row, a field gets the name of its header cell, as the table does when it
+        /// reads the header row. The field then keeps the formats and the totals row function that
+        /// the load sets. If the names are not unique, the load uses the names from the table part.
+        /// </remarks>
+        private static List<String> GetTableColumnNames(TableColumns tableColumns, XLTable xlTable, bool hasHeaderRow)
         {
-            return XStringConvert.Decode(name);
+            var fileNames = tableColumns.Cast<TableColumn>()
+                .Select(c => c.Name?.Value ?? throw PartStructureException.MissingAttribute("name"))
+                .ToList();
+
+            // An earlier version wrote text such as _x0041_ in a name without an escape. If the
+            // decoded names are not unique, the load keeps the names from the file.
+            var decodedNames = fileNames.Select(name => XStringConvert.Decode(name)).ToList();
+            var names = AreUniqueFieldNames(decodedNames) ? decodedNames : fileNames;
+            if (!hasHeaderRow)
+                return names;
+
+            var headerNames = names
+                .Select((name, position) => xlTable.GetHeaderCellName(position) is { Length: > 0 } headerName ? headerName : name)
+                .ToList();
+            return AreUniqueFieldNames(headerNames) ? headerNames : names;
+        }
+
+        private static bool AreUniqueFieldNames(List<String> names)
+        {
+            return names.Distinct(StringComparer.CurrentCultureIgnoreCase).Count() == names.Count;
         }
 
         private void LoadColorsAndLines<T>(IXLDrawing<T> drawing, XElement shape)
