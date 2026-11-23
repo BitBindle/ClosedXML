@@ -660,6 +660,10 @@ namespace ClosedXML.Excel.IO
                         foreach (var formula in xlCf.Elements<Formula>())
                             formula.Text = XmlEncoder.EncodeString(formula.Text);
 
+                        // The file format defines the text of a rule as ST_Xstring.
+                        if (xlCf.Text?.Value is { } ruleText)
+                            xlCf.Text = XmlEncoder.EncodeString(ruleText);
+
                         conditionalFormatting.Append(xlCf);
                     }
                     worksheet.InsertAfter(conditionalFormatting, previousElement);
@@ -921,10 +925,10 @@ namespace ClosedXML.Excel.IO
                         Formula2 = new Formula2(XmlEncoder.EncodeString(maxValue)),
                         Type = dv.AllowedValues.ToOpenXml(),
                         ShowErrorMessage = dv.ShowErrorMessage,
-                        Prompt = dv.InputMessage,
-                        PromptTitle = dv.InputTitle,
-                        ErrorTitle = dv.ErrorTitle,
-                        Error = dv.ErrorMessage,
+                        Prompt = XmlEncoder.EncodeString(dv.InputMessage),
+                        PromptTitle = XmlEncoder.EncodeString(dv.InputTitle),
+                        ErrorTitle = XmlEncoder.EncodeString(dv.ErrorTitle),
+                        Error = XmlEncoder.EncodeString(dv.ErrorMessage),
                         ShowDropDown = !dv.InCellDropdown,
                         ShowInputMessage = dv.ShowInputMessage,
                         ErrorStyle = dv.ErrorStyle.ToOpenXml(),
@@ -999,10 +1003,10 @@ namespace ClosedXML.Excel.IO
                         DataValidationForumla2 = !string.IsNullOrWhiteSpace(maxValue) ? new X14.DataValidationForumla2(new OfficeExcel.Formula(maxValue)) : null,
                         Type = dv.AllowedValues.ToOpenXml(),
                         ShowErrorMessage = dv.ShowErrorMessage,
-                        Prompt = dv.InputMessage,
-                        PromptTitle = dv.InputTitle,
-                        ErrorTitle = dv.ErrorTitle,
-                        Error = dv.ErrorMessage,
+                        Prompt = XmlEncoder.EncodeString(dv.InputMessage),
+                        PromptTitle = XmlEncoder.EncodeString(dv.InputTitle),
+                        ErrorTitle = XmlEncoder.EncodeString(dv.ErrorTitle),
+                        Error = XmlEncoder.EncodeString(dv.ErrorMessage),
                         ShowDropDown = !dv.InCellDropdown,
                         ShowInputMessage = dv.ShowInputMessage,
                         ErrorStyle = dv.ErrorStyle.ToOpenXml(),

@@ -136,6 +136,15 @@ of a table column. A load decodes the totals row formula. The file format define
 line feed, and a formula kept the escape text from a file. A control character in a data
 validation formula no longer causes an exception on save.
 
+A save and a load now also encode and decode these text attributes, because the file format
+defines them as ``ST_Xstring``:
+
+* The input title, the input message, the error title and the error message of a data validation.
+* The text of a conditional format rule, for example a rule that finds cells that contain a text.
+
+Before, an escape sequence from a file, for example ``_x000D_``, stayed as the escape text. A control
+character in these texts caused an exception on save. Now the save encodes it.
+
 ********************
 Nullable annotations
 ********************
