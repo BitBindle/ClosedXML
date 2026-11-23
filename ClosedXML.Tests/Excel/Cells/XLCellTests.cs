@@ -1342,5 +1342,126 @@ namespace ClosedXML.Tests
             Assert.AreEqual(text, cell.GetValue<string>());
             Assert.AreEqual(text, cell.GetText());
         }
+
+        [Test]
+        [Issue("130")]
+        public void Range_copy_after_last_column_throws_and_keeps_the_target()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("B2").Value = 1;
+            ws.Cell("C2").Value = 2;
+            ws.Cell("XFD5").Value = "Target";
+
+            Assert.That(() => ws.Range("B2:C2").CopyTo(ws.Cell("XFD5")),
+                Throws.InvalidOperationException.With.Message.EqualTo("The copy does not fit in the sheet. The source cells in Sheet1!C2 have their copy after the last row or the last column."));
+
+            Assert.AreEqual("Target", ws.Cell("XFD5").Value);
+        }
+
+        [Test]
+        [Issue("130")]
+        public void Range_copy_after_last_row_throws_and_keeps_the_target()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("B2").Value = 1;
+            ws.Cell("B4").Value = 2;
+            ws.Cell("D1048575").Value = "Target";
+
+            Assert.Throws<InvalidOperationException>(() => ws.Range("B2:B4").CopyTo(ws.Cell("D1048575")));
+
+            Assert.AreEqual("Target", ws.Cell("D1048575").Value);
+        }
+
+        [Test]
+        [Issue("130")]
+        public void Range_copy_with_empty_cells_after_last_row_or_last_column_copies_the_used_cells()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("B2").Value = 1;
+            ws.Cell("B3").Value = 2;
+
+            // The source cells that have their copy after the last row or the last column are empty, so the copy fits.
+            ws.Range("B2:C4").CopyTo(ws.Cell("XFD1048575"));
+
+            Assert.AreEqual(1, ws.Cell("XFD1048575").Value);
+            Assert.AreEqual(2, ws.Cell("XFD1048576").Value);
+        }
+
+        [Test]
+        [Issue("130")]
+        public void Range_copy_of_merged_range_after_last_column_throws_and_keeps_the_target()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:C2").Merge();
+            ws.Cell("B2").Value = 1;
+            ws.Cell("XFD5").Value = "Target";
+
+            Assert.That(() => ws.Range("B2:C2").CopyTo(ws.Cell("XFD5")),
+                Throws.InvalidOperationException.With.Message.EqualTo("The copy does not fit in the sheet. The source cells in Sheet1!B2:C2 have their copy after the last row or the last column."));
+
+            Assert.AreEqual("Target", ws.Cell("XFD5").Value);
+            Assert.False(ws.Cell("XFD5").IsMerged());
+        }
+
+        [Test]
+        [Issue("130")]
+        public void Row_copy_to_cell_after_first_column_throws_when_used_cell_is_after_last_column()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("XFD2").Value = 1;
+            ws.Cell("B5").Value = "Target";
+
+            Assert.That(() => ws.Row(2).CopyTo(ws.Cell("B5")),
+                Throws.InvalidOperationException.With.Message.EqualTo("The copy does not fit in the sheet. The source cells in Sheet1!XFD2 have their copy after the last row or the last column."));
+
+            Assert.AreEqual("Target", ws.Cell("B5").Value);
+        }
+
+        [Test]
+        [Issue("130")]
+        public void Column_copy_to_cell_after_first_row_copies_the_used_cells()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("B1").Value = 1;
+            ws.Cell("B3").Value = 2;
+
+            ws.Column(2).CopyTo(ws.Cell("D5"));
+
+            Assert.AreEqual(1, ws.Cell("D5").Value);
+            Assert.AreEqual(2, ws.Cell("D7").Value);
+        }
+
+        [Test]
+        public void Range_copy_copies_only_the_part_of_the_data_validation_in_the_source()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:Z2").CreateDataValidation().WholeNumber.Between(1, 10);
+
+            ws.Range("B2:C2").CopyTo(ws.Cell("XFC5"));
+
+            var validation = ws.Cell("XFC5").GetDataValidation();
+            Assert.AreEqual("XFC5:XFD5", validation.Ranges.Single().RangeAddress.ToString());
+            Assert.AreEqual(XLAllowedValues.WholeNumber, validation.AllowedValues);
+        }
+
+        [Test]
+        public void Range_copy_does_not_put_data_validation_outside_the_target()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:Z2").CreateDataValidation().WholeNumber.Between(1, 10);
+
+            ws.Range("B2:C2").CopyTo(ws.Cell("E5"));
+
+            Assert.True(ws.Cell("F5").HasDataValidation);
+            Assert.False(ws.Cell("G5").HasDataValidation);
+        }
     }
 }

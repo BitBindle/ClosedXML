@@ -1116,6 +1116,7 @@ namespace ClosedXML.Excel
             var lastColumn = Math.Min(_columnNumber + maxColumns - 1, XLHelper.MaxColumnNumber);
 
             var targetRange = Worksheet.Range(_rowNumber, _columnNumber, lastRow, lastColumn);
+            ThrowIfCopyIsOutsideSheet(asRange);
 
             if (!(asRange is XLRow || asRange is XLColumn))
             {
@@ -1124,10 +1125,7 @@ namespace ClosedXML.Excel
 
             var minRow = asRange.RangeAddress.FirstAddress.RowNumber;
             var minColumn = asRange.RangeAddress.FirstAddress.ColumnNumber;
-            var cellsUsed = asRange.CellsUsed(XLCellsUsedOptions.All
-                                              & ~XLCellsUsedOptions.ConditionalFormats
-                                              & ~XLCellsUsedOptions.DataValidation
-                                              & ~XLCellsUsedOptions.MergedRanges);
+            var cellsUsed = asRange.CellsUsed(CopiedCellsUsedOptions);
             foreach (var sourceCell in cellsUsed)
             {
                 Worksheet.Cell(
@@ -1169,8 +1167,13 @@ namespace ClosedXML.Excel
                 XLDataValidation? newDataValidation = null;
                 foreach (var dvRange in dataValidation.Ranges.Where(r => r.Intersects(asRange)))
                 {
-                    var dvTargetAddress = dvRange.RangeAddress.Relative(asRange.RangeAddress, targetRange.RangeAddress);
-                    var dvTargetRange = Worksheet.Range(dvTargetAddress);
+                    // Copy only the part of the validation in the source. The copy of an empty cell can be after
+                    // the last row or the last column, so remove that part of the validation.
+                    var copiedArea = Area.FromRangeAddress(dvRange.RangeAddress).Intersect(asRange.SheetRange);
+                    if (copiedArea?.ShiftAndClip(_rowNumber - minRow, _columnNumber - minColumn) is not { } dvTargetArea)
+                        continue;
+
+                    var dvTargetRange = Worksheet.Range(dvTargetArea.TopRow, dvTargetArea.LeftColumn, dvTargetArea.BottomRow, dvTargetArea.RightColumn);
                     if (newDataValidation == null)
                     {
                         newDataValidation = dvTargetRange.CreateDataValidation();
@@ -1183,6 +1186,56 @@ namespace ClosedXML.Excel
 
             Worksheet.ConditionalFormats.CopyFrom(asRange.Worksheet, asRange.SheetRange, Point);
             return this;
+        }
+
+        /// <summary>
+        /// The options that select the source cells of a range copy. The copy copies conditional formats,
+        /// data validations and merged ranges separately.
+        /// </summary>
+        private const XLCellsUsedOptions CopiedCellsUsedOptions = XLCellsUsedOptions.All
+                                                                  & ~XLCellsUsedOptions.ConditionalFormats
+                                                                  & ~XLCellsUsedOptions.DataValidation
+                                                                  & ~XLCellsUsedOptions.MergedRanges;
+
+        /// <summary>
+        /// Throw when a used cell or a merged range of the source has its copy after the last row or the
+        /// last column of the sheet. Excel does not paste a copy that does not fit. Call it before the first
+        /// change to the target.
+        /// </summary>
+        /// <param name="source">The copied range. This cell is the first cell of the copy.</param>
+        /// <exception cref="InvalidOperationException">
+        /// A used cell or a merged range of the source has its copy after the last row or the last column.
+        /// </exception>
+        private void ThrowIfCopyIsOutsideSheet(XLRangeBase source)
+        {
+            var sourceArea = source.SheetRange;
+            var rowsInSheet = XLHelper.MaxRowNumber - _rowNumber + 1;
+            var columnsInSheet = XLHelper.MaxColumnNumber - _columnNumber + 1;
+            if (sourceArea.Height > rowsInSheet)
+                ThrowIfUsed(source.Worksheet, new Area(sourceArea.TopRow + rowsInSheet, sourceArea.LeftColumn, sourceArea.BottomRow, sourceArea.RightColumn));
+
+            if (sourceArea.Width > columnsInSheet)
+                ThrowIfUsed(source.Worksheet, new Area(sourceArea.TopRow, sourceArea.LeftColumn + columnsInSheet, sourceArea.BottomRow, sourceArea.RightColumn));
+
+            // An empty merged cell is not a used cell, but the copy merges the cells of the target.
+            foreach (var mergedRange in source.Worksheet.Internals.MergedRanges.Where<XLRange>(source.Contains))
+            {
+                var mergedArea = mergedRange.SheetRange;
+                if (mergedArea.BottomRow - sourceArea.TopRow >= rowsInSheet || mergedArea.RightColumn - sourceArea.LeftColumn >= columnsInSheet)
+                    throw CreateOutsideSheetException(source.Worksheet, mergedArea);
+            }
+
+            static void ThrowIfUsed(XLWorksheet sheet, Area outsideCopies)
+            {
+                var range = sheet.Range(outsideCopies.TopRow, outsideCopies.LeftColumn, outsideCopies.BottomRow, outsideCopies.RightColumn);
+                if (range.CellsUsed(CopiedCellsUsedOptions).Any())
+                    throw CreateOutsideSheetException(sheet, outsideCopies);
+            }
+
+            static InvalidOperationException CreateOutsideSheetException(XLWorksheet sheet, Area sourceCells)
+            {
+                return new InvalidOperationException($"The copy does not fit in the sheet. The source cells in {sheet.Name.EscapeSheetName()}!{sourceCells} have their copy after the last row or the last column.");
+            }
         }
 
         private void ClearMerged()
