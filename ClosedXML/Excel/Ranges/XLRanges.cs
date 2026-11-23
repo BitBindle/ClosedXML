@@ -130,6 +130,10 @@ namespace ClosedXML.Excel
 
         public Boolean Contains(IXLCell cell)
         {
+            // A cell write checks the merged ranges. Don't allocate for a sheet without them.
+            if (Count == 0)
+                return false;
+
             return GetIntersectedRanges((XLAddress)cell.Address).Any();
         }
 
