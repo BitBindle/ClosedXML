@@ -189,6 +189,73 @@ namespace ClosedXML.Tests.Excel.Tables
             Assert.AreEqual("My sales", addWorkbook.Worksheets.Single().Tables.Single().Name);
         }
 
+        [TestCase("Sales", "SALES", "SALES1")]
+        [TestCase("AB", "ab", "ab_1")]
+        [TestCase("Sales", "Sales1", "Sales1")]
+        [Issue("67")]
+        public void Save_gives_a_unique_name_to_a_table_name_that_differs_only_in_case(string firstName, string secondName, string expectedSecondName)
+        {
+            using var file = CreateFileWithTableNames(firstName, secondName);
+            using var wb = new XLWorkbook(file);
+            using var ms = new MemoryStream();
+
+            wb.SaveAs(ms);
+
+            using var package = SpreadsheetDocument.Open(ms, false);
+            var savedNames = package.WorkbookPart!.WorksheetParts
+                .Select(part => part.TableDefinitionParts.Single().Table!.Name!.Value)
+                .ToList();
+            CollectionAssert.AreEquivalent(new[] { firstName, expectedSecondName }, savedNames);
+        }
+
+        [Test]
+        [Issue("67")]
+        public void Save_gives_a_unique_name_that_is_not_a_cell_reference()
+        {
+            using var file = CreateFileWithTableNames("AB", "AB", "ab");
+            using var wb = new XLWorkbook(file);
+            using var ms = new MemoryStream();
+
+            wb.SaveAs(ms);
+
+            using var package = SpreadsheetDocument.Open(ms, false);
+            var savedNames = package.WorkbookPart!.WorksheetParts
+                .Select(part => part.TableDefinitionParts.Single().Table!.Name!.Value)
+                .ToList();
+            CollectionAssert.AreEquivalent(new[] { "AB", "AB_1", "ab_2" }, savedNames);
+        }
+
+        /// <summary>
+        /// Create a file with one table in each sheet. The tables have the <paramref name="tableNames"/>,
+        /// without the name rules of Excel.
+        /// </summary>
+        private static MemoryStream CreateFileWithTableNames(params string[] tableNames)
+        {
+            var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                for (var i = 0; i < tableNames.Length; i++)
+                    CreateTable(wb.AddWorksheet()).Name = "Table" + (i + 1);
+
+                wb.SaveAs(ms);
+            }
+
+            using (var package = SpreadsheetDocument.Open(ms, true))
+            {
+                foreach (var part in package.WorkbookPart!.WorksheetParts)
+                {
+                    var table = part.TableDefinitionParts.Single().Table!;
+                    var index = int.Parse(table.Name!.Value!["Table".Length..]) - 1;
+                    table.Name = tableNames[index];
+                    table.DisplayName = tableNames[index];
+                    table.Save();
+                }
+            }
+
+            ms.Position = 0;
+            return ms;
+        }
+
         /// <summary>
         /// Create a file with one table that has the name <paramref name="tableName"/>, without the name rules of Excel.
         /// </summary>

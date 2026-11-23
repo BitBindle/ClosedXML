@@ -183,15 +183,16 @@ namespace ClosedXML.Excel.IO
             // The name rules of the setter make each new name valid. A name from a file stays as it is,
             // because the formulas and the pivot sources of the file use that name.
             var name = originalTableName;
-            if (context.TableNames.Contains(name))
+            var i = 0;
+            while (context.TableNames.Contains(name))
             {
-                var i = 1;
+                i++;
                 name = originalTableName + i.ToInvariantString();
-                while (context.TableNames.Contains(name))
-                {
-                    i++;
-                    name = originalTableName + i.ToInvariantString();
-                }
+
+                // A number after some names makes a cell reference, for example AB1. Excel rejects
+                // such a name, so the name gets an underscore before the number.
+                if (XLHelper.IsValidA1Address(name) || XLHelper.IsValidRCAddress(name))
+                    name = originalTableName + "_" + i.ToInvariantString();
             }
 
             context.TableNames.Add(name);
