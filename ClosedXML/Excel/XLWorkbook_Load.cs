@@ -293,16 +293,7 @@ namespace ClosedXML.Excel
                     foreach (TableColumn tableColumn in tableColumns)
                     {
                         var fieldName = GetTableColumnName(tableColumn.Name?.Value ?? throw PartStructureException.MissingAttribute("name"));
-                        var xlField = xlTable.AddField(fieldName);
-
-                        if (tableColumn.HeaderRowDifferentialFormattingId is { } headerDxfId)
-                            xlField.HeaderFormatValue = Styles.DifferentialFormats[checked((int)headerDxfId.Value)];
-
-                        if (tableColumn.DataFormatId is { } dataDxfId)
-                            xlField.DataFormatValue = Styles.DifferentialFormats[checked((int)dataDxfId.Value)];
-
-                        if (tableColumn.TotalsRowDifferentialFormattingId is { } totalsDxfId)
-                            xlField.TotalFormatValue = Styles.DifferentialFormats[checked((int)totalsDxfId.Value)];
+                        xlTable.AddField(fieldName);
                     }
 
                     if (dTable.HeaderRowCount != null && dTable.HeaderRowCount == 0)
@@ -312,6 +303,21 @@ namespace ClosedXML.Excel
                     else
                     {
                         xlTable.InitializeAutoFilter();
+                    }
+
+                    // The load finds each field by its position. With a header row, the field names come
+                    // from the header cells, and the name in the table part can be different.
+                    var fieldsAndColumns = xlTable.Fields.Zip(tableColumns.Cast<TableColumn>()).ToList();
+                    foreach (var (xlField, tableColumn) in fieldsAndColumns)
+                    {
+                        if (tableColumn.HeaderRowDifferentialFormattingId is { } headerDxfId)
+                            xlField.HeaderFormatValue = Styles.DifferentialFormats[checked((int)headerDxfId.Value)];
+
+                        if (tableColumn.DataFormatId is { } dataDxfId)
+                            xlField.DataFormatValue = Styles.DifferentialFormats[checked((int)dataDxfId.Value)];
+
+                        if (tableColumn.TotalsRowDifferentialFormattingId is { } totalsDxfId)
+                            xlField.TotalFormatValue = Styles.DifferentialFormats[checked((int)totalsDxfId.Value)];
                     }
 
                     if (dTable.TotalsRowCount != null && dTable.TotalsRowCount.Value > 0)
@@ -349,12 +355,8 @@ namespace ClosedXML.Excel
 
                     if (xlTable.ShowTotalsRow)
                     {
-                        // The load finds the field by its position. With a header row, the field names come
-                        // from the header cells, and the name in the table part can be different.
-                        var columnIndex = 0;
-                        foreach (var tableColumn in tableColumns.Cast<TableColumn>())
+                        foreach (var (xlField, tableColumn) in fieldsAndColumns)
                         {
-                            var xlField = xlTable.Field(columnIndex++);
                             if (tableColumn.TotalsRowFunction != null)
                                 xlField.TotalsRowFunction = tableColumn.TotalsRowFunction.Value.ToClosedXml();
 

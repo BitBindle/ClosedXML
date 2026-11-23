@@ -233,7 +233,7 @@ namespace ClosedXML.Tests.Excel
         [Issue("123")]
         public void Table_column_name_with_totals_row_is_loaded(string columnName)
         {
-            // The load finds the field of a totals row function with the name from the table part.
+            // The totals row function stays on the field after a save and a load.
             using var ms = new MemoryStream();
             using (var wb = new XLWorkbook())
             {

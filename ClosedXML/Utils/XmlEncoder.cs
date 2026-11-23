@@ -51,7 +51,8 @@ namespace ClosedXML.Utils
                 }
                 else if (currentChar == '\r' || (escapeLineFeed && currentChar == '\n'))
                 {
-                    // An XML reader changes a carriage return to a line feed.
+                    // An XML reader changes a carriage return to a line feed. Excel writes a line feed in
+                    // an attribute as an escape sequence, because an XML reader changes it to a space.
                     AppendEscapeSequence(sb, currentChar);
                 }
                 else if (XmlConvert.IsXmlChar(currentChar))

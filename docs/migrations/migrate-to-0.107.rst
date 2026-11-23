@@ -189,8 +189,9 @@ New lines
 *********
 
 ``AddNewLine`` of a comment, of rich text and of a header or footer item now adds a line feed
-(``\n``). ``IXLComment.AddSignature`` also adds a line feed after the author. Before, it added ``Environment.NewLine``, which is ``\r\n`` on Windows. Excel uses a line
-feed for a new line.
+(``\n``). ``IXLComment.AddSignature`` also adds a line feed after the author. Before, these
+methods added ``Environment.NewLine``, which is ``\r\n`` on Windows. Excel uses a line feed for a
+new line.
 
 A text value with a line feed now gets the wrap text format on all operating systems. Before, a
 value got the format only if it contained ``Environment.NewLine``. On Windows, a value with only
