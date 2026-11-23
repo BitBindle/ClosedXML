@@ -121,6 +121,13 @@ formula became a line feed, and a control character caused an exception. An esca
 loaded formula, for example ``_x000D_``, now gives the character. Before, the formula kept the
 escape text.
 
+A save and a load now do the same for the formulas of defined names, data validations and
+conditional formats. A save also encodes the calculated column formula and the totals row formula
+of a table column. A load decodes the totals row formula. The file format defines these formulas as
+``ST_Formula``, which is an ``ST_Xstring``. Before, a carriage return in these formulas became a
+line feed, and a formula kept the escape text from a file. A control character in a data
+validation formula no longer causes an exception on save.
+
 ********************
 Nullable annotations
 ********************
