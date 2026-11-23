@@ -627,9 +627,13 @@ namespace ClosedXML.Excel
                 throw new InvalidOperationException($"`{this.Name}` has been deleted and cannot be copied.");
 
             var targetSheet = (XLWorksheet)workbook.WorksheetsInternal.Add(newSheetName, position);
-            Internals.ColumnsCollection.ForEach(kp => kp.Value.CopyTo(targetSheet.Column(kp.Key)));
-            Internals.RowsCollection.ForEach(kp => kp.Value.CopyTo(targetSheet.Row(kp.Key)));
-            Internals.CellsCollection.GetCells().ForEach(c => targetSheet.Cell(c.Address).CopyFrom(c, XLCellCopyOptions.Values | XLCellCopyOptions.Styles));
+
+            // The copy of the cells below copies the cells of the rows and columns. A copy of the cells
+            // of one row can have only part of an array formula, so copy only the properties here.
+            Internals.ColumnsCollection.ForEach(kp => kp.Value.CopyPropertiesTo(targetSheet.Column(kp.Key)));
+            Internals.RowsCollection.ForEach(kp => kp.Value.CopyPropertiesTo(targetSheet.Row(kp.Key)));
+            Internals.CellsCollection.GetCells().ForEach(c => targetSheet.Cell(c.Address.RowNumber, c.Address.ColumnNumber).CopyFromInternal(c, XLCellCopyOptions.Values | XLCellCopyOptions.Styles));
+            ArrayFormulaCopy.CopyAll(this, targetSheet);
             foreach (var dataValidation in DataValidations)
             {
                 targetSheet.DataValidations.CopyFrom(dataValidation);
@@ -659,12 +663,10 @@ namespace ClosedXML.Excel
             foreach (var cf in ConditionalFormats)
                 cf.CopyTo(targetSheet);
 
-            // Sparklines were already copied during copy of columns, rows and cells, but piecemeal (e.g. multi-cell
-            // sparkline group could be split into group-per-cell). Since this is a copy of whole sheet, just remove
-            // the piecemeal copy and copy it propertly.
-            targetSheet.SparklineGroupsInternal.RemoveAll();
+            // The copy of the cells does not copy the sparklines, so copy all sparkline groups here.
             SparklineGroups.CopyTo(targetSheet);
-            MergedRanges.ForEach(mr => targetSheet.Range(((XLRangeAddress)mr.RangeAddress).WithoutWorksheet()).Merge());
+            // The merge keeps the copied cells. A merge with the check clears all cells except the first cell.
+            MergedRanges.ForEach(mr => targetSheet.Range(((XLRangeAddress)mr.RangeAddress).WithoutWorksheet()).Merge(false));
             SelectedRanges.ForEach(sr => targetSheet.SelectedRanges.Add(targetSheet.Range(((XLRangeAddress)sr.RangeAddress).WithoutWorksheet())));
 
             if (AutoFilter.IsEnabled && AutoFilter.Range is not null)
@@ -674,6 +676,35 @@ namespace ClosedXML.Excel
             }
 
             return targetSheet;
+        }
+
+        /// <summary>
+        /// Set an array formula in all cells of its range. The method does not check the cells of the range.
+        /// </summary>
+        /// <param name="arrayFormula">The array formula.</param>
+        internal void SetArrayFormula(XLCellFormula arrayFormula)
+        {
+            var range = arrayFormula.Range;
+            Internals.CellsCollection.FormulaSlice.SetArray(range, arrayFormula);
+
+            // The sheet part keeps the text result of a formula, not the shared string table.
+            var valueSlice = Internals.CellsCollection.ValueSlice;
+            foreach (var point in range)
+                valueSlice.SetShareString(point, false);
+
+            // All cells of the range share the formula, so this marks all cells.
+            arrayFormula.IsDirty = true;
+        }
+
+        /// <summary>
+        /// Set a data table formula. A data table has its formula only in the first cell of its range.
+        /// </summary>
+        /// <param name="dataTable">The data table formula.</param>
+        internal void SetDataTable(XLCellFormula dataTable)
+        {
+            var point = dataTable.Range.FirstPoint;
+            Internals.CellsCollection.FormulaSlice.Set(point, dataTable);
+            Internals.CellsCollection.ValueSlice.SetShareString(point, false);
         }
 
         internal XLHyperlinks Hyperlinks { get; }

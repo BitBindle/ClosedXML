@@ -112,6 +112,12 @@ namespace ClosedXML.Excel
         /// </summary>
         internal Boolean Input2Deleted => _flags.HasFlag(FormulaFlags.Input2Deleted);
 
+        /// <summary>
+        /// Returns true, if the array formula has the always calculate array flag.
+        /// This property is meaningless, if called for non-array formula.
+        /// </summary>
+        internal Boolean AlwaysCalculateArray => _flags.HasFlag(FormulaFlags.AlwaysCalculateArray);
+
         private XLCellFormula(string a1)
         {
             A1 = a1;
@@ -372,6 +378,35 @@ namespace ClosedXML.Excel
                 // The parser cannot find the references of an unparsable formula. The formula stays the same.
                 return formulaA1;
             }
+        }
+
+        /// <summary>
+        /// Get a copy of the formula with the same text, range and flags. A sheet copy uses it, because
+        /// the cells of the copy have the same addresses.
+        /// </summary>
+        internal XLCellFormula GetCopy()
+        {
+            var copy = (XLCellFormula)MemberwiseClone();
+            copy.IsDirty = true;
+            return copy;
+        }
+
+        /// <summary>
+        /// Get a copy of an array formula for a different range with the same size. The relative
+        /// references of the copy move by the same number of rows and columns as the range.
+        /// </summary>
+        /// <param name="range">The range of the copy.</param>
+        internal XLCellFormula GetArrayCopy(Area range)
+        {
+            Debug.Assert(Type == FormulaType.Array, "Only an array formula has a range with the formula in each cell.");
+            Debug.Assert(range.Width == Range.Width && range.Height == Range.Height, "The copy has the same size.");
+            var origin = Range.FirstPoint;
+            var destination = range.FirstPoint;
+            var originR1C1 = FormulaConverter.ToR1C1(A1, origin.Row, origin.Column);
+            var targetA1 = FormulaConverter.ToA1(originR1C1, destination.Row, destination.Column);
+            var copy = Array(targetA1, range, AlwaysCalculateArray);
+            copy.IsDirty = true;
+            return copy;
         }
 
         internal XLCellFormula GetMovedTo(Point origin, Point destination)

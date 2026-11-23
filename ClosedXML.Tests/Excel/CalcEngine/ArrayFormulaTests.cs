@@ -692,6 +692,366 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         }
 
         [Test]
+        [Issue("125")]
+        public void Sheet_copy_keeps_array_formula()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = 3;
+            ws.Range("B2:C3").FormulaArrayA1 = "A1*2";
+
+            var copy = ws.CopyTo("Copy");
+
+            Assert.True(copy.Cell("C3").HasArrayFormula);
+            Assert.AreEqual("A1*2", copy.Cell("C3").FormulaA1);
+            Assert.AreEqual("B2:C3", copy.Cell("C3").FormulaReference?.ToStringRelative());
+
+            // The cells of the copy share one formula, and the source keeps its own formula.
+            var copyFormula = ((XLCell)copy.Cell("B2")).Formula;
+            Assert.AreSame(copyFormula, ((XLCell)copy.Cell("C3")).Formula);
+            Assert.AreNotSame(((XLCell)ws.Cell("B2")).Formula, copyFormula);
+
+            copy.Cell("A1").Value = 5;
+            Assert.AreEqual(10, copy.Cell("C3").Value);
+            Assert.AreEqual(6, ws.Cell("C3").Value);
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Sheet_copy_keeps_data_table()
+        {
+            using var stream = new System.IO.MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = (XLWorksheet)wb.AddWorksheet("Source");
+                var formula = XLCellFormula.DataTable1D(Area.Parse("B2:C3"), new Point(1, 1), false, true);
+                ws.Internals.CellsCollection.FormulaSlice.Set(new Point(2, 2), formula);
+
+                var copy = (XLWorksheet)ws.CopyTo("Copy");
+
+                var copyFormula = copy.Internals.CellsCollection.FormulaSlice.Get(new Point(2, 2));
+                Assert.NotNull(copyFormula);
+                Assert.AreNotSame(formula, copyFormula);
+                Assert.AreEqual(FormulaType.DataTable, copyFormula!.Type);
+                Assert.AreEqual(Area.Parse("B2:C3"), copyFormula.Range);
+                Assert.AreSame(copyFormula, copy.Internals.CellsCollection.FormulaSlice.GetDataTables().Single());
+                wb.SaveAs(stream);
+            }
+
+            using var loaded = new XLWorkbook(stream);
+            var loadedCopy = (XLWorksheet)loaded.Worksheet("Copy");
+            var loadedFormula = loadedCopy.Internals.CellsCollection.FormulaSlice.GetDataTables().Single();
+            Assert.AreEqual(Area.Parse("B2:C3"), loadedFormula.Range);
+            Assert.True(loadedFormula.IsRowDataTable);
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Sheet_copy_keeps_array_formula_in_merged_range()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+
+            // Other producers can write a merged range over an array formula.
+            ws.Range("B2:C3").FormulaArrayA1 = "2+5";
+            ws.Range("B2:C2").Merge(false);
+
+            var copy = ws.CopyTo("Copy");
+
+            Assert.AreEqual("B2:C2", copy.MergedRanges.Single().RangeAddress.ToStringRelative());
+            Assert.AreEqual("B2:C3", copy.Cell("C3").FormulaReference?.ToStringRelative());
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Range_copy_keeps_array_formula_and_moves_relative_references()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:C3").FormulaArrayA1 = "$A$1+A1";
+
+            ws.Range("B2:C3").CopyTo(ws.Cell("E5"));
+
+            foreach (var cell in ws.Range("E5:F6").Cells())
+            {
+                Assert.True(cell.HasArrayFormula);
+                Assert.AreEqual("$A$1+D4", cell.FormulaA1);
+                Assert.AreEqual("E5:F6", cell.FormulaReference?.ToStringRelative());
+            }
+
+            Assert.AreEqual("$A$1+A1", ws.Cell("C3").FormulaA1);
+            Assert.AreEqual("B2:C3", ws.Cell("C3").FormulaReference?.ToStringRelative());
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Range_copy_to_other_workbook_keeps_array_formula()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:C3").FormulaArrayA1 = "A1+1";
+            using var targetWb = new XLWorkbook();
+            var target = targetWb.AddWorksheet();
+
+            ws.Range("A1:C3").CopyTo(target.Cell("A1"));
+
+            Assert.AreEqual("A1+1", target.Cell("C3").FormulaA1);
+            Assert.AreEqual("B2:C3", target.Cell("C3").FormulaReference?.ToStringRelative());
+            target.Cell("A1").Value = 4;
+            Assert.AreEqual(5, target.Cell("C3").Value);
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Range_copy_of_part_of_array_formula_throws_and_keeps_the_target()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:C3").FormulaArrayA1 = "1+1";
+            ws.Cell("E5").Value = "Target";
+
+            Assert.That(() => ws.Range("B2:B3").CopyTo(ws.Cell("E5")),
+                Throws.InvalidOperationException.With.Message.EqualTo("The copy has only part of the array formula in B2:C3. Copy all cells of the range."));
+
+            Assert.AreEqual("Target", ws.Cell("E5").Value);
+            Assert.False(ws.Cell("E6").HasFormula);
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Range_copy_of_data_table_copies_only_the_values()
+        {
+            using var wb = new XLWorkbook();
+            var ws = (XLWorksheet)wb.AddWorksheet();
+            ws.Cell("B2").Value = 7;
+            ws.Cell("C3").Value = 8;
+            var formula = XLCellFormula.DataTable1D(Area.Parse("B2:C3"), new Point(1, 1), false, true);
+            ws.Internals.CellsCollection.FormulaSlice.Set(new Point(2, 2), formula);
+
+            ws.Range("B2:C3").CopyTo(ws.Cell("E5"));
+
+            Assert.False(ws.Cell("E5").HasFormula);
+            Assert.AreEqual(7, ws.Cell("E5").Value);
+            Assert.AreEqual(8, ws.Cell("F6").Value);
+            Assert.AreSame(formula, ws.Internals.CellsCollection.FormulaSlice.GetDataTables().Single());
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Cell_copy_of_array_formula_in_one_cell_keeps_it()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2").FormulaArrayA1 = "A1+1";
+
+            ws.Cell("D4").CopyFrom(ws.Cell("B2"));
+
+            Assert.True(ws.Cell("D4").HasArrayFormula);
+            Assert.AreEqual("C3+1", ws.Cell("D4").FormulaA1);
+            Assert.AreEqual("D4:D4", ws.Cell("D4").FormulaReference?.ToStringRelative());
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Cell_copy_of_part_of_array_formula_throws()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:C3").FormulaArrayA1 = "1+1";
+
+            Assert.Throws<InvalidOperationException>(() => ws.Cell("E5").CopyFrom(ws.Cell("C3")));
+            Assert.Throws<InvalidOperationException>(() => ws.Cell("C3").CopyTo(ws.Cell("E5")));
+
+            Assert.False(ws.Cell("E5").HasFormula);
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Cell_copy_to_part_of_array_formula_throws()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:C3").FormulaArrayA1 = "1+1";
+            ws.Cell("A1").Value = 5;
+
+            Assert.Throws<InvalidOperationException>(() => ws.Cell("C3").CopyFrom(ws.Cell("A1")));
+            Assert.True(ws.Cell("C3").HasArrayFormula);
+
+            // A copy of only the format does not change the contents of the cell.
+            ((XLCell)ws.Cell("C3")).CopyFrom(ws.Cell("A1"), XLCellCopyOptions.Styles);
+            Assert.True(ws.Cell("C3").HasArrayFormula);
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Row_copy_keeps_array_formula_in_the_row()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:C2").FormulaArrayA1 = "A2*3";
+
+            ws.Row(2).CopyTo(ws.Row(10));
+
+            Assert.AreEqual("A10*3", ws.Cell("C10").FormulaA1);
+            Assert.AreEqual("B10:C10", ws.Cell("C10").FormulaReference?.ToStringRelative());
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Row_copy_of_part_of_array_formula_throws_and_keeps_the_target()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:C3").FormulaArrayA1 = "1+1";
+            ws.Cell("A10").Value = "Target";
+
+            Assert.Throws<InvalidOperationException>(() => ws.Row(2).CopyTo(ws.Row(10)));
+
+            Assert.AreEqual("Target", ws.Cell("A10").Value);
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Column_copy_of_part_of_array_formula_throws_and_keeps_the_target()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:C3").FormulaArrayA1 = "1+1";
+            ws.Cell("J1").Value = "Target";
+
+            Assert.Throws<InvalidOperationException>(() => ws.Column(2).CopyTo(ws.Column(10)));
+
+            Assert.AreEqual("Target", ws.Cell("J1").Value);
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Range_copy_of_array_formula_over_table_throws_and_keeps_the_target()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = "Name";
+            ws.Cell("B1").Value = "Value";
+            ws.Cell("A2").Value = "Target";
+            ws.Range("A1:B3").CreateTable();
+            ws.Range("E5:F6").FormulaArrayA1 = "1+1";
+
+            var ex = Assert.Throws<InvalidOperationException>(() => ws.Range("E5:F6").CopyTo(ws.Cell("A2")));
+
+            StringAssert.Contains("A2:B3", ex!.Message);
+            Assert.AreEqual("Target", ws.Cell("A2").Value);
+            Assert.False(ws.Cell("A2").HasArrayFormula);
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Range_copy_of_array_formula_in_one_cell_to_table_keeps_it()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = "Name";
+            ws.Cell("B1").Value = "Value";
+            ws.Range("A1:B3").CreateTable();
+            ws.Range("E5").FormulaArrayA1 = "1+1";
+
+            ws.Range("E5").CopyTo(ws.Cell("A2"));
+
+            Assert.True(ws.Cell("A2").HasArrayFormula);
+            Assert.AreEqual("A2:A2", ws.Cell("A2").FormulaReference.ToString());
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Row_copy_of_array_formula_over_table_throws_and_keeps_the_target()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A4").Value = "Name";
+            ws.Cell("B4").Value = "Value";
+            ws.Cell("A5").Value = "Target";
+            ws.Range("A4:B6").CreateTable();
+            ws.Range("A1:B1").FormulaArrayA1 = "1+1";
+
+            Assert.Throws<InvalidOperationException>(() => ws.Row(1).CopyTo(ws.Row(5)));
+
+            Assert.AreEqual("Target", ws.Cell("A5").Value);
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Cell_copy_of_array_formula_to_merged_cell_throws_and_keeps_the_target()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("A1").FormulaArrayA1 = "1+1";
+            ws.Range("C3:D3").Merge();
+            ws.Cell("C3").Value = "Target";
+
+            var ex = Assert.Throws<InvalidOperationException>(() => ws.Cell("C3").CopyFrom(ws.Cell("A1")));
+
+            StringAssert.Contains("C3", ex!.Message);
+            Assert.AreEqual("Target", ws.Cell("C3").Value);
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Range_copy_of_array_formula_after_last_column_throws_and_keeps_the_target()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("A1:B1").FormulaArrayA1 = "1+1";
+            ws.Cell("XFD3").Value = "Target";
+
+            Assert.Throws<InvalidOperationException>(() => ws.Range("A1:B1").CopyTo(ws.Cell("XFD3")));
+
+            Assert.AreEqual("Target", ws.Cell("XFD3").Value);
+            Assert.False(ws.Cell("XFD3").HasArrayFormula);
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Sheet_copy_keeps_table_with_array_formula()
+        {
+            using var wb = new XLWorkbook();
+            var ws = (XLWorksheet)wb.AddWorksheet("Source");
+            ws.Cell("A1").Value = "Name";
+            ws.Cell("B1").Value = "Value";
+            ws.Range("A1:B3").CreateTable();
+
+            // A loaded file can have an array formula in a table. The public setter does not allow it.
+            ws.Internals.CellsCollection.FormulaSlice.SetArray(Area.Parse("A2:B3"), XLCellFormula.Array("1+1", Area.Parse("A2:B3"), false));
+
+            var copy = ws.CopyTo("Copy");
+
+            Assert.AreEqual(1, copy.Tables.Count());
+            Assert.AreEqual("A1:B3", copy.Tables.Single().RangeAddress.ToString());
+            Assert.AreEqual("Name", copy.Cell("A1").Value);
+            Assert.True(copy.Cell("B3").HasArrayFormula);
+            Assert.AreEqual("A2:B3", copy.Cell("B3").FormulaReference.ToString());
+        }
+
+        [Test]
+        [Issue("125")]
+        public void Table_copy_keeps_array_formula_in_the_table()
+        {
+            using var wb = new XLWorkbook();
+            var ws = (XLWorksheet)wb.AddWorksheet("Source");
+            ws.Cell("A1").Value = "Name";
+            ws.Cell("B1").Value = "Value";
+            var table = ws.Range("A1:B3").CreateTable();
+
+            // A loaded file can have an array formula in a table. The public setter does not allow it.
+            ws.Internals.CellsCollection.FormulaSlice.SetArray(Area.Parse("A2:B3"), XLCellFormula.Array("1+1", Area.Parse("A2:B3"), false));
+            var target = wb.AddWorksheet("Target");
+
+            table.CopyTo(target);
+
+            Assert.AreEqual("A1:B3", target.Tables.Single().RangeAddress.ToString());
+            Assert.True(target.Cell("B3").HasArrayFormula);
+            Assert.AreEqual("A2:B3", target.Cell("B3").FormulaReference!.ToString());
+        }
+
+        [Test]
         public void SettingArrayFormulaInvalidatesCells()
         {
             using var wb = new XLWorkbook();

@@ -479,8 +479,24 @@ namespace ClosedXML.Excel
 
         public IXLRow CopyTo(IXLRow row)
         {
+            // Check the copy and create its array formulas before the first change, because both steps can throw.
+            var source = AsRange();
+            var target = (XLCell)row.FirstCell();
+            var arrayFormulaCopies = target.PrepareRangeCopy(source);
             row.Clear();
             var newRow = (XLRow)row;
+            CopyPropertiesTo(newRow);
+            target.CopyFrom(source, arrayFormulaCopies);
+
+            return newRow;
+        }
+
+        /// <summary>
+        /// Copy the height, the visibility and the format of the row. The method does not copy the cells.
+        /// </summary>
+        /// <param name="newRow">The row that gets the properties.</param>
+        internal void CopyPropertiesTo(XLRow newRow)
+        {
             newRow._height = _height;
             newRow.HeightChanged = HeightChanged;
             newRow.IsHidden = IsHidden;
@@ -488,10 +504,6 @@ namespace ClosedXML.Excel
             {
                 newRow.FormatValue = newRow.Worksheet.Workbook.Styles.GetRegisteredCellFormat(GetFormat());
             }
-
-            AsRange().CopyTo(row);
-
-            return newRow;
         }
 
         public IXLRangeRow Row(Int32 start, Int32 end)
