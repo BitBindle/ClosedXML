@@ -25,7 +25,8 @@ namespace ClosedXML.Excel
 
         public IXLTableRows Clear(XLClearOptions clearOptions = XLClearOptions.All)
         {
-            _ranges.ForEach(r => r.Clear(clearOptions));
+            using (ArrayFormulaShiftCheck.BeginClear(_ranges, clearOptions))
+                _ranges.ForEach(r => r.Clear(clearOptions));
             return this;
         }
 

@@ -39,7 +39,9 @@ internal class PivotTableDefinitionPartReader
         if (pivotTableDefinition.Location?.Reference?.Value is { } locationReference)
         {
             var locationRange = ws.Range(locationReference) ?? throw PartStructureException.InvalidAttributeFormat("ref", locationReference);
-            locationRange.Clear(XLClearOptions.All);
+            // The load keeps the cells of a file. A clear of part of an array formula must not stop the load.
+            using (ArrayFormulaShiftCheck.SuspendChecks(ws))
+                locationRange.Clear(XLClearOptions.All);
             target = locationRange.FirstCell();
         }
 

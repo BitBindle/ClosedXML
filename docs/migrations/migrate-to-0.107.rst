@@ -108,6 +108,29 @@ transpose cannot change the range of the formula. A cell on the diagonal does no
 ``XLTransposeOptions.ReplaceCells``, a transpose clears the cells next to the range. It throws if
 the clear removes only part of an array formula or a data table.
 
+*****************************************
+Clear of part of an array formula
+*****************************************
+
+``IXLRangeBase.Clear`` and ``IXLCell.Clear`` now throw ``InvalidOperationException`` when they
+remove the contents of only part of an array formula or a data table. The method throws before it
+changes the sheet. Before, the clear removed the formula from the cleared cells only. The other
+cells kept the array formula with the old range.
+
+These clears do not throw:
+
+* A clear of all cells of the array formula or the data table. It removes the formula.
+* A clear without ``XLClearOptions.Contents``, for example a clear of the formats.
+
+A clear of a collection, for example ``IXLCells.Clear`` or ``IXLRanges.Clear``, checks all parts
+before the first change. The parts together must contain all cells of the array formula or the
+data table. If they do not, the clear throws, and the sheet does not change.
+
+Some other methods clear cells, so they can also throw. ``IXLCell.CopyFrom(IXLRangeBase)``,
+``IXLColumn.CopyTo(IXLColumn)`` and ``IXLRow.CopyTo(IXLRow)`` throw before they change the sheet.
+``IXLTable.ShowHeaderRow`` with the value false can also throw. It throws after it writes the
+names of blank header cells.
+
 *************************************
 One-cell array formula in cell A1
 *************************************

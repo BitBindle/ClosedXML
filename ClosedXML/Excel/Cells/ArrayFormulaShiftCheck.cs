@@ -5,7 +5,7 @@ using System.Linq;
 namespace ClosedXML.Excel
 {
     /// <summary>
-    /// Stops an insert or a delete that moves only part of an array formula or a data table.
+    /// Stops an insert, a delete or a clear that changes only part of an array formula or a data table.
     /// Excel does not allow these operations, because the cells of an array formula must stay
     /// together as one rectangle.
     /// </summary>
@@ -117,6 +117,141 @@ namespace ClosedXML.Excel
             }
 
             return new CheckResumers(sheets.Select(SuspendChecks).ToList());
+        }
+
+        /// <summary>
+        /// Throw when a clear of one cell removes the contents of only part of an array formula or a data
+        /// table.
+        /// </summary>
+        /// <remarks>
+        /// A clear of one cell does not clear other cells, so the check does not suspend the checks of the
+        /// sheet. The check reads only the formula of the cell and the list of data tables.
+        /// </remarks>
+        /// <param name="cell">The cleared cell.</param>
+        /// <param name="clearOptions">The options of the clear.</param>
+        /// <exception cref="InvalidOperationException">The clear removes the contents of only part of an array formula or a data table.</exception>
+        internal static void ThrowIfClearSplits(XLCell cell, XLClearOptions clearOptions)
+        {
+            var sheet = cell.Worksheet;
+            if (!clearOptions.HasFlag(XLClearOptions.Contents) || sheet.ArrayFormulaChecksSuspended > 0)
+                return;
+
+            var cellArea = new Area(cell.Point);
+            var formulas = sheet.Internals.CellsCollection.FormulaSlice;
+            if (formulas.Get(cell.Point) is { Type: FormulaType.Array } formula && formula.Range != cellArea)
+                throw CreateException(formula.Range);
+
+            foreach (var dataTable in formulas.GetDataTables())
+            {
+                if (dataTable.Range.Contains(cell.Point) && dataTable.Range != cellArea)
+                    throw CreateException(dataTable.Range);
+            }
+        }
+
+        /// <summary>
+        /// Check that a clear of cells does not remove the contents of only part of an array formula or a
+        /// data table. Then suspend the check until you dispose the returned object.
+        /// </summary>
+        /// <param name="cells">The cleared cells.</param>
+        /// <param name="clearOptions">The options of the clear.</param>
+        /// <returns>An object that resumes the check when you dispose it. <c>null</c> when the clear keeps the contents.</returns>
+        /// <exception cref="InvalidOperationException">The clear removes the contents of only part of an array formula or a data table.</exception>
+        internal static IDisposable? BeginClear(IEnumerable<XLCell> cells, XLClearOptions clearOptions)
+        {
+            return BeginClear(cells.Select(static cell => (cell.Worksheet, GetClearedArea(cell))), clearOptions);
+        }
+
+        /// <summary>
+        /// Get the area that a clear of the cell changes. The clear of a merged cell clears all cells of the merged range.
+        /// </summary>
+        private static Area GetClearedArea(XLCell cell)
+        {
+            if (cell.IsMerged() && cell.Worksheet.Internals.MergedRanges.GetIntersectedRanges(cell.Address).FirstOrDefault() is { } mergedRange)
+                return Area.FromRangeAddress(mergedRange.RangeAddress);
+
+            return new Area(cell.Point);
+        }
+
+        /// <summary>
+        /// Check that a clear of ranges does not remove the contents of only part of an array formula or a
+        /// data table. Then suspend the check until you dispose the returned object.
+        /// </summary>
+        /// <param name="parts">The cleared ranges.</param>
+        /// <param name="clearOptions">The options of the clear.</param>
+        /// <returns>An object that resumes the check when you dispose it. <c>null</c> when the clear keeps the contents.</returns>
+        /// <exception cref="InvalidOperationException">The clear removes the contents of only part of an array formula or a data table.</exception>
+        internal static IDisposable? BeginClear(IEnumerable<XLRangeBase> parts, XLClearOptions clearOptions)
+        {
+            // An earlier delete can make a range object not valid. The clear of that part does not change the cells.
+            var validParts = parts
+                .Where(static part => part.RangeAddress.IsValid)
+                .Select(static part => (part.Worksheet, Area.FromRangeAddress(part.RangeAddress)));
+            return BeginClear(validParts, clearOptions);
+        }
+
+        /// <summary>
+        /// Check all parts of a clear before the first change. The parts together must contain all cells
+        /// of each array formula and data table that they change.
+        /// </summary>
+        private static IDisposable? BeginClear(IEnumerable<(XLWorksheet Sheet, Area Area)> parts, XLClearOptions clearOptions)
+        {
+            if (!clearOptions.HasFlag(XLClearOptions.Contents))
+                return null;
+
+            // Check all sheets before the first suspend.
+            var sheets = new List<XLWorksheet>();
+            foreach (var sheetParts in parts.GroupBy(static part => part.Sheet))
+            {
+                if (sheetParts.Key.ArrayFormulaChecksSuspended == 0)
+                    ThrowIfClearSplits(sheetParts.Key, sheetParts.Select(static part => part.Area).ToList());
+
+                sheets.Add(sheetParts.Key);
+            }
+
+            return new CheckResumers(sheets.Select(SuspendChecks).ToList());
+        }
+
+        private static void ThrowIfClearSplits(XLWorksheet sheet, List<Area> cleared)
+        {
+            var ranges = GetArrayRanges(sheet, cleared);
+            if (ranges.Count == 0)
+                return;
+
+            // A clear of a cell collection gives one area for each cell. A set of these cells makes the
+            // check of each range fast.
+            var cells = new HashSet<Point>();
+            var areas = new List<Area>();
+            foreach (var area in cleared)
+            {
+                if (area.Width == 1 && area.Height == 1)
+                    cells.Add(area.FirstPoint);
+                else
+                    areas.Add(area);
+            }
+
+            foreach (var range in ranges)
+            {
+                if (!ContainAllCells(cells, areas, range))
+                    throw CreateException(range);
+            }
+        }
+
+        /// <summary>
+        /// Get <c>true</c> when the <paramref name="cells"/> and the <paramref name="areas"/> together contain
+        /// all cells of the <paramref name="range"/>.
+        /// </summary>
+        private static bool ContainAllCells(HashSet<Point> cells, List<Area> areas, Area range)
+        {
+            if (areas.Exists(area => area.Intersect(range) == range))
+                return true;
+
+            foreach (var point in range)
+            {
+                if (!cells.Contains(point) && !areas.Exists(area => area.Contains(point)))
+                    return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -278,55 +413,41 @@ namespace ClosedXML.Excel
         /// <paramref name="areas"/>.
         /// </summary>
         /// <remarks>
-        /// All cells of an array formula share one formula. A data table from a file has the formula only
-        /// in its first cell. This cell can be before an area, so the search for each area starts at the
-        /// first row and the first column of the sheet.
+        /// All cells of an array formula share one formula, so a search of the areas finds each array
+        /// formula. A data table has the formula only in its first cell, and this cell can be outside
+        /// the areas. The formula slice keeps a list of the data tables for this reason.
         /// </remarks>
         private static List<Area> GetArrayRanges(XLWorksheet sheet, IReadOnlyList<Area> areas)
         {
             var ranges = new List<Area>();
             var foundFormulas = new HashSet<XLCellFormula>(ReferenceEqualityComparer.Instance);
-            foreach (var searchArea in GetSearchAreas(areas))
+            var formulas = sheet.Internals.CellsCollection.FormulaSlice;
+            foreach (var area in areas)
             {
-                using var enumerator = sheet.Internals.CellsCollection.FormulaSlice.GetForwardEnumerator(searchArea);
+                // A clear of a cell collection gives many areas with one cell. A direct read is faster than an enumerator.
+                if (area.Width == 1 && area.Height == 1)
+                {
+                    if (formulas.Get(area.FirstPoint) is { Type: FormulaType.Array } cellFormula && foundFormulas.Add(cellFormula))
+                        ranges.Add(cellFormula.Range);
+
+                    continue;
+                }
+
+                using var enumerator = formulas.GetForwardEnumerator(area);
                 while (enumerator.MoveNext())
                 {
-                    var formula = enumerator.Current;
-                    if (formula is null || formula.Type is not (FormulaType.Array or FormulaType.DataTable) || foundFormulas.Contains(formula))
-                        continue;
-
-                    if (IntersectsAny(formula.Range, areas))
-                    {
-                        foundFormulas.Add(formula);
+                    if (enumerator.Current is { Type: FormulaType.Array } formula && foundFormulas.Add(formula))
                         ranges.Add(formula.Range);
-                    }
                 }
             }
 
-            return ranges;
-        }
-
-        /// <summary>
-        /// Get the cells from the first cell of the sheet to the last cell of each area. The result has
-        /// rectangles that do not overlap, so the search reads each cell one time.
-        /// </summary>
-        private static List<Area> GetSearchAreas(IReadOnlyList<Area> areas)
-        {
-            // The union of the rectangles is a staircase. Each band of columns has the height of the
-            // highest rectangle that covers the band.
-            var byRightColumn = areas.OrderByDescending(static area => area.RightColumn).ToList();
-            var searchAreas = new List<Area>();
-            var bottomRow = 0;
-            for (var i = 0; i < byRightColumn.Count; ++i)
+            foreach (var dataTable in formulas.GetDataTables())
             {
-                bottomRow = Math.Max(bottomRow, byRightColumn[i].BottomRow);
-                var leftColumn = i + 1 < byRightColumn.Count ? byRightColumn[i + 1].RightColumn + 1 : 1;
-                var rightColumn = byRightColumn[i].RightColumn;
-                if (leftColumn <= rightColumn)
-                    searchAreas.Add(new Area(1, leftColumn, bottomRow, rightColumn));
+                if (IntersectsAny(dataTable.Range, areas))
+                    ranges.Add(dataTable.Range);
             }
 
-            return searchAreas;
+            return ranges;
         }
 
         private static bool IntersectsAny(Area range, IReadOnlyList<Area> areas)

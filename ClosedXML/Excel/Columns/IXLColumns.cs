@@ -140,6 +140,7 @@ namespace ClosedXML.Excel
         /// Clears the contents of these columns.
         /// </summary>
         /// <param name="clearOptions">Specify what you want to clear.</param>
+        /// <exception cref="InvalidOperationException">The clear removes the contents of only part of an array formula or a data table.</exception>
         IXLColumns Clear(XLClearOptions clearOptions = XLClearOptions.All);
 
         void Select();

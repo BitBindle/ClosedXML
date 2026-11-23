@@ -34,7 +34,8 @@ namespace ClosedXML.Excel
 
         public IXLRangeRows Clear(XLClearOptions clearOptions = XLClearOptions.All)
         {
-            _ranges.ForEach(c => c.Clear(clearOptions));
+            using (ArrayFormulaShiftCheck.BeginClear(_ranges, clearOptions))
+                _ranges.ForEach(c => c.Clear(clearOptions));
             return this;
         }
 
