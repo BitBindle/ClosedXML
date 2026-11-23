@@ -291,7 +291,7 @@ namespace ClosedXML.Excel
                     CellsUsedInternal(XLCellsUsedOptions.All & ~XLCellsUsedOptions.MergedRanges, c => c.Point != firstCell.Point).ToList<XLCell>();
                 cellsUsed.ForEach(c => c.Clear(XLClearOptions.All
                                                & ~XLClearOptions.MergedRanges
-                                               & ~XLClearOptions.NormalFormats));
+                                               & ~XLClearOptions.NormalFormats, true));
 
                 // When a range is merged, remaining cells of the area take on the format of the first cell
                 if (firstCell.FormatValue is null)
@@ -367,6 +367,7 @@ namespace ClosedXML.Excel
 
         public IXLRangeBase Clear(XLClearOptions clearOptions = XLClearOptions.All)
         {
+            using var resumer = ArrayFormulaShiftCheck.BeginClear([this], clearOptions);
             var cellClearOptions = clearOptions
                     & ~XLClearOptions.ConditionalFormats
                     & ~XLClearOptions.DataValidation

@@ -17,6 +17,17 @@ namespace ClosedXML.Excel
 
         public bool IsEmpty => _formulas.IsEmpty;
 
+        /// <summary>
+        /// The data table formulas that were set in the sheet. The list can have formulas that the sheet
+        /// does not have anymore. <see cref="GetDataTables"/> removes them.
+        /// </summary>
+        private readonly HashSet<XLCellFormula> _dataTables = new(ReferenceEqualityComparer.Instance);
+
+        /// <summary>
+        /// A cached delegate for <see cref="IsRemovedDataTable"/>, so that <see cref="GetDataTables"/> does not allocate.
+        /// </summary>
+        private System.Predicate<XLCellFormula>? _isRemovedDataTable;
+
         public int MaxColumn => _formulas.MaxColumn;
 
         public int MaxRow => _formulas.MaxRow;
@@ -77,6 +88,25 @@ namespace ClosedXML.Excel
             return _formulas[point];
         }
 
+        /// <summary>
+        /// Get the data table formulas of the sheet. A data table has its formula only in the first cell of
+        /// its range.
+        /// </summary>
+        internal IReadOnlyCollection<XLCellFormula> GetDataTables()
+        {
+            if (_dataTables.Count == 0)
+                return _dataTables;
+
+            // An insert or a delete changes the range of a formula and moves the formula with its first cell.
+            _dataTables.RemoveWhere(_isRemovedDataTable ??= IsRemovedDataTable);
+            return _dataTables;
+        }
+
+        private bool IsRemovedDataTable(XLCellFormula dataTable)
+        {
+            return !ReferenceEquals(_formulas[dataTable.Range.FirstPoint], dataTable);
+        }
+
         internal void Set(Point point, XLCellFormula? formula)
         {
             // Can't ref, because it is an alias for a memory and thus wouldn't hold old formula.
@@ -85,6 +115,8 @@ namespace ClosedXML.Excel
                 return;
 
             _formulas.Set(point, formula);
+            if (formula?.Type == FormulaType.DataTable)
+                _dataTables.Add(formula);
 
             // Remove first, so calc chain doesn't choke on two formulas
             // in one cell when changing a formula of a cell.

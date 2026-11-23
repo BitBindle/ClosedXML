@@ -181,7 +181,11 @@ internal class XLCells : IXLCells, IEnumerable<XLCell>
 
     public IXLCells Clear(XLClearOptions clearOptions = XLClearOptions.All)
     {
-        this.ForEach<XLCell>(c => c.Clear(clearOptions));
+        // Read the cells one time, so the check and the clear use the same cells.
+        var cells = this.ToList<XLCell>();
+        using (ArrayFormulaShiftCheck.BeginClear(cells, clearOptions))
+            cells.ForEach(c => c.Clear(clearOptions));
+
         return this;
     }
 

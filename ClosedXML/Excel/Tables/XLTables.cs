@@ -42,7 +42,8 @@ namespace ClosedXML.Excel
 
         public IXLTables Clear(XLClearOptions clearOptions = XLClearOptions.All)
         {
-            _tables.Values.ForEach(t => t.Clear(clearOptions));
+            using (ArrayFormulaShiftCheck.BeginClear(_tables.Values, clearOptions))
+                _tables.Values.ForEach(t => t.Clear(clearOptions));
             return this;
         }
 

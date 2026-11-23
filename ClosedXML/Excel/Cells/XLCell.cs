@@ -664,6 +664,9 @@ namespace ClosedXML.Excel
             }
             else
             {
+                if (!calledFromRange)
+                    ArrayFormulaShiftCheck.ThrowIfClearSplits(this, clearOptions);
+
                 if (clearOptions.HasFlag(XLClearOptions.Contents))
                 {
                     SetHyperlink(null);

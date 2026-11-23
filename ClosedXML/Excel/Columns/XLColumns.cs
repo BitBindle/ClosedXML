@@ -277,7 +277,8 @@ namespace ClosedXML.Excel
 
         public IXLColumns Clear(XLClearOptions clearOptions = XLClearOptions.All)
         {
-            Columns.ForEach(c => c.Clear(clearOptions));
+            using (ArrayFormulaShiftCheck.BeginClear(Columns, clearOptions))
+                Columns.ForEach(c => c.Clear(clearOptions));
             return this;
         }
 
