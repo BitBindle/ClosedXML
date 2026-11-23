@@ -120,6 +120,26 @@ The save threw ``InvalidOperationException``.
 it to null, it throws ``ArgumentException``. Before, it changed the range of the formula to
 ``A1:A1``. To remove an array formula, set the value of its range.
 
+*****************************************
+Table over an array formula
+*****************************************
+
+These methods now throw ``InvalidOperationException`` when the table range has cells of an array
+formula or a data table with more than one cell:
+
+* ``IXLRange.CreateTable`` and ``IXLRangeColumn.CreateTable``.
+* ``IXLTable.Resize``.
+* ``IXLTable.CopyTo``.
+* ``IXLCell.InsertTable`` with ``createTable`` true. It throws before it writes the data.
+
+Excel does not allow these formulas in a table. Before, ClosedXML created the table. An array
+formula in one cell does not cause the exception.
+
+The load of a workbook does not do this check. A file with such a table still loads.
+
+``IXLRangeBase.FormulaArrayA1`` now accepts an array formula in one cell of a table. Before, it
+threw ``InvalidOperationException``. It still throws for an array formula with more than one cell.
+
 *****************
 Equality methods
 *****************

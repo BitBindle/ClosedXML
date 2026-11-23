@@ -446,6 +446,8 @@ namespace ClosedXML.Excel
             if (this.Worksheet != range.Worksheet)
                 throw new InvalidOperationException("You cannot resize a table to a range on a different sheet.");
 
+            ArrayFormulaShiftCheck.ThrowIfTableHasArrayFormula(Worksheet, Area.FromRangeAddress(range.RangeAddress));
+
             var totalsRowChanged = this.ShowTotalsRow ? range.LastRow().RowNumber() - ShownTotalsRow().RowNumber() : 0;
             var oldTotalsRowNumber = this.ShowTotalsRow ? ShownTotalsRow().RowNumber() : -1;
 
@@ -993,7 +995,12 @@ namespace ClosedXML.Excel
 
         public IXLTable CopyTo(IXLWorksheet targetSheet)
         {
-            return CopyTo((XLWorksheet)targetSheet);
+            // The copy of a worksheet does not do this check, because its target is a new sheet.
+            var sheet = (XLWorksheet)targetSheet;
+            if (sheet != Worksheet)
+                ArrayFormulaShiftCheck.ThrowIfTableHasArrayFormula(sheet, Area);
+
+            return CopyTo(sheet);
         }
 
         internal IXLTable CopyTo(XLWorksheet targetSheet, bool copyData = true)

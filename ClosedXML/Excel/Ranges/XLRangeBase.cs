@@ -117,7 +117,8 @@ namespace ClosedXML.Excel
                 if (Worksheet.MergedRanges.Any(mr => mr.Intersects(this)))
                     throw new InvalidOperationException("Can't create array function over a merged range.");
 
-                if (Worksheet.Tables.Any<XLTable>(t => t.Intersects(this)))
+                // Excel allows an array formula in one cell of a table.
+                if ((range.Width > 1 || range.Height > 1) && Worksheet.Tables.Any<XLTable>(t => t.Intersects(this)))
                     throw new InvalidOperationException("Can't create array function over a table.");
 
                 if (Cells(false).Any<XLCell>(c => c.HasArrayFormula && c.FormulaReference is { } formulaReference && !RangeAddress.ContainsWhole(formulaReference)))
