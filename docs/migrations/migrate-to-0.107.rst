@@ -18,6 +18,16 @@ A save now writes ``auto="1"`` for an ``XLColor.Automatic`` color of a data bar 
 Before, the save wrote an empty color element, and the file lost the automatic value. A load reads
 the element as ``XLColor.Automatic``, as before.
 
+***********************************
+Measurement of bold and italic text
+***********************************
+
+``DefaultGraphicEngine`` now measures bold and italic text with the bold and italic metrics of the
+font. Before, the engine used the regular metrics for all text. ``AdjustToContents`` can now give
+different column widths and row heights for bold and italic text. Columns with bold text are
+usually wider. If the font does not have the style, the engine uses the nearest style of the font.
+For example, it uses the bold style for bold italic text if the font has no bold italic style.
+
 *******************************************************
 Copy of a sparkline with source data outside the sheet
 *******************************************************

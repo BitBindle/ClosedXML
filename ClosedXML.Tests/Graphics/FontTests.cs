@@ -70,6 +70,73 @@ namespace ClosedXML.Tests.Graphics
             Assert.AreEqual(7, box.AdvanceWidth);
         }
 
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        [TestCase(true, true)]
+        [Issue("137")]
+        public void TextWidthUsesMetricsOfFontStyle(bool bold, bool italic)
+        {
+            // The embedded font has a file for each style, and the bold and italic glyphs have different widths.
+            var engine = new DefaultGraphicEngine("NonExistentFallbackFont");
+            var regularFont = new DummyFont("SomeNonExistentFont", 20);
+            var styledFont = new DummyFont("SomeNonExistentFont", 20) { Bold = bold, Italic = italic };
+
+            var regularWidth = engine.GetTextWidth("Lorem ipsum dolor sit amet", regularFont, 96);
+            var styledWidth = engine.GetTextWidth("Lorem ipsum dolor sit amet", styledFont, 96);
+
+            Assert.That(styledWidth, Is.Not.EqualTo(regularWidth));
+        }
+
+        [Test]
+        [Issue("137")]
+        public void BoldTextIsWiderThanRegularText()
+        {
+            var engine = new DefaultGraphicEngine("NonExistentFallbackFont");
+            var regularFont = new DummyFont("SomeNonExistentFont", 20);
+            var boldFont = new DummyFont("SomeNonExistentFont", 20) { Bold = true };
+
+            var regularWidth = engine.GetTextWidth("Lorem ipsum dolor sit amet", regularFont, 96);
+            var boldWidth = engine.GetTextWidth("Lorem ipsum dolor sit amet", boldFont, 96);
+
+            Assert.That(boldWidth, Is.GreaterThan(regularWidth));
+        }
+
+        [Test]
+        [Issue("137")]
+        public void FontWithoutRequestedStyleUsesRegularStyle()
+        {
+            // TestFontA has only a regular style. The engine must use it for bold italic text without an exception.
+            using var fallbackFontStream = TestHelper.GetStreamFromResource("Fonts.TestFontA.ttf");
+            var engine = DefaultGraphicEngine.CreateOnlyWithFonts(fallbackFontStream);
+            var regularFont = new DummyFont("Nonexistent Font", 20);
+            var boldItalicFont = new DummyFont("Nonexistent Font", 20) { Bold = true, Italic = true };
+
+            var regularWidth = engine.GetTextWidth("A", regularFont, 120);
+            var boldItalicWidth = engine.GetTextWidth("A", boldItalicFont, 120);
+
+            Assert.That(boldItalicWidth, Is.EqualTo(regularWidth));
+        }
+
+        [Test]
+        [Issue("137")]
+        public void FontWithoutBoldItalicStyleUsesBoldStyle()
+        {
+            // TestFontStyles has only a regular and a bold style.
+            using var regularStream = TestHelper.GetStreamFromResource("Fonts.TestFontStyles-Regular.ttf");
+            using var boldStream = TestHelper.GetStreamFromResource("Fonts.TestFontStyles-Bold.ttf");
+            var engine = DefaultGraphicEngine.CreateOnlyWithFonts(regularStream, boldStream);
+            var regularFont = new DummyFont("Nonexistent Font", 20);
+            var boldFont = new DummyFont("Nonexistent Font", 20) { Bold = true };
+            var boldItalicFont = new DummyFont("Nonexistent Font", 20) { Bold = true, Italic = true };
+
+            var regularWidth = engine.GetTextWidth("Lorem ipsum dolor sit amet", regularFont, 96);
+            var boldWidth = engine.GetTextWidth("Lorem ipsum dolor sit amet", boldFont, 96);
+            var boldItalicWidth = engine.GetTextWidth("Lorem ipsum dolor sit amet", boldItalicFont, 96);
+
+            Assert.That(boldItalicWidth, Is.EqualTo(boldWidth));
+            Assert.That(boldItalicWidth, Is.Not.EqualTo(regularWidth));
+        }
+
         [TestCase]
         public void CanSpecifyFallbackFontWithoutFileSystem()
         {
