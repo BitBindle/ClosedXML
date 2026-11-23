@@ -59,8 +59,8 @@ jobs:
         run: dotnet restore ClosedXML.slnx
 
       - name: Build
-        # VersionPrefix is major.minor.patch, the suffix comes from Directory.Build.props. RepositoryUrl is
-        # overridden, so the packages are linked to this repository (Directory.Build.props has the upstream one).
+        # VersionPrefix is major.minor.patch, the suffix comes from Directory.Build.props. The
+        # workflow sets RepositoryUrl to its own repository, so that the packages link to that repository.
         run: >
           dotnet build ClosedXML.slnx --configuration Release --no-restore
           -p:VersionPrefix="${version%%-*}"
