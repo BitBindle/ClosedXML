@@ -127,6 +127,13 @@ namespace ClosedXML.Excel
 
         public XLWorksheetInternals Internals { get; }
 
+        /// <summary>
+        /// The number of active operations that checked all their lines for array formulas before they
+        /// started. These operations are a delete of many parts and an insert of full rows or columns.
+        /// While the number is more than zero, an insert or a delete does not check array formulas again.
+        /// </summary>
+        internal int ArrayFormulaChecksSuspended { get; set; }
+
         internal XLSparklineGroups SparklineGroupsInternal { get; }
 
         public XLRangeFactory RangeFactory

@@ -81,15 +81,23 @@ Before, each cell of the array formula got a normal formula.
 An insert or a delete now also changes the input cells of a data table. If you delete an input
 cell, the data table gets ``#REF!`` for that input.
 
-Excel does not allow an insert or a delete that changes only part of an array formula. ClosedXML
-does not stop these operations yet (issue #102):
+Excel does not allow an insert or a delete that changes only part of an array formula or a data
+table. ClosedXML now also stops these operations. Before, ClosedXML did them. The operation throws
+``InvalidOperationException`` before it changes the sheet. These operations throw:
 
-* An insert of rows or columns inside the range makes the range larger, but the new cells get no
-  formula.
-* A delete of rows or columns inside the range makes the range smaller.
-* An insert or a delete of cells that moves only some cells of the range breaks the array formula.
-  Some cells in the range have no formula, and some cells outside the range have the formula. A
-  save can lose the array formula.
+* An insert of rows or columns inside the range.
+* A delete of some rows or some columns of the range.
+* An insert or a delete of cells that moves only some cells of the range.
+* An insert that moves the range, or part of it, out of the sheet.
+
+A delete of all rows or all columns of the range does not throw. It deletes the array formula or
+the data table.
+
+A delete of a collection of rows or columns checks all parts before the first delete. Some
+collections of range rows, range columns or table rows have parts that overlap. Other collections
+have range rows with different columns, or range columns with different rows. For these
+collections, the delete throws if an array formula or a data table is in the cells that the delete
+can move.
 
 *****************
 Equality methods

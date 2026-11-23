@@ -40,7 +40,8 @@ namespace ClosedXML.Excel
 
         public void Delete()
         {
-            _ranges.OrderByDescending(r => r.RowNumber()).ForEach(r => r.Delete());
+            using (ArrayFormulaShiftCheck.BeginDeleteOfParts(_ranges, rows: true, byFirstLineNumber: false))
+                _ranges.OrderByDescending(r => r.RowNumber()).ForEach(r => r.Delete());
             _ranges.Clear();
         }
 
