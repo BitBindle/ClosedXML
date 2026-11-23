@@ -864,8 +864,7 @@ namespace ClosedXML.Tests.Excel
 
             ws.Range("A1:B2").Transpose(XLTransposeOptions.MoveCells);
 
-            Assert.True(ws.Cell("A1").HasArrayFormula);
-            Assert.AreEqual("1+1", ws.Cell("A1").FormulaA1);
+            AssertArrayFormula(ws, "A1:A1", "1+1");
             Assert.AreEqual(2, ws.Cell("B1").Value);
             Assert.AreEqual(1, ws.Cell("A2").Value);
         }

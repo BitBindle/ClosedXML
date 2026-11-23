@@ -108,9 +108,6 @@ transpose cannot change the range of the formula. A cell on the diagonal does no
 ``XLTransposeOptions.ReplaceCells``, a transpose clears the cells next to the range. It throws if
 the clear removes only part of an array formula or a data table.
 
-A resize of a table with a totals row to more rows now gives the table the new range. Before, the
-table got one row fewer. The totals row was not in the last row of the range.
-
 *************************************
 One-cell array formula in cell A1
 *************************************
@@ -337,6 +334,8 @@ These bugs are fixed:
 * ``IXLRanges.AddToNamed(String, XLScope)`` ignored the scope and always added a workbook name.
 * ``IXLTable.Resize(IXLRangeAddress)`` ignored the address and used the current address of the
   table.
+* A resize of a table with a totals row to more rows gave the table one row fewer. The totals row
+  was not in the last row of the new range.
 * ``FirstRowUsed`` and ``LastRowUsed`` of ``IXLTableRange`` without a predicate returned a row that
   was not valid when the table range had no used rows. They now return null.
 * A new name, or a new totals row function, for a table with a hidden totals row threw
