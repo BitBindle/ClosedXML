@@ -85,6 +85,10 @@ example, a second table ``AB`` gets the name ``AB_1``, not ``AB1``.
 The save does not give a table the name of another table or of a defined name in the workbook. For
 example, if the workbook also has a table ``SALES1``, the second table gets the name ``SALES2``.
 
+The save does not change the formulas, the defined names and the pivot sources that use the old
+name. Excel compares names without case, so a reference to ``SALES`` goes to the table ``Sales``.
+Give each table a name that is unique without case.
+
 *******************************************
 Array formulas after an insert or a delete
 *******************************************

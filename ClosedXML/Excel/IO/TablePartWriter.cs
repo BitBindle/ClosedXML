@@ -183,7 +183,8 @@ namespace ClosedXML.Excel.IO
         {
             var originalTableName = xlTable.Name;
             // The name rules of the setter make each new name valid. A name from a file stays as it is,
-            // because the formulas and the pivot sources of the file use that name.
+            // because the formulas and the pivot sources of the file use that name. The save changes
+            // the name only if an earlier saved table has the same name without case.
             var name = originalTableName;
             var i = 0;
             while (context.TableNames.Contains(name) || (i > 0 && IsUsedInWorkbook(name, xlTable.Worksheet.Workbook, context)))
