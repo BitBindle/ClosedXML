@@ -197,9 +197,6 @@ expressed in points, width of column is expressed in multiples of Maximum Digit
 Width (MDW). MDW is a maximum width of a any digit (0-9) in pixels. If column
 has width 12.5, it means 12.5 * width_of_widest_0-9_digit.
 
-For more information about how does Excel calculate width of a cell during
-``AdjustToContent``, see `Cell Dimension Dev documentation <https://github.com/ClosedXML/ClosedXML/wiki/Cell-Dimensions>`_.
-
 Create adapter
 ==============
 

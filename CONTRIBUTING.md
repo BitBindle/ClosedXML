@@ -1,17 +1,13 @@
-# Notice
-ClosedXML is currently not seeking new contributions, until the worst technical debt and current backlog of PRs are dealt with.
-
 # Developer guidelines
-The [OpenXML specification](https://www.ecma-international.org/publications/standards/Ecma-376.htm) is a large and complicated beast. In order for ClosedXML, the wrapper around OpenXML, to support all the features, we rely on community contributions. Before opening an issue to request a new feature, we'd like to urge you to try to implement it yourself and log a pull request.
+The [OpenXML specification](https://ecma-international.org/publications-and-standards/standards/ecma-376/) is large. ClosedXML needs contributions to support all the features of the specification. Before you request a new feature in an issue, try to add the feature yourself and open a pull request.
 
 Here are some tips.
 
 * Before starting a large pull request, log an issue and outline the problem and a broad outline of your solution. The maintainers will discuss the issue with you and possibly propose some alternative approaches to align with the ClosedXML development conventions. 
 * Please submit pull requests that are based on the `develop` branch.
 * Where possible, pull requests should include unit tests that cover as many uses cases as possible.
-* We recommend Visual Studio 2019 or higher as the development environment. If you do use Visual Studio, please install these extensions:
-  * [CodeMaid](https://marketplace.visualstudio.com/items?itemName=SteveCadwallader.CodeMaid), for ensuring consistent code syntax, whitespace convention, etc.
-  * If you use a version of Visual Studio lower than 2017, you should install [editorconfig](<https://marketplace.visualstudio.com/items?itemName=EditorConfigTeam.EditorConfig>) support. Read more about [EditorConfig](http://www.editorconfig.org).
+* Before you open a pull request, do the build, test and check steps in [AGENTS.md](AGENTS.md#build-test-and-check). Then complete the [pull request template](.github/pull_request_template.md).
+* You need the .NET 10 SDK. If you use Visual Studio, install [CodeMaid](https://marketplace.visualstudio.com/items?itemName=SteveCadwallader.CodeMaid). CodeMaid keeps the code format and the whitespace the same.
 * We use 4 spaces for code indentation. This is the default in Visual Studio. Don't leave any trailing white space at the end of lines or files.
 
 
@@ -19,7 +15,7 @@ Here are some tips.
 ## Working with Excel file internals
 Excel files (`.xlsx` and `.xlsm`) are zip packages. You can easily verify this by renaming the extension any Excel file to `.zip` and opening the file in your favourite `.zip` file editor.
 
-Internally, the file contains files (also known as parts) that represent different entities in the Excel framework, for example `workbook.xml` and `table1.xml`. The [OpenXML specification](https://www.ecma-international.org/publications/standards/Ecma-376.htm) documents all these parts and their contents.
+Internally, the file contains files (also known as parts) that represent different entities in the Excel framework, for example `workbook.xml` and `table1.xml`. The [OpenXML specification](https://ecma-international.org/publications-and-standards/standards/ecma-376/) documents all these parts and their contents.
 
 Making changes to the ClosedXML code may change the input or output of the package parts. For example if you add support for a currently unsupported element, you will have to ensure that you read the appropriate package part into the ClosedXML model and also support writing of the package parts to the file.
 
@@ -43,7 +39,7 @@ Now, to compare 2 similar, but not exact Excel files:
 
 ## Reconciling Test Files
 
-ClosedXML uses a set of [reference .xlsx files](https://github.com/ClosedXML/ClosedXML/tree/develop/ClosedXML.Tests/Resource) for comparison for some of the unit tests. Sometimes when you update the ClosedXML codebase, e.g. a bugfix, the reference test files maybe become obsolete. When running unit tests and the generated file doesn't match the reference file, you will have to update the reference file. You should do this only after inspecting the differences between the generated and reference files in detail and confirming that each change is indeed the expected behaviour. Check the new files visually (e.g. in Excel) and through XML comparison before overwriting the reference files.
+ClosedXML uses a set of [reference .xlsx files](ClosedXML.Tests/Resource) for comparison for some of the unit tests. Sometimes when you update the ClosedXML codebase, e.g. a bugfix, the reference test files maybe become obsolete. When running unit tests and the generated file doesn't match the reference file, you will have to update the reference file. You should do this only after inspecting the differences between the generated and reference files in detail and confirming that each change is indeed the expected behaviour. Check the new files visually (e.g. in Excel) and through XML comparison before overwriting the reference files.
 
 ## Code conventions
 ClosedXML has a fairly large codebase and we therefore want to keep code revisions as clean and tidy as possible. It is therefore important not to introduce unnecessary whitespace changes in your commits.

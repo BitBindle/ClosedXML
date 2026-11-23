@@ -5,11 +5,13 @@ ClosedXML Installation
 ====================
 Installing ClosedXML
 ====================
-The easiest way to add ClosedXML to your project is to install it using the NET CLI.
+The release workflow publishes ClosedXML to the GitHub Packages feed of BitBindle. The feed needs
+authentication and a package source mapping. The `README <https://github.com/BitBindle/ClosedXML#install>`_
+shows the ``nuget.config``. Then add the package with the .NET CLI.
 
 .. code-block:: batch
 
-   C:\source> dotnet add package ClosedXML
+   C:\source> dotnet add package ClosedXML --prerelease
 
 ==========================
 Compatible implementations
