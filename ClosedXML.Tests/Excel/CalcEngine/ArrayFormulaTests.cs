@@ -995,13 +995,17 @@ namespace ClosedXML.Tests.Excel.CalcEngine
 
         [Test]
         [Issue("125")]
-        public void Range_copy_of_array_formula_after_last_column_throws()
+        public void Range_copy_of_array_formula_after_last_column_throws_and_keeps_the_target()
         {
             using var wb = new XLWorkbook();
             var ws = wb.AddWorksheet();
             ws.Range("A1:B1").FormulaArrayA1 = "1+1";
+            ws.Cell("XFD3").Value = "Target";
 
-            Assert.Throws<ArgumentOutOfRangeException>(() => ws.Range("A1:B1").CopyTo(ws.Cell(1, XLHelper.MaxColumnNumber)));
+            Assert.Throws<InvalidOperationException>(() => ws.Range("A1:B1").CopyTo(ws.Cell("XFD3")));
+
+            Assert.AreEqual("Target", ws.Cell("XFD3").Value);
+            Assert.False(ws.Cell("XFD3").HasArrayFormula);
         }
 
         [Test]

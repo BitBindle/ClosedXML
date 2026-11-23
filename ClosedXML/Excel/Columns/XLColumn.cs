@@ -415,9 +415,9 @@ namespace ClosedXML.Excel
 
         public IXLColumn CopyTo(IXLColumn column)
         {
-            // Create the array formulas of the copy before the first change, because it can throw.
+            // Check the copy and create its array formulas before the first change, because both steps can throw.
             var target = (XLCell)column.FirstCell();
-            var arrayFormulaCopies = target.CreateArrayFormulaCopies(this);
+            var arrayFormulaCopies = target.PrepareRangeCopy(this);
             column.Clear();
             var newColumn = (XLColumn)column;
             CopyPropertiesTo(newColumn);

@@ -1087,18 +1087,19 @@ namespace ClosedXML.Excel
                 throw new ArgumentNullException(nameof(rangeObject));
 
             var asRange = (XLRangeBase)rangeObject;
-            return CopyFrom(asRange, CreateArrayFormulaCopies(asRange));
+            return CopyFrom(asRange, PrepareRangeCopy(asRange));
         }
 
         /// <summary>
-        /// Create the copies of the array formulas for a copy of a range to this cell. Call it before the
-        /// first change to the target, because it throws when the copy is not possible. The target can
+        /// Check a copy of a range to this cell and create the copies of its array formulas. Call it before
+        /// the first change to the target, because it throws when the copy is not possible. The target can
         /// also overlap the source.
         /// </summary>
         /// <param name="source">The copied range.</param>
         /// <returns>The array formulas for <see cref="CopyFrom(XLRangeBase, List{XLCellFormula})"/>.</returns>
-        internal List<XLCellFormula> CreateArrayFormulaCopies(XLRangeBase source)
+        internal List<XLCellFormula> PrepareRangeCopy(XLRangeBase source)
         {
+            ThrowIfCopyIsOutsideSheet(source);
             return ArrayFormulaCopy.CreateCopies(source.Worksheet, source.SheetRange, Worksheet, Point);
         }
 
@@ -1106,7 +1107,7 @@ namespace ClosedXML.Excel
         /// Copy a range to this cell.
         /// </summary>
         /// <param name="asRange">The copied range.</param>
-        /// <param name="arrayFormulaCopies">The array formulas from <see cref="CreateArrayFormulaCopies"/>.</param>
+        /// <param name="arrayFormulaCopies">The array formulas from <see cref="PrepareRangeCopy"/>.</param>
         internal IXLCell CopyFrom(XLRangeBase asRange, List<XLCellFormula> arrayFormulaCopies)
         {
             var maxRows = asRange.RowCount();
@@ -1116,7 +1117,6 @@ namespace ClosedXML.Excel
             var lastColumn = Math.Min(_columnNumber + maxColumns - 1, XLHelper.MaxColumnNumber);
 
             var targetRange = Worksheet.Range(_rowNumber, _columnNumber, lastRow, lastColumn);
-            ThrowIfCopyIsOutsideSheet(asRange);
 
             if (!(asRange is XLRow || asRange is XLColumn))
             {

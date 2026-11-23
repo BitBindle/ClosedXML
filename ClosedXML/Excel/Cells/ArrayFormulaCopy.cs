@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace ClosedXML.Excel
@@ -58,14 +59,10 @@ namespace ClosedXML.Excel
             var copies = new List<XLCellFormula>(arrayFormulas.Count);
             foreach (var arrayFormula in arrayFormulas)
             {
-                // The copy of the cells throws for a cell outside the sheet, so this copy is not necessary.
+                // The caller checks before this that the copy of each used cell is in the sheet.
                 var range = arrayFormula.Range;
-                var lastRow = range.BottomRow + rowShift;
-                var lastColumn = range.RightColumn + columnShift;
-                if (lastRow > XLHelper.MaxRowNumber || lastColumn > XLHelper.MaxColumnNumber)
-                    continue;
-
-                var targetRange = new Area(range.TopRow + rowShift, range.LeftColumn + columnShift, lastRow, lastColumn);
+                var targetRange = new Area(range.TopRow + rowShift, range.LeftColumn + columnShift, range.BottomRow + rowShift, range.RightColumn + columnShift);
+                Debug.Assert(targetRange.BottomRow <= XLHelper.MaxRowNumber && targetRange.RightColumn <= XLHelper.MaxColumnNumber);
 
                 // Excel allows an array formula in one cell of a table.
                 if ((targetRange.Width > 1 || targetRange.Height > 1) && target.Tables.Any<XLTable>(table => Area.FromRangeAddress(table.RangeAddress).Intersects(targetRange)))

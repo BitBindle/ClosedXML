@@ -479,10 +479,10 @@ namespace ClosedXML.Excel
 
         public IXLRow CopyTo(IXLRow row)
         {
-            // Create the array formulas of the copy before the first change, because it can throw.
+            // Check the copy and create its array formulas before the first change, because both steps can throw.
             var source = AsRange();
             var target = (XLCell)row.FirstCell();
-            var arrayFormulaCopies = target.CreateArrayFormulaCopies(source);
+            var arrayFormulaCopies = target.PrepareRangeCopy(source);
             row.Clear();
             var newRow = (XLRow)row;
             CopyPropertiesTo(newRow);
