@@ -461,6 +461,40 @@ namespace ClosedXML.Excel
             return false;
         }
 
+        /// <summary>
+        /// Throw when a table range has cells of an array formula or a data table with more than one cell.
+        /// Excel does not allow these formulas in a table.
+        /// </summary>
+        /// <param name="sheet">The sheet of the table.</param>
+        /// <param name="tableRange">The range of the table.</param>
+        /// <exception cref="InvalidOperationException">The table range has cells of an array formula or a data table with more than one cell.</exception>
+        internal static void ThrowIfTableHasArrayFormula(XLWorksheet sheet, Area tableRange)
+        {
+            if (FindArrayRangeWithMoreThanOneCell(sheet, tableRange) is { } range)
+                throw new InvalidOperationException($"The table range has cells of the array formula or data table in {range}. A table cannot contain an array formula or a data table with more than one cell.");
+        }
+
+        /// <summary>
+        /// Get <c>true</c> when the area has cells of an array formula or a data table with more than one cell.
+        /// </summary>
+        /// <param name="sheet">The sheet of the area.</param>
+        /// <param name="area">The area to examine.</param>
+        internal static bool HasArrayFormulaWithMoreThanOneCell(XLWorksheet sheet, Area area)
+        {
+            return FindArrayRangeWithMoreThanOneCell(sheet, area) is not null;
+        }
+
+        private static Area? FindArrayRangeWithMoreThanOneCell(XLWorksheet sheet, Area area)
+        {
+            foreach (var range in GetArrayRanges(sheet, [area]))
+            {
+                if (range.Width > 1 || range.Height > 1)
+                    return range;
+            }
+
+            return null;
+        }
+
         private static InvalidOperationException CreateException(Area range)
         {
             return new InvalidOperationException($"The operation changes only part of the array formula or data table in {range}. Change all cells of the range, or remove the formula first.");

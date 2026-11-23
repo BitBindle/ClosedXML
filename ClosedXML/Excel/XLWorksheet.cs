@@ -1419,6 +1419,10 @@ namespace ClosedXML.Excel
 
         public IXLTable Table(XLRange range, String name, Boolean addToTables, Boolean setAutofilter = true)
         {
+            // The load does not use this method, so a file with such a table still loads.
+            if (addToTables)
+                ArrayFormulaShiftCheck.ThrowIfTableHasArrayFormula(this, ClosedXML.Excel.Area.FromRangeAddress(range.RangeAddress));
+
             return Table(range, name, addToTables, setAutofilter, checkExcelNameRules: true);
         }
 
@@ -1642,17 +1646,50 @@ namespace ClosedXML.Excel
             if (createTable && Tables.Any<XLTable>(t => t.Area.Contains(origin)))
                 throw new InvalidOperationException($"This cell '{origin}' is already part of a table.");
 
-            var range = InsertData(origin, reader, addHeadings, transpose);
+            var (rows, propCount) = GetInsertedRows(reader, addHeadings, transpose);
+            if (createTable)
+                rows = ThrowIfInsertedTableHasArrayFormula(origin, rows, propCount);
+
+            var range = InsertData(origin, rows, propCount);
 
             if (createTable)
-                // Create a table and save it in the file
-                return tableName == null ? range.CreateTable() : range.CreateTable(tableName);
+                // Create a table and save it in the file. The check of array formulas is done.
+                return Table(range, tableName ?? TableNameGenerator.GetNewTableName(Workbook), addToTables: true, setAutofilter: true, checkExcelNameRules: true);
             else
                 // Create a table, but keep it in memory. Saved file will contain only "raw" data and column headers
                 return tableName == null ? range.AsTable() : range.AsTable(tableName);
         }
 
         internal XLRange InsertData(Point origin, IInsertDataReader reader, Boolean addHeadings, Boolean transpose)
+        {
+            var (rows, propCount) = GetInsertedRows(reader, addHeadings, transpose);
+            return InsertData(origin, rows, propCount);
+        }
+
+        /// <summary>
+        /// Throw when the table of the inserted data has cells of an array formula or a data table with more than one cell.
+        /// </summary>
+        /// <remarks>
+        /// The source of the rows can allow only one read. The method reads the rows into a list only when an
+        /// array formula or a data table is below and to the right of the origin.
+        /// </remarks>
+        /// <returns>The rows to insert.</returns>
+        private IEnumerable<IEnumerable<XLCellValue>> ThrowIfInsertedTableHasArrayFormula(Point origin, IEnumerable<IEnumerable<XLCellValue>> rows, Int32 propCount)
+        {
+            var reachableArea = new ClosedXML.Excel.Area(origin, new Point(XLHelper.MaxRowNumber, XLHelper.MaxColumnNumber));
+            if (!ArrayFormulaShiftCheck.HasArrayFormulaWithMoreThanOneCell(this, reachableArea))
+                return rows;
+
+            // The same size as the area of InsertData. The insert pads each row to the number of properties.
+            var rowList = rows.Select(static row => row.ToList()).ToList();
+            var width = rowList.Aggregate(Math.Max(propCount, 1), static (max, row) => Math.Max(max, row.Count));
+            var lastRow = Math.Min(origin.Row + Math.Max(rowList.Count, 1) - 1, XLHelper.MaxRowNumber);
+            var lastColumn = Math.Min(origin.Column + width - 1, XLHelper.MaxColumnNumber);
+            ArrayFormulaShiftCheck.ThrowIfTableHasArrayFormula(this, new ClosedXML.Excel.Area(origin, new Point(lastRow, lastColumn)));
+            return rowList;
+        }
+
+        private static (IEnumerable<IEnumerable<XLCellValue>> Rows, Int32 PropCount) GetInsertedRows(IInsertDataReader reader, Boolean addHeadings, Boolean transpose)
         {
             // Prepare data. Heading is basically just another row of data, so unify it.
             var rows = reader.GetRecords();
@@ -1671,6 +1708,43 @@ namespace ClosedXML.Excel
                 rows = TransposeJaggedArray(rows);
             }
 
+            return (rows, propCount);
+
+            // Rather memory inefficient, but the original code also materialized
+            // data through Linq/required multiple enumerations.
+            static List<List<XLCellValue>> TransposeJaggedArray(IEnumerable<IEnumerable<XLCellValue>> enumerable)
+            {
+                var destination = new List<List<XLCellValue>>();
+
+                var sourceRow = 1;
+                foreach (var row in enumerable)
+                {
+                    var sourceColumn = 1;
+                    foreach (var sourceValue in row)
+                    {
+                        // The original has `sourceValue` at [sourceRow, sourceColumn]
+                        var destinationRowCount = destination.Count;
+                        if (sourceColumn > destinationRowCount)
+                            destination.Add(new List<XLCellValue>());
+
+                        // There can be jagged arrays and the destination can have spaces between columns.
+                        var destinationRow = destination[sourceColumn - 1];
+                        while (destinationRow.Count < sourceRow - 1)
+                            destinationRow.Add(Blank.Value);
+
+                        destinationRow.Add(sourceValue);
+                        sourceColumn++;
+                    }
+
+                    sourceRow++;
+                }
+
+                return destination;
+            }
+        }
+
+        private XLRange InsertData(Point origin, IEnumerable<IEnumerable<XLCellValue>> rows, Int32 propCount)
+        {
             var valueSlice = Internals.CellsCollection.ValueSlice;
             var formatSlice = Internals.CellsCollection.FormatSlice;
 
@@ -1735,38 +1809,6 @@ namespace ClosedXML.Excel
                 insertedArea.FirstPoint.Column,
                 insertedArea.LastPoint.Row,
                 insertedArea.LastPoint.Column);
-
-            // Rather memory inefficient, but the original code also materialized
-            // data through Linq/required multiple enumerations.
-            static List<List<XLCellValue>> TransposeJaggedArray(IEnumerable<IEnumerable<XLCellValue>> enumerable)
-            {
-                var destination = new List<List<XLCellValue>>();
-
-                var sourceRow = 1;
-                foreach (var row in enumerable)
-                {
-                    var sourceColumn = 1;
-                    foreach (var sourceValue in row)
-                    {
-                        // The original has `sourceValue` at [sourceRow, sourceColumn]
-                        var destinationRowCount = destination.Count;
-                        if (sourceColumn > destinationRowCount)
-                            destination.Add(new List<XLCellValue>());
-
-                        // There can be jagged arrays and the destination can have spaces between columns.
-                        var destinationRow = destination[sourceColumn - 1];
-                        while (destinationRow.Count < sourceRow - 1)
-                            destinationRow.Add(Blank.Value);
-
-                        destinationRow.Add(sourceValue);
-                        sourceColumn++;
-                    }
-
-                    sourceRow++;
-                }
-
-                return destination;
-            }
         }
 
         /// <summary>

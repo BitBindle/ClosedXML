@@ -434,6 +434,177 @@ namespace ClosedXML.Tests.Excel.CalcEngine
                     .With.Message.EqualTo("Can't create array function over a table."));
         }
 
+        [TestCase("A1:B3")]
+        [TestCase("B1:C4")]
+        [Issue("118")]
+        public void Table_cannot_be_created_over_array_formula_with_more_than_one_cell(string tableRange)
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:C3").FormulaArrayA1 = "2+5";
+
+            Assert.That(() => ws.Range(tableRange).CreateTable(),
+                Throws.TypeOf<InvalidOperationException>()
+                    .With.Message.EqualTo("The table range has cells of the array formula or data table in B2:C3. A table cannot contain an array formula or a data table with more than one cell."));
+
+            Assert.IsEmpty(ws.Tables);
+            Assert.AreEqual("B2:C3", ws.Cell("C3").FormulaReference?.ToStringRelative());
+        }
+
+        [Test]
+        [Issue("118")]
+        public void Table_can_be_created_over_array_formula_in_one_cell()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = "Name";
+            ws.Cell("A2").AsRange().FormulaArrayA1 = "2+5";
+
+            var table = ws.Range("A1:A2").CreateTable();
+
+            Assert.AreEqual("A1:A2", table.RangeAddress.ToStringRelative());
+            Assert.True(ws.Cell("A2").HasArrayFormula);
+        }
+
+        [Test]
+        [Issue("118")]
+        public void Table_cannot_be_created_over_part_of_data_table()
+        {
+            using var wb = new XLWorkbook();
+            var ws = (XLWorksheet)wb.AddWorksheet();
+            var formula = XLCellFormula.DataTable1D(Area.Parse("B2:C3"), new Point(1, 1), false, true);
+            ws.Internals.CellsCollection.FormulaSlice.Set(new Point(2, 2), formula);
+
+            // The data table has its formula only in its first cell, B2. The table range does not contain B2.
+            Assert.Throws<InvalidOperationException>(() => ws.Range("C3:D4").CreateTable());
+            Assert.IsEmpty(ws.Tables);
+        }
+
+        [Test]
+        [Issue("118")]
+        public void Table_resize_over_array_formula_with_more_than_one_cell_throws()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = "Name";
+            ws.Range("A2:A3").Value = 5;
+            var table = ws.Range("A1:A3").CreateTable();
+            ws.Range("C2:D3").FormulaArrayA1 = "2+5";
+
+            Assert.Throws<InvalidOperationException>(() => table.Resize(ws.Range("A1:C3")));
+
+            Assert.AreEqual("A1:A3", table.RangeAddress.ToStringRelative());
+            Assert.AreEqual("C2:D3", ws.Cell("D3").FormulaReference?.ToStringRelative());
+        }
+
+        [Test]
+        [Issue("118")]
+        public void Workbook_with_array_formula_in_table_is_loaded()
+        {
+            using var stream = new System.IO.MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                // Other producers can write a table with an array formula. The public methods do not allow it.
+                var ws = (XLWorksheet)wb.AddWorksheet();
+                ws.Cell("A1").Value = "Name";
+                ws.Cell("B1").Value = "Value";
+                ws.Range("A1:B3").CreateTable("Data");
+                var arrayRange = Area.Parse("A2:B3");
+                ws.Internals.CellsCollection.FormulaSlice.SetArray(arrayRange, XLCellFormula.Array("2+5", arrayRange, false));
+                wb.SaveAs(stream);
+            }
+
+            using var loaded = new XLWorkbook(stream);
+            var loadedSheet = loaded.Worksheet(1);
+            Assert.AreEqual("A1:B3", loadedSheet.Table("Data").RangeAddress.ToStringRelative());
+            Assert.AreEqual("A2:B3", loadedSheet.Cell("B3").FormulaReference?.ToStringRelative());
+        }
+
+        [Test]
+        [Issue("118")]
+        public void Insert_of_table_over_array_formula_with_more_than_one_cell_throws_and_keeps_the_sheet()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:C3").FormulaArrayA1 = "2+5";
+            var data = new[] { new { Name = "a", Value = 1, Other = 2 }, new { Name = "b", Value = 3, Other = 4 } };
+
+            Assert.That(() => ws.Cell("A1").InsertTable(data),
+                Throws.TypeOf<InvalidOperationException>()
+                    .With.Message.EqualTo("The table range has cells of the array formula or data table in B2:C3. A table cannot contain an array formula or a data table with more than one cell."));
+
+            Assert.IsEmpty(ws.Tables);
+            Assert.True(ws.Cell("A1").Value.IsBlank);
+            Assert.True(ws.Cell("A2").Value.IsBlank);
+            Assert.AreEqual("B2:C3", ws.Cell("C3").FormulaReference?.ToStringRelative());
+        }
+
+        [Test]
+        [Issue("118")]
+        public void Insert_of_table_next_to_array_formula_creates_the_table()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("C2:D3").FormulaArrayA1 = "2+5";
+            var data = new[] { new { Name = "a", Value = 1 }, new { Name = "b", Value = 3 } };
+
+            var table = ws.Cell("A1").InsertTable(data);
+
+            Assert.AreEqual("A1:B3", table.RangeAddress.ToStringRelative());
+            Assert.AreEqual("b", ws.Cell("A3").GetString());
+            Assert.AreEqual("C2:D3", ws.Cell("D3").FormulaReference?.ToStringRelative());
+        }
+
+        [Test]
+        [Issue("118")]
+        public void Insert_of_data_without_table_over_array_formula_does_not_check_the_formula()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:C3").FormulaArrayA1 = "2+5";
+            var data = new[] { new { Name = "a", Value = 1 } };
+
+            var table = ws.Cell("A1").InsertTable(data, createTable: false);
+
+            Assert.AreEqual("A1:B2", table.RangeAddress.ToStringRelative());
+            Assert.IsEmpty(ws.Tables);
+        }
+
+        [Test]
+        [Issue("118")]
+        public void Table_copy_to_sheet_with_array_formula_throws()
+        {
+            using var wb = new XLWorkbook();
+            var source = wb.AddWorksheet("Source");
+            source.Cell("A1").Value = "Name";
+            source.Cell("B1").Value = "Value";
+            var table = source.Range("A1:B3").CreateTable("Data");
+            var target = wb.AddWorksheet("Target");
+            target.Range("B2:C3").FormulaArrayA1 = "2+5";
+
+            Assert.Throws<InvalidOperationException>(() => table.CopyTo(target));
+
+            Assert.IsEmpty(target.Tables);
+            Assert.True(target.Cell("A1").Value.IsBlank);
+            Assert.AreEqual("B2:C3", target.Cell("C3").FormulaReference?.ToStringRelative());
+        }
+
+        [Test]
+        [Issue("118")]
+        public void Array_formula_in_one_cell_of_table_can_be_created()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = "Name";
+            ws.Cell("A2").Value = 5;
+            ws.Range("A1:A2").CreateTable();
+
+            ws.Cell("A2").AsRange().FormulaArrayA1 = "2+5";
+
+            Assert.True(ws.Cell("A2").HasArrayFormula);
+            Assert.AreEqual("A2:A2", ws.Cell("A2").FormulaReference?.ToStringRelative());
+        }
+
         [Test]
         public void SettingArrayFormulaInvalidatesCells()
         {
