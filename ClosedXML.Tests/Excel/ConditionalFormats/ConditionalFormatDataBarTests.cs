@@ -241,6 +241,35 @@ internal class ConditionalFormatDataBarTests
         Assert.IsFalse(XLConditionalFormat.NoRangeComparer.Equals(formats[0], formats[1]));
     }
 
+    [Test]
+    [Issue("69")]
+    public void Save_keeps_automatic_axis_color_of_data_bar()
+    {
+        using var input = CreateFileWithDataBar(gradient: null);
+        using (var package = SpreadsheetDocument.Open(input, true))
+        {
+            var worksheet = package.WorkbookPart!.WorksheetParts.Single().Worksheet;
+            var axisColor = worksheet.Descendants<X14.BarAxisColor>().Single();
+            axisColor.Rgb = null;
+            axisColor.Auto = true;
+            worksheet.Save();
+        }
+
+        input.Position = 0;
+        using var output = new MemoryStream();
+        using (var wb = new XLWorkbook(input))
+        {
+            var options = ((XLConditionalFormat)wb.Worksheets.Single().ConditionalFormats.Single()).DataBarOptions;
+            Assert.AreEqual(XLColor.Automatic, options.AxisColor);
+            wb.SaveAs(output);
+        }
+
+        using var savedPackage = SpreadsheetDocument.Open(output, false);
+        var savedAxisColor = savedPackage.WorkbookPart!.WorksheetParts.Single().Worksheet.Descendants<X14.BarAxisColor>().Single();
+        Assert.IsTrue(savedAxisColor.Auto!.Value);
+        Assert.IsNull(savedAxisColor.Rgb);
+    }
+
     private static bool?[] ReadGradientAttributes(MemoryStream ms)
     {
         using (var package = SpreadsheetDocument.Open(ms, false))

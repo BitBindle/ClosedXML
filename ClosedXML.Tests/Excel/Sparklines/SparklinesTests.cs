@@ -1,9 +1,11 @@
 using ClosedXML.Examples.Sparklines;
 using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Packaging;
 using NUnit.Framework;
 using System;
 using System.IO;
 using System.Linq;
+using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace ClosedXML.Tests.Excel.Sparklines
 {
@@ -1124,6 +1126,29 @@ namespace ClosedXML.Tests.Excel.Sparklines
             var copy = group.CopyTo(ws2);
 
             Assert.IsNull(copy.DateRange);
+        }
+
+        [Test]
+        [Issue("69")]
+        public void Automatic_series_color_of_sparkline_is_saved_as_auto()
+        {
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                ws.SparklineGroups.Add("A1", "B1:E1").Style.SetSeriesColor(XLColor.Automatic);
+                wb.SaveAs(ms);
+            }
+
+            using (var package = SpreadsheetDocument.Open(ms, false))
+            {
+                var seriesColor = package.WorkbookPart!.WorksheetParts.Single().Worksheet.Descendants<X14.SeriesColor>().Single();
+                Assert.IsTrue(seriesColor.Auto!.Value);
+            }
+
+            ms.Position = 0;
+            using var loaded = new XLWorkbook(ms);
+            Assert.AreEqual(XLColor.Automatic, loaded.Worksheets.Single().SparklineGroups.Single().Style.SeriesColor);
         }
     }
 }

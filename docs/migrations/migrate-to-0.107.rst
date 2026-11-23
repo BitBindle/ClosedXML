@@ -10,6 +10,14 @@ ClosedXML now targets only ``net10.0``. This version does not have the ``netstan
 ``netstandard2.1`` builds. .NET Framework, Mono and Unity applications can't use this version.
 These applications can stay on version 0.106.
 
+*********************************
+Automatic colors of Excel 2010
+*********************************
+
+A save now writes ``auto="1"`` for an ``XLColor.Automatic`` color of a data bar or a sparkline.
+Before, the save wrote an empty color element, and the file lost the automatic value. A load reads
+the element as ``XLColor.Automatic``, as before.
+
 *************
 Save a stream
 *************

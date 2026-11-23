@@ -289,6 +289,10 @@ namespace ClosedXML.Utils
                     if (xlColor.ThemeTint != 0)
                         openXMLColor.Tint = xlColor.ThemeTint;
                     break;
+
+                case XLColorType.Automatic:
+                    openXMLColor.Auto = true;
+                    break;
             }
         }
 
