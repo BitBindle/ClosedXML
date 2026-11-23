@@ -1406,6 +1406,25 @@ namespace ClosedXML.Tests.Excel
         //TODO: Delete table (not underlying range)
 
         [Test]
+        [Issue("110")]
+        public void Resize_to_more_rows_puts_the_totals_row_in_the_last_row_of_the_range()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new[] { new[] { "First", "Second" }, new[] { "a", "b" }, new[] { "c", "d" } });
+            var table = ws.Range("A1:B3").CreateTable();
+            table.ShowTotalsRow = true;
+            table.Field("First").TotalsRowLabel = "Total";
+
+            table.Resize("A1:B6");
+
+            Assert.AreEqual("A1:B6", table.RangeAddress.ToString());
+            Assert.AreEqual(6, table.TotalsRow()!.RowNumber());
+            Assert.AreEqual("Total", ws.Cell("A6").Value);
+            Assert.True(ws.Cell("A4").IsEmpty());
+        }
+
+        [Test]
         public void Resize_with_range_address_uses_the_given_address()
         {
             using var wb = new XLWorkbook();

@@ -206,6 +206,8 @@ namespace ClosedXML.Excel
 
             var firstCell = FirstCell();
 
+            // Check all steps before the first step changes the sheet.
+            using var resumer = CheckTranspose(transposeOption, rowCount, columnCount, squareSide).Begin();
             MoveOrClearForTranspose(transposeOption, rowCount, columnCount);
             TransposeMerged(squareSide);
             TransposeRange(squareSide);
@@ -758,6 +760,48 @@ namespace ClosedXML.Excel
             {
                 yield return Worksheet.Range(rangeAddress);
             }
+        }
+
+        private ArrayFormulaShiftCheck.OperationCheck CheckTranspose(XLTransposeOptions transposeOption, int rowCount, int columnCount, int squareSide)
+        {
+            var top = RangeAddress.FirstAddress.RowNumber;
+            var left = RangeAddress.FirstAddress.ColumnNumber;
+            var bottom = top + rowCount - 1;
+            var right = left + columnCount - 1;
+            var check = ArrayFormulaShiftCheck.CheckOperation(Worksheet);
+
+            // The insert moves the cells after the range. At the edge of the sheet, it moves the cells of the last line.
+            var firstColumnAfter = Math.Min(right + 1, XLHelper.MaxColumnNumber);
+            var firstRowAfter = Math.Min(bottom + 1, XLHelper.MaxRowNumber);
+
+            // The first step empties the cells of the square outside the range. It moves them away, or it clears them.
+            if (rowCount > columnCount)
+            {
+                var count = rowCount - columnCount;
+                if (transposeOption == XLTransposeOptions.MoveCells)
+                    check.Insert(false, firstColumnAfter, count, top, bottom);
+                else
+                    check.Clear(new Area(top, right + 1, bottom, right + count));
+            }
+            else if (columnCount > rowCount)
+            {
+                var count = columnCount - rowCount;
+                if (transposeOption == XLTransposeOptions.MoveCells)
+                    check.Insert(true, firstRowAfter, count, left, right);
+                else
+                    check.Clear(new Area(bottom + 1, left, bottom + count, right));
+            }
+
+            // The transpose moves the cells inside the square.
+            check.Transpose(new Area(top, left, top + squareSide - 1, left + squareSide - 1));
+
+            // The last step deletes the cells of the square outside the new range.
+            if (rowCount > columnCount)
+                check.Delete(true, new Area(top + columnCount, left, bottom, left + rowCount - 1));
+            else if (columnCount > rowCount)
+                check.Delete(false, new Area(top, left + rowCount, top + columnCount - 1, right));
+
+            return check;
         }
 
         private void TransposeRange(int squareSide)

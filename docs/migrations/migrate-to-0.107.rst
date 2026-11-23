@@ -99,6 +99,18 @@ have range rows with different columns, or range columns with different rows. Fo
 collections, the delete throws if an array formula or a data table is in the cells that the delete
 can move.
 
+``IXLRange.Transpose`` and ``IXLTable.Resize`` do more than one insert or delete. They now check all
+steps before the first change to the sheet. If a step changes only part of an array formula or a
+data table, the method throws. Then the sheet does not change.
+
+``IXLRange.Transpose`` also throws when it moves cells of an array formula or a data table. The
+transpose cannot change the range of the formula. A cell on the diagonal does not move. With
+``XLTransposeOptions.ReplaceCells``, a transpose clears the cells next to the range. It throws if
+the clear removes only part of an array formula or a data table.
+
+A resize of a table with a totals row to more rows now gives the table the new range. Before, the
+table got one row fewer. The totals row was not in the last row of the range.
+
 *****************
 Equality methods
 *****************

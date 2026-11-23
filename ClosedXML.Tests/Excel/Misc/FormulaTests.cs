@@ -800,6 +800,196 @@ namespace ClosedXML.Tests.Excel
             AssertArrayFormula(ws, "A1:B2", "C1:D2*2");
         }
 
+        [Test]
+        [Issue("110")]
+        public void Transpose_of_a_column_moves_an_array_formula_to_the_right_of_the_range()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new[] { 1, 2, 3 });
+            ws.Range("E1:E3").FormulaArrayA1 = "1+1";
+
+            ws.Range("A1:A3").Transpose(XLTransposeOptions.MoveCells);
+
+            Assert.AreEqual(1, ws.Cell("A1").Value);
+            Assert.AreEqual(2, ws.Cell("B1").Value);
+            Assert.AreEqual(3, ws.Cell("C1").Value);
+            AssertArrayFormula(ws, "G1:G3", "1+1");
+        }
+
+        [Test]
+        [Issue("110")]
+        public void Transpose_throws_before_the_insert_when_the_delete_splits_an_array_formula()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new[] { 1, 2, 3 });
+            ws.Cell("B1").Value = "right";
+            ws.Range("C10:D10").FormulaArrayA1 = "1+1";
+
+            Assert.Throws<InvalidOperationException>(() => ws.Range("A1:A3").Transpose(XLTransposeOptions.MoveCells));
+
+            Assert.AreEqual(2, ws.Cell("A2").Value);
+            Assert.AreEqual("right", ws.Cell("B1").Value);
+            AssertArrayFormula(ws, "C10:D10", "1+1");
+        }
+
+        [Test]
+        [Issue("110")]
+        public void Transpose_of_a_range_with_an_array_formula_throws()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("A1:A2").FormulaArrayA1 = "1+1";
+            ws.Cell("B1").Value = 1;
+            ws.Cell("B2").Value = 2;
+
+            Assert.Throws<InvalidOperationException>(() => ws.Range("A1:B2").Transpose(XLTransposeOptions.MoveCells));
+
+            AssertArrayFormula(ws, "A1:A2", "1+1");
+            Assert.AreEqual(1, ws.Cell("B1").Value);
+            Assert.AreEqual(2, ws.Cell("B2").Value);
+        }
+
+        [Test]
+        [Issue("110")]
+        public void Transpose_keeps_an_array_formula_in_one_cell_on_the_diagonal()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("A1").FormulaArrayA1 = "1+1";
+            ws.Cell("B1").Value = 1;
+            ws.Cell("A2").Value = 2;
+            ws.Cell("B2").Value = 3;
+
+            ws.Range("A1:B2").Transpose(XLTransposeOptions.MoveCells);
+
+            Assert.True(ws.Cell("A1").HasArrayFormula);
+            Assert.AreEqual("1+1", ws.Cell("A1").FormulaA1);
+            Assert.AreEqual(2, ws.Cell("B1").Value);
+            Assert.AreEqual(1, ws.Cell("A2").Value);
+        }
+
+        [Test]
+        [Issue("110")]
+        public void Transpose_keeps_an_array_formula_that_has_only_a_diagonal_cell_in_the_square()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("C3:D4").FormulaArrayA1 = "1+1";
+            ws.Cell("B1").Value = 1;
+            ws.Cell("A2").Value = 2;
+
+            ws.Range("A1:C3").Transpose(XLTransposeOptions.MoveCells);
+
+            AssertArrayFormula(ws, "C3:D4", "1+1");
+            Assert.AreEqual(2, ws.Cell("B1").Value);
+            Assert.AreEqual(1, ws.Cell("A2").Value);
+        }
+
+        [Test]
+        [Issue("110")]
+        public void Transpose_of_one_cell_of_an_array_formula_keeps_the_formula()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:C3").FormulaArrayA1 = "1+1";
+
+            ws.Range("B2").Transpose(XLTransposeOptions.MoveCells);
+
+            AssertArrayFormula(ws, "B2:C3", "1+1");
+        }
+
+        [Test]
+        [Issue("110")]
+        public void Transpose_with_a_clear_throws_when_the_clear_removes_part_of_an_array_formula()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new[] { 1, 2, 3 });
+            ws.Range("C1:D1").FormulaArrayA1 = "1+1";
+
+            Assert.Throws<InvalidOperationException>(() => ws.Range("A1:A3").Transpose(XLTransposeOptions.ReplaceCells));
+
+            Assert.AreEqual(2, ws.Cell("A2").Value);
+            AssertArrayFormula(ws, "C1:D1", "1+1");
+        }
+
+        [Test]
+        [Issue("110")]
+        public void Transpose_with_a_clear_removes_an_array_formula_in_the_cleared_cells()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new[] { 1, 2, 3 });
+            ws.Range("B1:C1").FormulaArrayA1 = "1+1";
+
+            ws.Range("A1:A3").Transpose(XLTransposeOptions.ReplaceCells);
+
+            Assert.AreEqual(1, ws.Cell("A1").Value);
+            Assert.AreEqual(2, ws.Cell("B1").Value);
+            Assert.AreEqual(3, ws.Cell("C1").Value);
+            Assert.False(ws.Cell("B1").HasFormula);
+            Assert.False(ws.Cell("C1").HasFormula);
+        }
+
+        [Test]
+        [Issue("110")]
+        public void Resize_of_a_table_throws_before_a_change_when_the_delete_of_the_totals_row_splits_an_array_formula()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var table = CreateTableWithTotalsRow(ws);
+            ws.Range("B5:C5").FormulaArrayA1 = "1+1";
+            ws.Cell("A7").Value = "below";
+
+            Assert.Throws<InvalidOperationException>(() => table.Resize("A1:C6"));
+
+            Assert.AreEqual("A1:B4", table.RangeAddress.ToString());
+            Assert.True(ws.Cell("C1").IsEmpty());
+            Assert.AreEqual("below", ws.Cell("A7").Value);
+            AssertArrayFormula(ws, "B5:C5", "1+1");
+        }
+
+        [Test]
+        [Issue("110")]
+        public void Resize_of_a_table_to_more_rows_keeps_an_array_formula_below_the_table()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var table = CreateTableWithTotalsRow(ws);
+            ws.Range("A9:B9").FormulaArrayA1 = "1+1";
+
+            table.Resize("A1:B6");
+
+            Assert.AreEqual("A1:B6", table.RangeAddress.ToString());
+            AssertArrayFormula(ws, "A9:B9", "1+1");
+        }
+
+        [Test]
+        [Issue("110")]
+        public void Resize_of_a_table_to_fewer_rows_throws_before_a_change_when_the_insert_splits_an_array_formula()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var table = CreateTableWithTotalsRow(ws);
+            ws.Range("C3:D3").FormulaArrayA1 = "1+1";
+
+            Assert.Throws<InvalidOperationException>(() => table.Resize("A1:C3"));
+
+            Assert.AreEqual("A1:B4", table.RangeAddress.ToString());
+            Assert.True(ws.Cell("C1").IsEmpty());
+            AssertArrayFormula(ws, "C3:D3", "1+1");
+        }
+
+        private static IXLTable CreateTableWithTotalsRow(IXLWorksheet ws)
+        {
+            ws.Cell("A1").InsertData(new[] { new[] { "First", "Second" }, new[] { "a", "b" }, new[] { "c", "d" } });
+            var table = ws.Range("A1:B3").CreateTable();
+            table.ShowTotalsRow = true;
+            return table;
+        }
+
         private static void AssertArrayFormula(IXLWorksheet ws, string range, string formula)
         {
             foreach (var cell in ws.Range(range).Cells())

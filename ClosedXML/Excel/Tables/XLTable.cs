@@ -449,6 +449,9 @@ namespace ClosedXML.Excel
             var totalsRowChanged = this.ShowTotalsRow ? range.LastRow().RowNumber() - ShownTotalsRow().RowNumber() : 0;
             var oldTotalsRowNumber = this.ShowTotalsRow ? ShownTotalsRow().RowNumber() : -1;
 
+            // Check the insert and the delete of the totals row before the first change to the sheet.
+            using var resumer = CheckResize(range, totalsRowChanged).Begin();
+
             var existingHeaders = this.FieldNames.Keys;
             var newHeaders = new HashSet<string>();
 
@@ -487,8 +490,15 @@ namespace ClosedXML.Excel
             }
             else if (totalsRowChanged > 0)
             {
+                // The delete moves the range object up. Keep the address that the caller gave.
+                var newAddress = range.RangeAddress;
                 ShownTotalsRow().RowBelow(totalsRowChanged + 1).InsertRowsAbove(1);
                 ShownTotalsRow().AsRange().Delete(XLShiftDeletedCells.ShiftCellsUp);
+                range = Worksheet.Range(
+                    newAddress.FirstAddress.RowNumber,
+                    newAddress.FirstAddress.ColumnNumber,
+                    newAddress.LastAddress.RowNumber,
+                    newAddress.LastAddress.ColumnNumber);
             }
 
             this.RangeAddress = (XLRangeAddress)range.RangeAddress;
@@ -528,6 +538,32 @@ namespace ClosedXML.Excel
             }
 
             return this;
+        }
+
+        private ArrayFormulaShiftCheck.OperationCheck CheckResize(IXLRange range, int totalsRowChanged)
+        {
+            // A check without steps does not read the formulas of the sheet.
+            var check = ArrayFormulaShiftCheck.CheckOperation(Worksheet);
+            if (totalsRowChanged == 0)
+                return check;
+
+            var totalsRowNumber = ShownTotalsRow().RowNumber();
+            if (totalsRowChanged < 0)
+            {
+                // An insert of one row above the new totals row, in the columns of the new range.
+                var newRange = range.RangeAddress;
+                check.Insert(true, totalsRowNumber + totalsRowChanged, 1, newRange.FirstAddress.ColumnNumber, newRange.LastAddress.ColumnNumber);
+            }
+            else
+            {
+                // An insert of one row below the new totals row. Then a delete of the old totals row.
+                var left = RangeAddress.FirstAddress.ColumnNumber;
+                var right = RangeAddress.LastAddress.ColumnNumber;
+                check.Insert(true, totalsRowNumber + totalsRowChanged + 1, 1, left, right);
+                check.Delete(true, new Area(totalsRowNumber, left, totalsRowNumber, right));
+            }
+
+            return check;
         }
 
         public IXLTable SetEmphasizeFirstColumn()
