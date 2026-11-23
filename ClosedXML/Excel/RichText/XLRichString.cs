@@ -42,7 +42,7 @@ namespace ClosedXML.Excel
 
         public IXLRichString AddNewLine()
         {
-            return AddText(Environment.NewLine);
+            return AddText("\n");
         }
 
         public Boolean Bold

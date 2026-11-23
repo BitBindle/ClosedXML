@@ -51,7 +51,7 @@ namespace ClosedXML.Excel
         public IXLRichString AddSignature()
         {
             AddText(Author + ":").SetBold();
-            return AddText(Environment.NewLine);
+            return AddText("\n");
         }
 
         public void Delete()

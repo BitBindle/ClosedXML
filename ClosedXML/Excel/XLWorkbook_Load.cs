@@ -654,9 +654,9 @@ namespace ClosedXML.Excel
 
         #endregion Comment Helpers
 
-        private String GetTableColumnName(string name)
+        private static String GetTableColumnName(string name)
         {
-            return name.Replace("_x000a_", Environment.NewLine).Replace("_x005f_x000a_", "_x000a_");
+            return XStringConvert.Decode(name);
         }
 
         private void LoadColorsAndLines<T>(IXLDrawing<T> drawing, XElement shape)

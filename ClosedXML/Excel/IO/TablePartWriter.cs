@@ -76,7 +76,7 @@ namespace ClosedXML.Excel.IO
                 var tableColumn = new TableColumn
                 {
                     Id = columnId,
-                    Name = fieldName.Replace("_x000a_", "_x005f_x000a_").Replace(Environment.NewLine, "_x000a_")
+                    Name = XmlEncoder.EncodeString(fieldName, escapeLineFeed: true)
                 };
 
                 // OI-29500: the headerRowDxfId attribute shall be absent if the enclosing table element's headerRow

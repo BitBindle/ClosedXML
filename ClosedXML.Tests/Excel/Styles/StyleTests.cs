@@ -10,6 +10,22 @@ namespace ClosedXML.Tests.Excel
     [TestFixture]
     public class StyleTests
     {
+        [TestCase("a\nb", true)]
+        [TestCase("a\r\nb", true)]
+        [TestCase("a\rb", false)]
+        [TestCase("ab", false)]
+        [Issue("123")]
+        public void Text_with_line_feed_wraps(string text, bool wrapText)
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var cell = ws.Cell("A1");
+
+            cell.Value = text;
+
+            Assert.AreEqual(wrapText, cell.Style.Alignment.WrapText);
+        }
+
         [Test]
         public void EmptyCellWithQuotePrefixNotTreatedAsEmpty()
         {

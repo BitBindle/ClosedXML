@@ -5,6 +5,9 @@ namespace ClosedXML.Excel
     public interface IXLWithRichString
     {
         IXLRichString AddText(String text);
+        /// <summary>
+        /// Adds a line feed (<c>\n</c>). Excel uses a line feed for a new line.
+        /// </summary>
         IXLRichString AddNewLine();
     }
     public interface IXLRichString : IXLFontBase, IEquatable<IXLRichString>, IXLWithRichString

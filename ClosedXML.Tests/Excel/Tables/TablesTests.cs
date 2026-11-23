@@ -128,13 +128,15 @@ namespace ClosedXML.Tests.Excel
             }
         }
 
-        [Test]
-        public void SavingLoadingTableWithNewLineInHeader()
+        [TestCase("Line1\nLine2")]
+        [TestCase("Line1\r\nLine2")]
+        [TestCase("Line1_x000a_Line2")]
+        [Issue("123")]
+        public void SavingLoadingTableWithNewLineInHeader(string columnName)
         {
             using (var wb = new XLWorkbook())
             {
                 IXLWorksheet ws = wb.AddWorksheet("Sheet1");
-                string columnName = "Line1" + Environment.NewLine + "Line2";
                 ws.FirstCell().SetValue(columnName)
                     .CellBelow().SetValue("A");
                 ws.RangeUsed().CreateTable();
@@ -145,20 +147,22 @@ namespace ClosedXML.Tests.Excel
                     IXLWorksheet ws2 = wb2.Worksheet(1);
                     IXLTable table2 = ws2.Table(0);
                     string fieldName = table2.Field(0).Name;
-                    Assert.AreEqual("Line1\nLine2", fieldName);
+                    Assert.AreEqual(columnName, fieldName);
+                    Assert.AreEqual(columnName, ws2.FirstCell().GetText());
                 }
             }
         }
 
-        [Test]
-        public void SavingLoadingTableWithNewLineInHeader2()
+        [TestCase("Line1\nLine2")]
+        [TestCase("Line1\r\nLine2")]
+        [Issue("123")]
+        public void SavingLoadingTableWithNewLineInHeader2(string columnName)
         {
             using (var wb = new XLWorkbook())
             {
                 IXLWorksheet ws = wb.Worksheets.Add("Test");
 
                 var dt = new DataTable();
-                string columnName = "Line1" + Environment.NewLine + "Line2";
                 dt.Columns.Add(columnName);
 
                 DataRow dr = dt.NewRow();
@@ -177,9 +181,102 @@ namespace ClosedXML.Tests.Excel
                     IXLWorksheet ws2 = wb2.Worksheet(1);
                     IXLTable table2 = ws2.Table(0);
                     string fieldName2 = table2.Field(0).Name;
-                    Assert.AreEqual("Line1\nLine2", fieldName2);
+                    Assert.AreEqual(columnName, fieldName2);
                 }
             }
+        }
+
+        [Test]
+        [Issue("123")]
+        public void Table_column_name_with_line_feed_is_saved_as_escape_sequence()
+        {
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                ws.Cell("A1").SetValue("Line1\nLine2");
+                ws.Cell("A2").SetValue(1);
+                ws.Range("A1:A2").CreateTable();
+                wb.SaveAs(ms);
+            }
+
+            using var document = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(ms, false);
+            var tablePart = document.WorkbookPart!.WorksheetParts.Single().TableDefinitionParts.Single();
+            var tableColumn = tablePart.Table.TableColumns!.Elements<DocumentFormat.OpenXml.Spreadsheet.TableColumn>().Single();
+            Assert.AreEqual("Line1_x000A_Line2", tableColumn.Name!.Value);
+        }
+
+        [TestCase("Line1\nLine2")]
+        [TestCase("Line1\r\nLine2")]
+        [TestCase("Line1_x000a_Line2")]
+        [Issue("123")]
+        public void Table_column_name_without_header_row_is_kept(string columnName)
+        {
+            // Without a header row, the load takes the field name from the table part.
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                ws.Cell("A1").SetValue(columnName);
+                ws.Cell("A2").SetValue(1);
+                var table = ws.Range("A1:A2").CreateTable();
+                table.ShowHeaderRow = false;
+                wb.SaveAs(ms);
+            }
+
+            using var loaded = new XLWorkbook(ms);
+            Assert.AreEqual(columnName, loaded.Worksheet(1).Table(0).Field(0).Name);
+        }
+
+        [TestCase("Line1\r\nLine2")]
+        [TestCase("Line1_x000a_Line2")]
+        [Issue("123")]
+        public void Table_column_name_with_totals_row_is_loaded(string columnName)
+        {
+            // The load finds the field of a totals row function with the name from the table part.
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                ws.Cell("A1").SetValue(columnName);
+                ws.Cell("A2").SetValue(1);
+                var table = ws.Range("A1:A2").CreateTable();
+                table.ShowTotalsRow = true;
+                table.Field(0).TotalsRowFunction = XLTotalsRowFunction.Sum;
+                wb.SaveAs(ms);
+            }
+
+            using var loaded = new XLWorkbook(ms);
+            var field = loaded.Worksheet(1).Table(0).Field(0);
+            Assert.AreEqual(columnName, field.Name);
+            Assert.AreEqual(XLTotalsRowFunction.Sum, field.TotalsRowFunction);
+        }
+
+        [Test]
+        [Issue("123")]
+        public void Table_column_name_with_escaped_underscore_is_loaded_as_text()
+        {
+            // Earlier versions wrote the text "_x000a_" in a column name as "_x005f_x000a_".
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                ws.Cell("A1").SetValue("a_x000a_b");
+                ws.Cell("A2").SetValue(1);
+                var table = ws.Range("A1:A2").CreateTable();
+                table.ShowHeaderRow = false;
+                wb.SaveAs(ms);
+            }
+
+            using (var document = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(ms, true))
+            {
+                var tablePart = document.WorkbookPart!.WorksheetParts.Single().TableDefinitionParts.Single();
+                var tableColumn = tablePart.Table.TableColumns!.Elements<DocumentFormat.OpenXml.Spreadsheet.TableColumn>().Single();
+                tableColumn.Name = "a_x005f_x000a_b";
+            }
+
+            using var loaded = new XLWorkbook(ms);
+            Assert.AreEqual("a_x000a_b", loaded.Worksheet(1).Table(0).Field(0).Name);
         }
 
         [Test]

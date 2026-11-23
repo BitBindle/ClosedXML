@@ -8,6 +8,21 @@ namespace ClosedXML.Tests.Excel.Comments;
 internal class XLCommentTests
 {
     [Test]
+    [Issue("123")]
+    public void New_line_of_comment_is_a_line_feed()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        var comment = ws.Cell("A1").CreateComment();
+
+        comment.AddText("a");
+        comment.AddNewLine();
+        comment.AddText("b");
+
+        Assert.AreEqual("a\nb", comment.Text);
+    }
+
+    [Test]
     public void Copy_of_cell_copies_text_and_style_of_comment()
     {
         using var wb = new XLWorkbook();

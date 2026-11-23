@@ -741,10 +741,6 @@ namespace ClosedXML.Excel
 
         public Int32 GetFieldIndex(String name)
         {
-            // There is a discrepancy in the way headers with line breaks are stored.
-            // The entry in the table definition will contain \r\n
-            // but the shared string value of the actual cell will contain only \n
-            name = name.Replace("\r\n", "\n");
             if (FieldNames.TryGetValue(name, out var tableField))
                 return tableField.Index;
 

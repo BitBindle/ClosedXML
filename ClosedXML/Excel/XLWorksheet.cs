@@ -1984,7 +1984,7 @@ namespace ClosedXML.Excel
                     {
                         var text = value.GetText();
                         var startsWithQuote = text.Length > 0 && text[0] == '\'';
-                        var containsNewLine = text.Contains(Environment.NewLine, StringComparison.Ordinal);
+                        var containsNewLine = text.Contains('\n');
                         if (!startsWithQuote && !containsNewLine)
                             break;
 

@@ -14,6 +14,22 @@ namespace ClosedXML.Tests
     public class XLRichStringTests
     {
         [Test]
+        [Issue("123")]
+        public void New_line_of_rich_text_is_a_line_feed()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var cell = ws.Cell("A1");
+            var richText = cell.CreateRichText();
+
+            richText.AddText("a");
+            richText.AddNewLine();
+            richText.AddText("b").AddNewLine().AddText("c");
+
+            Assert.AreEqual("a\nb\nc", cell.GetText());
+        }
+
+        [Test]
         public void AccessRichTextTest1()
         {
             IXLWorksheet ws = new XLWorkbook().Worksheets.Add("Sheet1");
