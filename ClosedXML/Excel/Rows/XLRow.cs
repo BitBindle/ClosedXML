@@ -137,9 +137,14 @@ namespace ClosedXML.Excel
         public new IXLRows InsertRowsBelow(Int32 numberOfRows)
         {
             int rowNum = RowNumber();
-            Worksheet.Internals.RowsCollection.ShiftRowsDown(rowNum + 1, numberOfRows);
-            var asRange = Worksheet.Row(rowNum).AsRange();
-            asRange.InsertRowsBelowVoid(true, numberOfRows);
+
+            // Check before the rows collection changes.
+            using (ArrayFormulaShiftCheck.BeginInsertOfLines(Worksheet, rows: true, rowNum + 1, numberOfRows))
+            {
+                Worksheet.Internals.RowsCollection.ShiftRowsDown(rowNum + 1, numberOfRows);
+                var asRange = Worksheet.Row(rowNum).AsRange();
+                asRange.InsertRowsBelowVoid(true, numberOfRows);
+            }
 
             var newRows = Worksheet.Rows(rowNum + 1, rowNum + numberOfRows);
             foreach (var newRow in newRows)
@@ -163,9 +168,12 @@ namespace ClosedXML.Excel
                 return Worksheet.Row(rowNum - 1).InsertRowsBelow(numberOfRows);
             }
 
-            Worksheet.Internals.RowsCollection.ShiftRowsDown(rowNum, numberOfRows);
-            var asRange = Worksheet.Row(rowNum).AsRange();
-            asRange.InsertRowsAboveVoid(true, numberOfRows);
+            using (ArrayFormulaShiftCheck.BeginInsertOfLines(Worksheet, rows: true, rowNum, numberOfRows))
+            {
+                Worksheet.Internals.RowsCollection.ShiftRowsDown(rowNum, numberOfRows);
+                var asRange = Worksheet.Row(rowNum).AsRange();
+                asRange.InsertRowsAboveVoid(true, numberOfRows);
+            }
 
             return Worksheet.Rows(rowNum, rowNum + numberOfRows - 1);
         }

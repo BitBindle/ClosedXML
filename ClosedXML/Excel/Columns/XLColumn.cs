@@ -99,8 +99,13 @@ namespace ClosedXML.Excel
         public new IXLColumns InsertColumnsAfter(Int32 numberOfColumns)
         {
             int columnNum = ColumnNumber();
-            Worksheet.Internals.ColumnsCollection.ShiftColumnsRight(columnNum + 1, numberOfColumns);
-            Worksheet.Column(columnNum).InsertColumnsAfterVoid(true, numberOfColumns);
+
+            // Check before the columns collection changes.
+            using (ArrayFormulaShiftCheck.BeginInsertOfLines(Worksheet, rows: false, columnNum + 1, numberOfColumns))
+            {
+                Worksheet.Internals.ColumnsCollection.ShiftColumnsRight(columnNum + 1, numberOfColumns);
+                Worksheet.Column(columnNum).InsertColumnsAfterVoid(true, numberOfColumns);
+            }
             var newColumns = Worksheet.Columns(columnNum + 1, columnNum + numberOfColumns);
             foreach (var newColumn in newColumns)
             {
@@ -123,8 +128,11 @@ namespace ClosedXML.Excel
                 return Worksheet.Column(columnNum - 1).InsertColumnsAfter(numberOfColumns);
             }
 
-            Worksheet.Internals.ColumnsCollection.ShiftColumnsRight(columnNum, numberOfColumns);
-            Worksheet.Column(columnNum).InsertColumnsBeforeVoid(true, numberOfColumns);
+            using (ArrayFormulaShiftCheck.BeginInsertOfLines(Worksheet, rows: false, columnNum, numberOfColumns))
+            {
+                Worksheet.Internals.ColumnsCollection.ShiftColumnsRight(columnNum, numberOfColumns);
+                Worksheet.Column(columnNum).InsertColumnsBeforeVoid(true, numberOfColumns);
+            }
 
             return Worksheet.Columns(columnNum, columnNum + numberOfColumns - 1);
         }

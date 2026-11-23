@@ -76,8 +76,9 @@ namespace ClosedXML.Excel
             }
             else
             {
+                var parts = Columns.ToList();
                 var toDelete = new Dictionary<IXLWorksheet, List<Int32>>();
-                foreach (XLColumn c in Columns)
+                foreach (XLColumn c in parts)
                 {
                     if (!toDelete.TryGetValue(c.Worksheet, out var list))
                     {
@@ -88,6 +89,7 @@ namespace ClosedXML.Excel
                     list.Add(c.ColumnNumber());
                 }
 
+                using var checkResumer = ArrayFormulaShiftCheck.BeginDeleteOfParts(parts, rows: false, byFirstLineNumber: true);
                 foreach (KeyValuePair<IXLWorksheet, List<int>> kp in toDelete)
                 {
                     foreach (int c in kp.Value.OrderByDescending(c => c))

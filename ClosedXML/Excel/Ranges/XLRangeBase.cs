@@ -1015,6 +1015,9 @@ namespace ClosedXML.Excel
                 throw new ArgumentOutOfRangeException(nameof(numberOfColumns),
                     $"Number of columns to insert must be a positive number no more than {XLHelper.MaxColumnNumber}");
 
+            ArrayFormulaShiftCheck.ThrowIfInsertSplits(Worksheet, rows: false, RangeAddress.FirstAddress.ColumnNumber, numberOfColumns,
+                RangeAddress.FirstAddress.RowNumber, RangeAddress.LastAddress.RowNumber);
+
             var insertedColumns = Area.FromRangeAddress(RangeAddress).SliceFromLeft(1).ExtendRight(numberOfColumns - 1);
             ShiftFormulaReferences(new ReferenceShiftOnInsertRefModVisitor(new SheetArea(Worksheet.Name, insertedColumns), shiftDown: false));
 
@@ -1196,6 +1199,9 @@ namespace ClosedXML.Excel
                 throw new ArgumentOutOfRangeException(nameof(numberOfRows),
                     $"Number of rows to insert must be a positive number no more than {XLHelper.MaxRowNumber}");
 
+            ArrayFormulaShiftCheck.ThrowIfInsertSplits(Worksheet, rows: true, RangeAddress.FirstAddress.RowNumber, numberOfRows,
+                RangeAddress.FirstAddress.ColumnNumber, RangeAddress.LastAddress.ColumnNumber);
+
             var insertedRows = Area.FromRangeAddress(RangeAddress).SliceFromTop(1).ExtendBelow(numberOfRows - 1);
             ShiftFormulaReferences(new ReferenceShiftOnInsertRefModVisitor(new SheetArea(Worksheet.Name, insertedRows), shiftDown: true));
 
@@ -1308,6 +1314,15 @@ namespace ClosedXML.Excel
             return RangeAddress.Contains(in address);
         }
 
+        /// <summary>
+        /// Throw when a delete of this range changes only part of an array formula or a data table.
+        /// </summary>
+        internal void ThrowIfDeleteSplitsArrayFormula(XLShiftDeletedCells shiftDeleteCells)
+        {
+            var rows = shiftDeleteCells == XLShiftDeletedCells.ShiftCellsUp;
+            ArrayFormulaShiftCheck.ThrowIfDeleteSplits(Worksheet, rows, Area.FromRangeAddress(RangeAddress));
+        }
+
         public void Delete(XLShiftDeletedCells shiftDeleteCells)
         {
             int numberOfRows = RowCount();
@@ -1315,6 +1330,7 @@ namespace ClosedXML.Excel
 
             if (!RangeAddress.IsValid) return;
 
+            ThrowIfDeleteSplitsArrayFormula(shiftDeleteCells);
             Worksheet.SparklineGroups.Remove(this);
 
             // Shift formulas first

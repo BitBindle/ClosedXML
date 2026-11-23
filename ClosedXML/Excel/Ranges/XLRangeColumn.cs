@@ -46,7 +46,18 @@ namespace ClosedXML.Excel
 
         internal void Delete(Boolean deleteTableField)
         {
-            if (deleteTableField && IsTableColumn())
+            if (!deleteTableField || !IsTableColumn())
+            {
+                Delete(XLShiftDeletedCells.ShiftCellsLeft);
+                return;
+            }
+
+            // Check before the table changes. Then the delete of the cells does not check again. A delete of a range
+            // that is not valid does not change the cells.
+            if (RangeAddress.IsValid)
+                ThrowIfDeleteSplitsArrayFormula(XLShiftDeletedCells.ShiftCellsLeft);
+
+            using (ArrayFormulaShiftCheck.SuspendChecks(Worksheet))
             {
                 var table = Table;
                 if (!Cell(1).Value.TryGetText(out var firstCellValue))
@@ -57,9 +68,8 @@ namespace ClosedXML.Excel
 
                 var field = table.Fields.Cast<XLTableField>().Single(f => f.Name == firstCellValue);
                 field.Delete(false);
+                Delete(XLShiftDeletedCells.ShiftCellsLeft);
             }
-
-            Delete(XLShiftDeletedCells.ShiftCellsLeft);
         }
 
         public IXLCells InsertCellsAbove(int numberOfRows)
