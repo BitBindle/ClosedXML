@@ -225,12 +225,15 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         public void Clear_of_collection_checks_all_parts_before_the_first_clear(string collection, Action<IXLWorksheet> clear)
         {
             using var wb = new XLWorkbook();
-            var ws = wb.AddWorksheet();
+            var ws = (XLWorksheet)wb.AddWorksheet();
             ws.Cell("A1").Value = "Header";
             ws.Cell("B1").Value = "Result";
             ws.Range("A2:A3").Value = 4;
-            ws.Range("B2:C3").FormulaArrayA1 = "2+5";
             ws.Range("A1:B3").CreateTable("Data");
+
+            // The public methods do not allow a table over an array formula. A file from another producer can have it.
+            var arrayRange = Area.Parse("B2:C3");
+            ws.Internals.CellsCollection.FormulaSlice.SetArray(arrayRange, XLCellFormula.Array("2+5", arrayRange, false));
 
             Assert.Throws<InvalidOperationException>(() => clear(ws), collection);
 
