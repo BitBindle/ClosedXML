@@ -113,7 +113,8 @@ namespace ClosedXML.Excel
         /// name is the same as the name that the table gets when it reads the header row.
         /// </summary>
         /// <param name="position">The zero-based position of the field in the table.</param>
-        /// <returns>The text of the header cell, or <c>null</c> if the position is not in the table.</returns>
+        /// <returns>The text of the header cell. Returns <c>null</c> if the position is not in the
+        /// table, or if the header cell does not contain text.</returns>
         internal string? GetHeaderCellName(int position)
         {
             if (position >= ColumnCount())
@@ -121,7 +122,11 @@ namespace ClosedXML.Excel
 
             var firstAddress = RangeAddress.FirstAddress;
             var cell = Worksheet.Cell(firstAddress.RowNumber, firstAddress.ColumnNumber + position);
-            return cell.CachedValue.ToString(CultureInfo.CurrentCulture);
+            var value = cell.CachedValue;
+
+            // The table changes a header cell with a number or a date to text. The text depends on the
+            // culture, so the load uses the name from the table part for such a cell.
+            return value.IsText ? value.GetText() : null;
         }
 
         internal XLTableField AddField(string fieldName)

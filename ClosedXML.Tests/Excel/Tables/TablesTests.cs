@@ -355,6 +355,35 @@ namespace ClosedXML.Tests.Excel
 
         [Test]
         [Issue("123")]
+        public void Header_cell_with_number_gives_field_name_after_load()
+        {
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                ws.Cell("A1").SetValue("Year");
+                ws.Cell("A2").SetValue(1);
+                ws.Range("A1:A2").CreateTable();
+                wb.SaveAs(ms);
+            }
+
+            using (var document = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(ms, true))
+            {
+                var worksheet = document.WorkbookPart!.WorksheetParts.Single().Worksheet;
+                var cell = worksheet.Descendants<DocumentFormat.OpenXml.Spreadsheet.Cell>().Single(c => c.CellReference == "A1");
+                cell.DataType = null;
+                cell.CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue("2024");
+                worksheet.Save();
+            }
+
+            using var loaded = new XLWorkbook(ms);
+            var ws2 = loaded.Worksheet(1);
+            Assert.AreEqual(2024, ws2.Cell("A1").Value);
+            Assert.AreEqual("2024", ws2.Table(0).Field(0).Name);
+        }
+
+        [Test]
+        [Issue("123")]
         public void Load_accepts_table_part_with_more_columns_than_the_range()
         {
             using var ms = new MemoryStream();

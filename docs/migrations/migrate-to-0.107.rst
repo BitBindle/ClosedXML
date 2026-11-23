@@ -202,6 +202,10 @@ A save now writes a line feed in the name of a table column as ``_x000A_`` and a
 ``Environment.NewLine``, and the name was different on Windows and Linux. The load also changed the
 text ``_x000a_`` in a name to a new line.
 
+With a header row, a table field gets the text of its header cell during the load. If the decoded
+names of a table are not unique, the load keeps the names from the file. An earlier version wrote a
+name such as ``_x0041_`` without an escape, so the load can still read such a file.
+
 ``IXLTable.Field(String)`` and the other methods that find a table field by its name no longer
 change ``\r\n`` to ``\n`` in the name. Use the same text as in the header cell.
 
