@@ -406,7 +406,7 @@ internal class WorksheetPartReader
                      XLConditionalFormatType.StartsWith or
                      XLConditionalFormatType.EndsWith)
             {
-                conditionalFormat.Values.Add(XLFormula.Text(fr.Text?.Value));
+                conditionalFormat.Values.Add(XLFormula.Text(XStringConvert.Decode(fr.Text?.Value)));
             }
             else if (conditionalFormat.ConditionalFormatType == XLConditionalFormatType.Top10)
             {
@@ -511,10 +511,10 @@ internal class WorksheetPartReader
                 if (dvs.ShowDropDown != null) dvt.InCellDropdown = !dvs.ShowDropDown.Value;
                 if (dvs.ShowErrorMessage != null) dvt.ShowErrorMessage = dvs.ShowErrorMessage;
                 if (dvs.ShowInputMessage != null) dvt.ShowInputMessage = dvs.ShowInputMessage;
-                if (dvs.PromptTitle?.Value is { } promptTitle) dvt.InputTitle = promptTitle;
-                if (dvs.Prompt?.Value is { } prompt) dvt.InputMessage = prompt;
-                if (dvs.ErrorTitle?.Value is { } errorTitle) dvt.ErrorTitle = errorTitle;
-                if (dvs.Error?.Value is { } error) dvt.ErrorMessage = error;
+                if (dvs.PromptTitle?.Value is { } promptTitle) dvt.InputTitle = XStringConvert.Decode(promptTitle);
+                if (dvs.Prompt?.Value is { } prompt) dvt.InputMessage = XStringConvert.Decode(prompt);
+                if (dvs.ErrorTitle?.Value is { } errorTitle) dvt.ErrorTitle = XStringConvert.Decode(errorTitle);
+                if (dvs.Error?.Value is { } error) dvt.ErrorMessage = XStringConvert.Decode(error);
                 if (dvs.ErrorStyle != null) dvt.ErrorStyle = dvs.ErrorStyle.Value.ToClosedXml();
                 if (dvs.Type != null) dvt.AllowedValues = dvs.Type.Value.ToClosedXml();
                 if (dvs.Operator != null) dvt.Operator = dvs.Operator.Value.ToClosedXml();
@@ -706,10 +706,10 @@ internal class WorksheetPartReader
                 if (dvs.ShowDropDown != null) dvt.InCellDropdown = !dvs.ShowDropDown.Value;
                 if (dvs.ShowErrorMessage != null) dvt.ShowErrorMessage = dvs.ShowErrorMessage;
                 if (dvs.ShowInputMessage != null) dvt.ShowInputMessage = dvs.ShowInputMessage;
-                if (dvs.PromptTitle?.Value is { } promptTitle) dvt.InputTitle = promptTitle;
-                if (dvs.Prompt?.Value is { } prompt) dvt.InputMessage = prompt;
-                if (dvs.ErrorTitle?.Value is { } errorTitle) dvt.ErrorTitle = errorTitle;
-                if (dvs.Error?.Value is { } error) dvt.ErrorMessage = error;
+                if (dvs.PromptTitle?.Value is { } promptTitle) dvt.InputTitle = XStringConvert.Decode(promptTitle);
+                if (dvs.Prompt?.Value is { } prompt) dvt.InputMessage = XStringConvert.Decode(prompt);
+                if (dvs.ErrorTitle?.Value is { } errorTitle) dvt.ErrorTitle = XStringConvert.Decode(errorTitle);
+                if (dvs.Error?.Value is { } error) dvt.ErrorMessage = XStringConvert.Decode(error);
                 if (dvs.ErrorStyle != null) dvt.ErrorStyle = dvs.ErrorStyle.Value.ToClosedXml();
                 if (dvs.Type != null) dvt.AllowedValues = dvs.Type.Value.ToClosedXml();
                 if (dvs.Operator != null) dvt.Operator = dvs.Operator.Value.ToClosedXml();

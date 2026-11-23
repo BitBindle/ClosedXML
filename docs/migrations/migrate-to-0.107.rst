@@ -111,6 +111,18 @@ the clear removes only part of an array formula or a data table.
 A resize of a table with a totals row to more rows now gives the table the new range. Before, the
 table got one row fewer. The totals row was not in the last row of the range.
 
+*************************************
+One-cell array formula in cell A1
+*************************************
+
+A one-cell array formula in cell A1 now has a range. ``IXLCell.FormulaReference`` gives
+``A1:A1``. The save of the workbook writes the formula. Before, ``FormulaReference`` gave null.
+The save threw ``InvalidOperationException``.
+
+``IXLCell.FormulaReference`` does not accept null for an array formula or a data table. If you set
+it to null, it throws ``ArgumentException``. Before, it changed the range of the formula to
+``A1:A1``. To remove an array formula, set the value of its range.
+
 *****************
 Equality methods
 *****************
@@ -147,6 +159,15 @@ of a table column. A load decodes the totals row formula. The file format define
 ``ST_Formula``, which is an ``ST_Xstring``. Before, a carriage return in these formulas became a
 line feed, and a formula kept the escape text from a file. A control character in a data
 validation formula no longer causes an exception on save.
+
+A save and a load now also encode and decode these text attributes, because the file format
+defines them as ``ST_Xstring``:
+
+* The input title, the input message, the error title and the error message of a data validation.
+* The text of a conditional format rule, for example a rule that finds cells that contain a text.
+
+Before, an escape sequence from a file, for example ``_x000D_``, stayed as the escape text. A control
+character in these texts caused an exception on save. Now the save encodes it.
 
 ********************
 Nullable annotations

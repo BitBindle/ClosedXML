@@ -1446,8 +1446,10 @@ namespace ClosedXML.Excel
                 if (Formula is null)
                     return null;
 
+                // An array formula and a data table always have a range. The default range is A1:A1,
+                // so a comparison with the default range is correct only for a normal formula.
                 var range = Formula.Range;
-                if (range == default)
+                if (Formula.Type == FormulaType.Normal && range == default)
                     return null;
 
                 return XLRangeAddress.FromSheetRange(Worksheet, range);
@@ -1459,6 +1461,9 @@ namespace ClosedXML.Excel
 
                 if (value is null)
                 {
+                    if (Formula.Type != FormulaType.Normal)
+                        throw new ArgumentException("An array formula or a data table must have a range. To remove the formula, set the value of its range.");
+
                     Formula.Range = default;
                     return;
                 }
