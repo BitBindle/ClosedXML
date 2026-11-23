@@ -212,7 +212,7 @@ namespace ClosedXML.Excel
         /// It clears all cells except the top-left cell.
         /// It applies the format of the top-left cell to all cells.
         /// The format keeps only the borders that are the same on the full edge of the range.
-        /// <c>false</c> to only add the merged range. The cells and their formats stay the same.
+        /// If <c>false</c>, the method only adds the merged range. The cells and their formats stay the same.
         /// </param>
         /// <exception cref="InvalidOperationException">
         /// <paramref name="checkIntersect"/> is <c>true</c>, and the range has cells of an array formula or a data table.
