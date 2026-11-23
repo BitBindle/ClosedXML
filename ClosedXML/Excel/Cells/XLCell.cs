@@ -1293,7 +1293,11 @@ namespace ClosedXML.Excel
             var sourceDataWorksheet = otherCell.Worksheet == otherSourceData.Worksheet
                 ? Worksheet
                 : otherSourceData.Worksheet;
-            var sourceData = sourceDataWorksheet.Range(shiftedRangeAddress) ?? throw new InvalidOperationException($"The shifted source data address '{shiftedRangeAddress}' is not valid.");
+
+            // The moved source data can be after the last row or the last column. Excel then shows a sparkline
+            // with a #REF! reference, and that sparkline shows no data. So the copy does not copy it, as for a
+            // sparkline without source data.
+            if (sourceDataWorksheet.Range(shiftedRangeAddress) is not { } sourceData) return;
 
             IXLSparklineGroup group;
             if (otherCell.Worksheet == Worksheet)
