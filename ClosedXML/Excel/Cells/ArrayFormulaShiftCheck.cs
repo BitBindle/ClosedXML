@@ -495,6 +495,20 @@ namespace ClosedXML.Excel
             return null;
         }
 
+        /// <summary>
+        /// Throw when a merge range has cells of an array formula or a data table. Excel does not allow
+        /// these formulas in merged cells, also in one cell.
+        /// </summary>
+        /// <param name="sheet">The sheet of the merge.</param>
+        /// <param name="mergeRange">The range to merge.</param>
+        /// <exception cref="InvalidOperationException">The merge range has cells of an array formula or a data table.</exception>
+        internal static void ThrowIfMergeHasArrayFormula(XLWorksheet sheet, Area mergeRange)
+        {
+            var ranges = GetArrayRanges(sheet, [mergeRange]);
+            if (ranges.Count > 0)
+                throw new InvalidOperationException($"The merge range has cells of the array formula or data table in {ranges[0]}. Merged cells cannot contain an array formula or a data table.");
+        }
+
         private static InvalidOperationException CreateException(Area range)
         {
             return new InvalidOperationException($"The operation changes only part of the array formula or data table in {range}. Change all cells of the range, or remove the formula first.");

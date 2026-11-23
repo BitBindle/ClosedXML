@@ -276,7 +276,9 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             using var wb = new XLWorkbook();
             var ws = wb.AddWorksheet();
             ws.Range("A1:B1").FormulaArrayA1 = "2+5";
-            ws.Range("A1:A2").Merge();
+
+            // Merge does not allow an array formula in merged cells. A file from another producer can have it.
+            ws.Range("A1:A2").Merge(false);
 
             // The clear of A2 clears the merged range A1:A2. A1 is a cell of the array formula.
             Assert.Throws<InvalidOperationException>(() => ws.Cells("A2").Clear());
@@ -606,6 +608,87 @@ namespace ClosedXML.Tests.Excel.CalcEngine
 
             Assert.True(ws.Cell("A2").HasArrayFormula);
             Assert.AreEqual("A2:A2", ws.Cell("A2").FormulaReference?.ToStringRelative());
+        }
+
+        [TestCase("B2:C2")]
+        [TestCase("B2:C3")]
+        [TestCase("A1:D4")]
+        [Issue("119")]
+        public void Merge_over_array_formula_throws_and_keeps_the_sheet(string mergeRange)
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:C3").FormulaArrayA1 = "2+5";
+
+            Assert.That(() => ws.Range(mergeRange).Merge(),
+                Throws.TypeOf<InvalidOperationException>()
+                    .With.Message.EqualTo("The merge range has cells of the array formula or data table in B2:C3. Merged cells cannot contain an array formula or a data table."));
+
+            Assert.IsEmpty(ws.MergedRanges);
+            Assert.AreEqual("B2:C3", ws.Cell("C2").FormulaReference?.ToStringRelative());
+            Assert.AreEqual("B2:C3", ws.Cell("C3").FormulaReference?.ToStringRelative());
+        }
+
+        [Test]
+        [Issue("119")]
+        public void Merge_over_array_formula_in_one_cell_throws()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").AsRange().FormulaArrayA1 = "2+5";
+
+            Assert.Throws<InvalidOperationException>(() => ws.Range("A1:B1").Merge());
+
+            Assert.IsEmpty(ws.MergedRanges);
+            Assert.True(ws.Cell("A1").HasArrayFormula);
+        }
+
+        [Test]
+        [Issue("119")]
+        public void Merge_over_part_of_data_table_throws()
+        {
+            using var wb = new XLWorkbook();
+            var ws = (XLWorksheet)wb.AddWorksheet();
+            var formula = XLCellFormula.DataTable1D(Area.Parse("B2:C3"), new Point(1, 1), false, true);
+            ws.Internals.CellsCollection.FormulaSlice.Set(new Point(2, 2), formula);
+
+            // The data table has its formula only in its first cell, B2. The merge range does not contain B2.
+            Assert.Throws<InvalidOperationException>(() => ws.Range("C3:D3").Merge());
+            Assert.IsEmpty(ws.MergedRanges);
+        }
+
+        [Test]
+        [Issue("119")]
+        public void Merge_next_to_array_formula_merges_the_range()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:C3").FormulaArrayA1 = "2+5";
+
+            ws.Range("D2:E3").Merge();
+
+            Assert.AreEqual("D2:E3", ws.MergedRanges.Single().RangeAddress.ToStringRelative());
+            Assert.AreEqual("B2:C3", ws.Cell("C3").FormulaReference?.ToStringRelative());
+        }
+
+        [Test]
+        [Issue("119")]
+        public void Workbook_with_array_formula_in_merged_range_is_loaded()
+        {
+            using var stream = new System.IO.MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                // Other producers can write a merged range over an array formula. Merge(false) does not check it.
+                var ws = wb.AddWorksheet();
+                ws.Range("B2:C3").FormulaArrayA1 = "2+5";
+                ws.Range("B2:C2").Merge(false);
+                wb.SaveAs(stream);
+            }
+
+            using var loaded = new XLWorkbook(stream);
+            var loadedSheet = loaded.Worksheet(1);
+            Assert.AreEqual("B2:C2", loadedSheet.MergedRanges.Single().RangeAddress.ToStringRelative());
+            Assert.AreEqual("B2:C3", loadedSheet.Cell("C3").FormulaReference?.ToStringRelative());
         }
 
         [Test]
