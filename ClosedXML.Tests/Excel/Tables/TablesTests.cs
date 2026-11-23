@@ -1425,6 +1425,43 @@ namespace ClosedXML.Tests.Excel
         }
 
         [Test]
+        [Issue("116")]
+        public void Resize_to_more_rows_changes_the_given_range_with_its_cells()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new[] { new[] { "First", "Second" }, new[] { "a", "b" }, new[] { "c", "d" } });
+            var table = ws.Range("A1:B3").CreateTable();
+            table.ShowTotalsRow = true;
+            var range = ws.Range("A1:B6");
+
+            table.Resize(range);
+
+            // The resize deletes the old totals row, which is in the range.
+            Assert.AreEqual("A1:B6", table.RangeAddress.ToString());
+            Assert.AreEqual("A1:B5", range.RangeAddress.ToString());
+        }
+
+        [Test]
+        [Issue("116")]
+        public void Resize_to_fewer_rows_changes_the_given_range_with_its_cells()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new[] { new[] { "First", "Second" }, new[] { "a", "b" }, new[] { "c", "d" }, new[] { "e", "f" } });
+            var table = ws.Range("A1:B4").CreateTable();
+            table.ShowTotalsRow = true;
+            Assert.AreEqual("A1:B5", table.RangeAddress.ToString());
+            var range = ws.Range("A1:B4");
+
+            table.Resize(range);
+
+            // The resize inserts a row for the new totals row, which is in the range.
+            Assert.AreEqual("A1:B4", table.RangeAddress.ToString());
+            Assert.AreEqual("A1:B5", range.RangeAddress.ToString());
+        }
+
+        [Test]
         public void Resize_with_range_address_uses_the_given_address()
         {
             using var wb = new XLWorkbook();
