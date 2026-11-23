@@ -2,46 +2,98 @@
 Missing font
 ############
 
-This page should help resolve the exception about a missing font:
+ClosedXML measures text to calculate column widths and row heights, for
+example in ``IXLColumn.AdjustToContents``. To measure text, ClosedXML needs
+the metrics of the font. If the font of the text is not on the computer,
+ClosedXML uses a different font. The calculated widths and heights can then
+be different from Excel.
+
+This problem occurs most frequently on Linux, in containers and in cloud
+functions (for example AWS Lambda and Azure Functions). These computers
+usually do not have the Windows fonts, for example *Arial* or
+*Times New Roman*. For *Calibri*, the default font of a workbook, ClosedXML
+has an embedded font with almost the same widths.
+
+.. note::
+   For more information about the engine and its API, see the
+   :doc:`../features/graphic-engine` page.
+
+************************
+How ClosedXML gets fonts
+************************
+
+The graphic engine measures text. The default engine is
+``DefaultGraphicEngine``. It uses the *SixLabors.Fonts* library to read the
+font metrics.
+
+``DefaultGraphicEngine`` tries these fonts in this sequence:
+
+#. The font of the text, for example the font of the cell.
+#. The fallback font. The default fallback font is *Microsoft Sans Serif*.
+   Excel uses the same fallback font on Windows.
+#. The embedded font. This font is in the ClosedXML assembly.
+
+The embedded font is a reduced version of *Carlito*. It contains only the
+metrics of the glyphs. It has the same character widths as *Calibri*. With
+the embedded font, ClosedXML uses the ascender and the descender of
+*Calibri*. The row heights are then the same as with *Calibri*.
+
+ClosedXML always has the embedded font, so it does not throw an exception
+for a missing font. Versions before 0.102 threw this exception:
 
   Unable to find font *font name* or fallback font *fallback font name*.
-  Install missing fonts or specify a different fallback font through
-  'LoadOptions.DefaultGraphicEngine = new DefaultGraphicEngine("Fallback font name")'.
 
-The exception was most likely thrown during a call of ``IXLColumn.AdjustToContent``
-on Linux or some Cloud service that doesn't contain Windows fonts (e.g. AWS
-lambda functions, Azure functions).
+Calibri and Carlito
+===================
 
-.. note::
-   For more details about how the engine works and available API,
-   see `graphic engine </en/latest/features/graphic-engine.html>`_ page.
+*Carlito* is metric-compatible with *Calibri*. Each character has the same
+width in the two fonts. This is correct for large font sizes. At sizes up to
+19 points, *Calibri* uses bitmaps. The widths of these bitmaps are a little
+different.
+
+*Carlito* is a little wider than these bitmaps, for example the letter M and
+the digits. ClosedXML calculates the column widths with the
+*Carlito* metrics, so the columns are a little wider than the text in Excel.
+If a column is too narrow, Excel cuts the text or shows ``####``.
+
+The full *Carlito* font has its own ascender and descender. With the full
+font, the row heights can be a little different from *Calibri*.
+
+.. image:: img/Calibri-vs-Carlito-11pt.png
+  :alt: Comparison of Calibri and Carlito font rendered at 11 points
+
+.. image:: img/Calibri-vs-Carlito-20pt.png
+  :alt: Comparison of Calibri and Carlito font rendered at 20 points
 
 **************************
-Explanation of the problem
+When the widths are wrong
 **************************
 
-Graphic engine is responsible for extracting information about images and
-measuring size of a text in a workbook. The exception indicates that
-ClosedXML (more precisely *SixLabors.Fonts* that is used by the default
-engine) wasn't enable to find a font that could be used to measure size
-of a text.
+A missing *Calibri* font usually causes no problem. ClosedXML uses the
+embedded font. The widths are then almost the same as in Excel. But the
+fallback font comes before the embedded font. If the computer has
+*Microsoft Sans Serif* but not *Calibri*, ClosedXML uses
+*Microsoft Sans Serif* for *Calibri* text.
 
-Calculating a correct size of a text rendered by a font is a nontrivial task
-and there is a dearth of maintained open source .NET font libraries. That is
-why ClosedXML depends on prerelease version of *SixLabors.Fonts*.
+The widths can also be wrong in these conditions:
 
-``DefaultGraphicEngine`` tries to use a requested font (e.g. font of a cell)
-and if the requested font isn't present on the machine, it will use fallback
-font (*Microsoft Sans Serif*). If not even fallback font is found, it throws
-the aforementioned exception.
+* The workbook uses a font other than *Calibri*, for example *Arial* or
+  *Times New Roman*, and the computer does not have this font. ClosedXML
+  measures the text with the fallback font or the embedded font. These fonts
+  have different metrics.
+* The font that ClosedXML selects does not have all the characters of the
+  text. ClosedXML does not use a different font for each missing character. For
+  example, the embedded font has approximately 2500 glyphs for the Latin,
+  Greek and Cyrillic alphabets. It does not have glyphs for other writing
+  systems, for example Chinese, Japanese, Korean or Arabic.
 
-.. note::
-   It is  responsibility of developer to ensure that required font/s are
-   present. ClosedXML needs font metrics and substitution tables to calculate
-   text bounds in the font. It can't pull them out of thin air.
+**********************************************
+Where SixLabors.Fonts looks for system fonts
+**********************************************
 
-SixLabors.Fonts library looks for fonts in the following folders
-(`source <https://github.com/SixLabors/Fonts/blob/main/src/SixLabors.Fonts/SystemFontCollection.cs#L38>`_):
+System fonts are the fonts on the computer. *SixLabors.Fonts* looks for
+system fonts in these folders (see the
+`source <https://github.com/SixLabors/Fonts/blob/main/src/SixLabors.Fonts/SystemFontCollection.cs>`_):
 
 * Windows
 
@@ -55,7 +107,7 @@ SixLabors.Fonts library looks for fonts in the following folders
   * ``/usr/local/share/fonts/``
   * ``/usr/share/fonts/``
 
-* OSX
+* macOS
 
   * ``%HOME%/Library/Fonts/``
   * ``/Library/Fonts/``
@@ -66,142 +118,99 @@ SixLabors.Fonts library looks for fonts in the following folders
 
   * ``/system/fonts/``
 
-.. note::
-   The default font for a xlsx is a Calibri font. That are two problems
-   with Calibri:
-
-   * Calibri is a copyrighted font - it can't be bundled, converted and has
-     a plethora of restrictions.
-   * Calibri isn't present on non-windows machines.
-
-   The consequence is that files that used created on non-windows likely won't
-   have accurately calculated text width due to incorrect font metrics of
-   the fallback font.
-
 *********
 Solutions
 *********
 
-You can either
+Install the fonts of the workbook
+=================================
 
-* Install font on the environment
-* Bundle a font with the application (only for version 0.100+)
-* Use a wrapper.
+Install the fonts that the workbook uses on each computer that runs your
+application. ClosedXML then uses the correct metrics.
 
-Use already installed font
-==========================
+* *Calibri*, *Arial* and other Microsoft fonts need a license.
+* On some computers, you cannot install fonts, for example in Azure
+  Functions.
 
-If you don't care much about accuracy, pick already installed font and instruct
-ClosedXML to use that one as a fallback font. That is basically the advice from
-the exception message.
+Bundle the fonts with the application
+=====================================
 
-First, get a list of fonts that are available on the target environment
+Put the font files in your application, for example as embedded resources.
+Make sure that the license of each font lets you distribute it. Then give the
+font streams to ``DefaultGraphicEngine``. The first stream is the fallback
+font. The other streams are optional. Add the fonts that your workbooks use.
+
+ClosedXML finds a font by its family name. A stream helps only the text with
+a font name that is the same as the family name in the stream. For example,
+a *Liberation Sans* stream does not help *Arial* text.
+
+.. code-block:: csharp
+
+   using var fallbackFontStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Namespace.Carlito.ttf");
+   using var arialFontStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Namespace.Arial.ttf");
+   LoadOptions.DefaultGraphicEngine = DefaultGraphicEngine.CreateWithFontsAndSystemFonts(fallbackFontStream, arialFontStream);
+
+``DefaultGraphicEngine.CreateOnlyWithFonts`` has the same parameters, but it
+does not load the system fonts. If the application cannot use a file system,
+for example in client-side Blazor, use this method. It also makes the first
+measurement of text faster.
+
+With ``CreateWithFontsAndSystemFonts`` and ``CreateOnlyWithFonts``, the
+fallback font is always available. ClosedXML then never uses the embedded
+font. If the workbook uses *Calibri*, give a *Calibri* stream or use
+*Carlito* as the fallback font. ``CreateWithFontsAndSystemFonts`` also uses
+*Calibri* if the computer has it.
+
+Set a different fallback font
+=============================
+
+If an almost correct width is enough, set a system font as the fallback
+font. This font replaces *Microsoft Sans Serif* in the sequence. If the
+computer does not have *Calibri*, ClosedXML uses this font for *Calibri* text,
+not the embedded font. To get a list of the system fonts, use this code:
 
 .. code-block:: csharp
 
    foreach (var fontFamily in SixLabors.Fonts.SystemFonts.Collection.Families)
       Console.WriteLine(fontFamily.Name);
 
-
-Pick already installed font that looks similar to Calibri (probably slightly
-wider to avoid clipping or #### signs). In the setup part of your application,
-choose a font that will be used as a fallback font.
-
-.. code-block:: csharp
-
-   // "Fallback font name" will likely be something like "DejaVu Sans" or "Tahoma"
-   // It is not a path to font file, but a font name.
-   LoadOptions.DefaultGraphicEngine = new DefaultGraphicEngine("Fallback font name");
-
-
-Use a font similar to Calibri (likely Carlito)
-==============================================
-
-Find a font that looks similar to Calibri. Similarity means character widths
-and heights, not the shape of letters.
-
-The most likely candidate is a `Carlito font <https://fontlibrary.org/en/font/carlito>`_:
-
-  Carlito (Google’s Carlito font, google-crosextrafonts-carlito) is a modern,
-  friendly sans-serif font, metric-compatible with Microsoft Fonts Calibri
-  font. Carlito comes in regular, bold, italic, and bold italic. The family
-  covers Latin-Greek-Cyrillic (not a complete set, though) with about 2,000
-  glyphs. It has the same character coverage as Microsoft Fonts Calibri. This
-  font is sans-serif typeface family based on Lato. Carlito is a default
-  Calibri font replace in the LibreOffice Suite.
-
-The key part is *metric-compatible with Microsoft Fonts Calibri*. Note that
-the claim is only valid for larger sizes, Calibri has a bitpoint maps that
-are used at smaller sizes (up to 19 pts). It is not exactly the same, but close
-enough and the important thing is that Carlito metrics is slighly wider (letter
-M, numbers) than Calibri bitmap sizes. Thanks to that, the text in cells won't
-be clipped or displayed as `####`).
-
-.. image:: img/Calibri-vs-Carlito-11pt.png
-  :alt: Comparison of Calibri and Carlito font rendered at 11 points
-
-.. image:: img/Calibri-vs-Carlito-20pt.png
-  :alt: Comparison of Calibri and Carlito font rendered at 20 points
-
-Install the selected font on the target environment or bundle the font with
-the application.
-
-.. code-block:: csharp
-   :caption: Code to use Carlito as a default font
-
-   using (var fallbackFontStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Carlito.ttf"))
-   {
-       // Carlito font will be used for everything, since it is the fallback font and no other font was loaded
-       LoadOptions.DefaultGraphicEngine = DefaultGraphicEngine.CreateOnlyWithFonts(fallbackFontStream);
-   }
-
-
-Install Windows fonts
-=====================
-
-Install Calibri/Microsofot Sans Serif font to the target environment.
-
-* Upside
-
-  * ClosedXML will use correct font metrics
-
-* Downside
-
-  * Requires a license.
-  * In some cases, it is not possible to install fonts (e.g. Azure Functions)
-  * Font must be present on all target environments
-
-Bundle font (version 0.100+)
-============================
-
-Bundle a font with the application (either as an embedded resource or in an installation
-directory) and create ``DefaultGraphicEngine`` with a stream of bundled font.
+Select a font that has character widths similar to the font of the workbook.
+A font that is a little wider is better. The columns are then a little wider
+than the text in Excel. Set the font name, not the path of the font file:
 
 .. code-block:: csharp
 
-   using (var fallbackFontStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Namespace.SomeFont.ttf"))
-   {
-       LoadOptions.DefaultGraphicEngine = DefaultGraphicEngine.CreateWithFontsAndSystemFonts(fallbackFontStream);
-   }
+   LoadOptions.DefaultGraphicEngine = new DefaultGraphicEngine("DejaVu Sans");
 
+For workbooks that use *Calibri*, the full
+`Carlito font <https://fontlibrary.org/en/font/carlito>`_ is a good fallback
+font. It has the same widths as *Calibri*. If the computer has
+*Microsoft Sans Serif* but not *Calibri*, install *Carlito* on the computer.
+Then set it as the fallback font:
 
-The ``DefaultGraphicEngine`` constructor can accept multiple font streams, so
-it is possible to load fonts that are actually used in the workbooks, not just
-fallback font. That is rather useful for client-side Blazor.
+.. code-block:: csharp
 
-Set ``IXLColumn.Width``/``IXLColumn.Height``
-============================================
+   LoadOptions.DefaultGraphicEngine = new DefaultGraphicEngine("Carlito");
 
-Width of columns and height of row can be set explicitely. Row has its height
-expressed in points, width of column is expressed in multiples of Maximum Digit
-Width (MDW). MDW is a maximum width of a any digit (0-9) in pixels. If column
-has width 12.5, it means 12.5 * width_of_widest_0-9_digit.
+Set the column widths and row heights
+=====================================
 
-Create adapter
-==============
+Set ``IXLColumn.Width`` and ``IXLRow.Height`` directly. ClosedXML then does
+not calculate these values from the text. The unit of the row height is
+points. The unit of the column width is the number of characters.
 
-Not recommended, but you can create a new implementation of
-``IXLGraphicEngine``, delegate ``IXLGraphicEngine.GetPictureInfo`` to
-``DefaultGraphicEngine.Instance.Value.GetPictureInfo`` and implement font
-measurement methods using only the EM square size (IXLFontBase.FontSize is
-always passed as a parameter) or some hard coded values.
+The maximum digit width is the width in pixels of the widest digit (0 to 9) of
+the default font. For a width of 1 or more, the pixel width is the number of
+characters times the maximum digit width, plus a padding. For example, with
+*Calibri* 11 pt at 96 DPI, the maximum digit width is 7 pixels and the padding
+is 5 pixels. A column with width 12 is then 89 pixels.
+
+Implement a graphic engine
+==========================
+
+Write a class that implements ``IXLGraphicEngine``. In
+``IXLGraphicEngine.GetPictureInfo``, call
+``DefaultGraphicEngine.Instance.Value.GetPictureInfo``. In the methods that
+measure text, calculate the values from the font size
+(``IXLFontBase.FontSize``) or use fixed values. The results are usually less
+accurate than the results of ``DefaultGraphicEngine``.
