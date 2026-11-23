@@ -261,7 +261,8 @@ namespace ClosedXML.Excel
 
         public IXLRows Clear(XLClearOptions clearOptions = XLClearOptions.All)
         {
-            Rows.ForEach(c => c.Clear(clearOptions));
+            using (ArrayFormulaShiftCheck.BeginClear(Rows, clearOptions))
+                Rows.ForEach(c => c.Clear(clearOptions));
             return this;
         }
 

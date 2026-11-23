@@ -60,7 +60,8 @@ namespace ClosedXML.Excel
 
         public IXLRanges Clear(XLClearOptions clearOptions = XLClearOptions.All)
         {
-            Ranges.ForEach(c => c.Clear(clearOptions));
+            using (ArrayFormulaShiftCheck.BeginClear(Ranges, clearOptions))
+                Ranges.ForEach(c => c.Clear(clearOptions));
             return this;
         }
 

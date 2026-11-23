@@ -419,6 +419,7 @@ namespace ClosedXML.Excel
         /// Clears the contents of this range.
         /// </summary>
         /// <param name="clearOptions">Specify what you want to clear.</param>
+        /// <exception cref="InvalidOperationException">The clear removes the contents of only part of an array formula or a data table.</exception>
         new IXLRange Clear(XLClearOptions clearOptions = XLClearOptions.All);
 
         IXLRangeRows RowsUsed(XLCellsUsedOptions options, Func<IXLRangeRow, Boolean>? predicate = null);

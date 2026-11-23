@@ -45,6 +45,7 @@ namespace ClosedXML.Excel
         /// Clears the contents of this table.
         /// </summary>
         /// <param name="clearOptions">Specify what you want to clear.</param>
+        /// <exception cref="InvalidOperationException">The clear removes the contents of only part of an array formula or a data table.</exception>
         new IXLTable Clear(XLClearOptions clearOptions = XLClearOptions.All);
 
         /// <summary>
