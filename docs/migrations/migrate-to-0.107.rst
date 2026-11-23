@@ -82,6 +82,9 @@ keeps its name.
 If the name with the number is a cell reference, the save puts an underscore before the number. For
 example, a second table ``AB`` gets the name ``AB_1``, not ``AB1``.
 
+The save does not give a table the name of another table or of a defined name in the workbook. For
+example, if the workbook also has a table ``SALES1``, the second table gets the name ``SALES2``.
+
 *******************************************
 Array formulas after an insert or a delete
 *******************************************

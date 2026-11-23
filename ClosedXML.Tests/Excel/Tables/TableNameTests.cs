@@ -193,7 +193,7 @@ namespace ClosedXML.Tests.Excel.Tables
         [TestCase("AB", "ab", "ab_1")]
         [TestCase("Sales", "Sales1", "Sales1")]
         [Issue("67")]
-        public void Save_gives_a_unique_name_to_a_table_name_that_differs_only_in_case(string firstName, string secondName, string expectedSecondName)
+        public void Save_compares_table_names_without_case(string firstName, string secondName, string expectedSecondName)
         {
             using var file = CreateFileWithTableNames(firstName, secondName);
             using var wb = new XLWorkbook(file);
@@ -223,6 +223,41 @@ namespace ClosedXML.Tests.Excel.Tables
                 .Select(part => part.TableDefinitionParts.Single().Table!.Name!.Value)
                 .ToList();
             CollectionAssert.AreEquivalent(new[] { "AB", "AB_1", "ab_2" }, savedNames);
+        }
+
+        [Test]
+        [Issue("67")]
+        public void Save_does_not_give_a_table_the_name_of_a_table_that_it_saves_later()
+        {
+            using var file = CreateFileWithTableNames("Sales", "SALES", "SALES1");
+            using var wb = new XLWorkbook(file);
+            using var ms = new MemoryStream();
+
+            wb.SaveAs(ms);
+
+            using var package = SpreadsheetDocument.Open(ms, false);
+            var savedNames = package.WorkbookPart!.WorksheetParts
+                .Select(part => part.TableDefinitionParts.Single().Table!.Name!.Value)
+                .ToList();
+            CollectionAssert.AreEquivalent(new[] { "Sales", "SALES2", "SALES1" }, savedNames);
+        }
+
+        [Test]
+        [Issue("67")]
+        public void Save_does_not_give_a_table_the_name_of_a_defined_name()
+        {
+            using var file = CreateFileWithTableNames("Sales", "SALES");
+            using var wb = new XLWorkbook(file);
+            wb.DefinedNames.Add("Sales1", "Sheet1!$A$1");
+            using var ms = new MemoryStream();
+
+            wb.SaveAs(ms);
+
+            using var package = SpreadsheetDocument.Open(ms, false);
+            var savedNames = package.WorkbookPart!.WorksheetParts
+                .Select(part => part.TableDefinitionParts.Single().Table!.Name!.Value)
+                .ToList();
+            CollectionAssert.AreEquivalent(new[] { "Sales", "SALES2" }, savedNames);
         }
 
         /// <summary>

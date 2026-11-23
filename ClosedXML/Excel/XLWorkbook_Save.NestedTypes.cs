@@ -44,6 +44,12 @@ namespace ClosedXML.Excel
             public HashSet<string> TableNames { get; private set; }
 
             /// <summary>
+            /// The names of all tables in the workbook. The save makes this set only when it must
+            /// rename a table.
+            /// </summary>
+            public HashSet<string>? WorkbookTableNames { get; set; }
+
+            /// <summary>
             /// A free id that can be used by the workbook to reference to a pivot cache.
             /// The <c>PivotCaches</c> element in a workbook connects the parts with pivot
             /// cache parts.
