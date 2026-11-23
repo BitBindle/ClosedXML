@@ -127,24 +127,7 @@ namespace ClosedXML.Excel
                 var formula = value.TrimFormulaEqual();
                 var fixedFunctionsFormula = FormulaTransformation.FixFutureFunctions(formula, Worksheet.Name, SheetRange.FirstPoint);
                 var arrayFormula = XLCellFormula.Array(fixedFunctionsFormula, range, false);
-
-                var formulaSlice = Worksheet.Internals.CellsCollection.FormulaSlice;
-                formulaSlice.SetArray(range, arrayFormula);
-
-                // If formula evaluates to a text, it is stored directly in a worksheet, not in SST. Thus
-                // when the switch to formula happens, disable shared string and enable when formula is removed.
-                var valueSlice = Worksheet.Internals.CellsCollection.ValueSlice;
-                for (var row = range.TopRow; row <= range.BottomRow; ++row)
-                {
-                    for (var col = range.LeftColumn; col <= range.RightColumn; ++col)
-                    {
-                        valueSlice.SetShareString(new Point(row, col), false);
-                    }
-                }
-
-                // Formula is shared across all cells, so it's enough to invalidate master cell
-                var masterCell = FirstCell();
-                masterCell.InvalidateFormula();
+                Worksheet.SetArrayFormula(arrayFormula);
             }
         }
 

@@ -170,6 +170,36 @@ The save threw ``InvalidOperationException``.
 it to null, it throws ``ArgumentException``. Before, it changed the range of the formula to
 ``A1:A1``. To remove an array formula, set the value of its range.
 
+************************
+Copy of an array formula
+************************
+
+A copy of cells now keeps an array formula. The copy has one array formula with the same size at
+the new position. The relative references of the formula move with the range. This applies to
+``IXLWorksheet.CopyTo``, to ``CopyTo`` of a range, a row or a column, and to ``IXLCell.CopyFrom``
+and ``IXLCell.CopyTo``. Before, each copied cell got a normal formula with the text of the array formula.
+
+A copy of only part of an array formula now throws ``InvalidOperationException``. The copy throws
+before it changes the target. Excel does not allow this copy.
+
+A copy of one cell to a cell of an array formula or a data table with more than one cell now throws
+``InvalidOperationException``. A copy of only the cell format does not throw.
+
+A copy that puts an array formula with more than one cell over a table now throws
+``InvalidOperationException``. A copy that puts an array formula in a merged cell also throws.
+Excel does not allow these array formulas. The copy throws before it changes the target.
+
+A copy of a sheet and ``IXLTable.CopyTo`` copy a table with its cells. A table from a file can have an
+array formula with more than one cell, because the load does not check the table. These copies keep
+that array formula in the new table.
+
+A copy of a sheet now keeps a data table. A copy of a range or a cell copies only the values of a
+data table, as Excel does. Before, these copies threw ``ParsingException``.
+
+A copy of a sheet now merges the cells with ``IXLRangeBase.Merge(false)``. The copy keeps the
+contents and the format of the merged cells. Before, the merge cleared the cells after the first
+cell and changed their borders.
+
 *****************************************
 Table over an array formula
 *****************************************

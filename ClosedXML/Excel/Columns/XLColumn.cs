@@ -415,15 +415,26 @@ namespace ClosedXML.Excel
 
         public IXLColumn CopyTo(IXLColumn column)
         {
+            // Create the array formulas of the copy before the first change, because it can throw.
+            var target = (XLCell)column.FirstCell();
+            var arrayFormulaCopies = target.CreateArrayFormulaCopies(this);
             column.Clear();
             var newColumn = (XLColumn)column;
+            CopyPropertiesTo(newColumn);
+            target.CopyFrom(this, arrayFormulaCopies);
+
+            return newColumn;
+        }
+
+        /// <summary>
+        /// Copy the width, the format and the visibility of the column. The method does not copy the cells.
+        /// </summary>
+        /// <param name="newColumn">The column that gets the properties.</param>
+        internal void CopyPropertiesTo(XLColumn newColumn)
+        {
             newColumn.Width = Width;
             newColumn.FormatValue = newColumn.Worksheet.Workbook.Styles.GetRegisteredCellFormat(GetFormat());
             newColumn.IsHidden = IsHidden;
-
-            (this as XLRangeBase).CopyTo(column);
-
-            return newColumn;
         }
 
         public XLRangeColumn Column(Int32 start, Int32 end)

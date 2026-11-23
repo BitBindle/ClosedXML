@@ -1026,11 +1026,11 @@ namespace ClosedXML.Excel
                 throw new InvalidOperationException("Cannot copy table to the worksheet it already belongs to.");
 
             var targetRange = targetSheet.Range(RangeAddress.WithoutWorksheet());
-            // A table without used cells or without a header row has nothing to copy.
+
+            // A table without used cells has nothing to copy. The copy of a sheet copies the cells
+            // before the tables, so it does not copy the data.
             if (copyData)
                 RangeUsed()?.CopyTo(targetRange);
-            else
-                HeadersRow()?.CopyTo(targetRange.FirstRow());
 
             // The name belongs to an existing table. A name from a file can break a rule of Excel.
             var newTable = (XLTable)targetSheet.Table(targetRange, Name, addToTables: true, setAutofilter: true, checkExcelNameRules: false);

@@ -1087,6 +1087,28 @@ namespace ClosedXML.Excel
                 throw new ArgumentNullException(nameof(rangeObject));
 
             var asRange = (XLRangeBase)rangeObject;
+            return CopyFrom(asRange, CreateArrayFormulaCopies(asRange));
+        }
+
+        /// <summary>
+        /// Create the copies of the array formulas for a copy of a range to this cell. Call it before the
+        /// first change to the target, because it throws when the copy is not possible. The target can
+        /// also overlap the source.
+        /// </summary>
+        /// <param name="source">The copied range.</param>
+        /// <returns>The array formulas for <see cref="CopyFrom(XLRangeBase, List{XLCellFormula})"/>.</returns>
+        internal List<XLCellFormula> CreateArrayFormulaCopies(XLRangeBase source)
+        {
+            return ArrayFormulaCopy.CreateCopies(source.Worksheet, source.SheetRange, Worksheet, Point);
+        }
+
+        /// <summary>
+        /// Copy a range to this cell.
+        /// </summary>
+        /// <param name="asRange">The copied range.</param>
+        /// <param name="arrayFormulaCopies">The array formulas from <see cref="CreateArrayFormulaCopies"/>.</param>
+        internal IXLCell CopyFrom(XLRangeBase asRange, List<XLCellFormula> arrayFormulaCopies)
+        {
             var maxRows = asRange.RowCount();
             var maxColumns = asRange.ColumnCount();
 
@@ -1116,6 +1138,9 @@ namespace ClosedXML.Excel
                         & ~XLCellCopyOptions.ConditionalFormats
                         & ~XLCellCopyOptions.DataValidations); //Conditional formats and data validation are copied separately
             }
+
+            // The cell copy copies only the values of an array formula. A data table also stays as values, like in Excel.
+            ArrayFormulaCopy.SetArrayFormulas(Worksheet, arrayFormulaCopies);
 
             var rangesToMerge = asRange.Worksheet.Internals.MergedRanges
                 .Where<XLRange>(mr => asRange.Contains(mr))
@@ -1186,7 +1211,8 @@ namespace ClosedXML.Excel
             else
                 SliceRichText = sourceRichText;
 
-            FormulaR1C1 = source.FormulaR1C1;
+            // An array formula and a data table have one formula for many cells. The caller copies them separately.
+            FormulaR1C1 = source.Formula is { Type: not FormulaType.Normal } ? null : source.FormulaR1C1;
             SliceComment = source.SliceComment == null ? null : XLComment.CreateAsCopy(this, source, source.SliceComment);
 
             if (source.Worksheet.Hyperlinks.TryGet(source.Point, out var sourceHyperlink))
@@ -1268,8 +1294,29 @@ namespace ClosedXML.Excel
         public IXLCell CopyFrom(IXLCell otherCell, XLCellCopyOptions options)
         {
             var source = (XLCell)otherCell; // To expose GetFormulaR1C1, etc
+            if (!options.HasFlag(XLCellCopyOptions.Values))
+            {
+                CopyFromInternal(source, options);
+                return this;
+            }
 
+            // Excel does not allow a copy of only part of an array formula.
+            var arrayFormula = source.Formula is { Type: FormulaType.Array } sourceFormula ? sourceFormula : null;
+            if (arrayFormula is not null && arrayFormula.Range != new Area(source.Point))
+                throw ArrayFormulaCopy.CreatePartialCopyException(arrayFormula.Range);
+
+            if (arrayFormula is not null)
+                ArrayFormulaCopy.ThrowIfMerged(this);
+
+            // The copy replaces the contents of this cell. Excel does not allow a change of only part of an array formula.
+            ArrayFormulaShiftCheck.ThrowIfClearSplits(this, XLClearOptions.Contents);
+
+            // Create the copy of the array formula before the first change, because the parse can throw.
+            var arrayFormulaCopy = arrayFormula?.GetArrayCopy(new Area(Point));
             CopyFromInternal(source, options);
+            if (arrayFormulaCopy is not null)
+                Worksheet.SetArrayFormula(arrayFormulaCopy);
+
             return this;
         }
 
