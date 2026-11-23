@@ -150,6 +150,15 @@ namespace ClosedXML.Excel
         /// <summary>
         /// Resizes the table to the specified range address.
         /// </summary>
+        /// <remarks>
+        /// For a table with a totals row, the resize moves the totals row to the last row of the new
+        /// range. For this, the resize inserts cells and can delete cells. The resize does not insert
+        /// or delete full rows of the sheet. The cells below move down or up. Each range object
+        /// changes with its cells after an insert or a delete. This also applies to
+        /// <paramref name="range"/>. After the resize, <paramref name="range"/> can have one row more
+        /// or one row fewer. The table gets the address that <paramref name="range"/> had before the
+        /// resize.
+        /// </remarks>
         /// <param name="range">The new table range.</param>
         IXLTable Resize(IXLRange range);
 
