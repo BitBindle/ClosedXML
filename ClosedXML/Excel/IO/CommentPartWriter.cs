@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Xml;
 using ClosedXML.Extensions;
+using ClosedXML.Utils;
 using static ClosedXML.Excel.IO.OpenXmlConst;
 
 namespace ClosedXML.Excel.IO
@@ -39,7 +40,7 @@ namespace ClosedXML.Excel.IO
 
             xml.WriteStartElement("authors", Main2006SsNs);
             foreach (var author in authorsDict)
-                xml.WriteElementString("author", Main2006SsNs, author.Key);
+                xml.WriteElementString("author", Main2006SsNs, XmlEncoder.EncodeString(author.Key));
 
             xml.WriteEndElement(); // authors
 

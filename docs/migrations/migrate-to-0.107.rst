@@ -115,6 +115,12 @@ an exception.
 A load now decodes the escaped characters of a comment. Before, a comment showed the escape text,
 for example ``_x000D_``.
 
+A save now also encodes the formula text of a cell and the author of a comment. A load decodes
+them, because the file format defines both as ``ST_Xstring``. Before, a carriage return in a
+formula became a line feed, and a control character caused an exception. An escape sequence in a
+loaded formula, for example ``_x000D_``, now gives the character. Before, the formula kept the
+escape text.
+
 ********************
 Nullable annotations
 ********************
