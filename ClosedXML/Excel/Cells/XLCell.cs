@@ -870,9 +870,13 @@ namespace ClosedXML.Excel
 
         public IXLRange? MergedRange()
         {
-            return Worksheet
-                .Internals
-                .MergedRanges
+            var mergedRanges = Worksheet.Internals.MergedRanges;
+
+            // A cell write checks the merged ranges. Don't allocate for a sheet without them.
+            if (mergedRanges.Count == 0)
+                return null;
+
+            return mergedRanges
                 .GetIntersectedRanges(this)
                 .FirstOrDefault();
         }

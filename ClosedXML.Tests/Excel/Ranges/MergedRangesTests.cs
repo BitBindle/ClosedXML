@@ -1,3 +1,4 @@
+using System;
 using ClosedXML.Excel;
 using NUnit.Framework;
 using System.Linq;
@@ -438,6 +439,70 @@ namespace ClosedXML.Tests
 
             Assert.IsFalse(range.IsMerged());
             Assert.AreEqual(0, ws.MergedRanges.Count);
+        }
+
+        [Test]
+        public void MergedRangeChecksOfSheetWithoutMergedRangesDoNotAllocate()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var cells = Enumerable.Range(1, 10_000).Select(row => ws.Cell(row, 1)).ToArray();
+
+            // Run each check once, so that the measured loop does not include the first-call costs.
+            Assert.IsNull(cells[0].MergedRange());
+            Assert.IsFalse(cells[0].IsMerged());
+
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            var found = 0;
+            foreach (var cell in cells)
+            {
+                if (cell.MergedRange() is not null || cell.IsMerged())
+                    found++;
+            }
+            var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+            Assert.AreEqual(0, found);
+            Assert.AreEqual(0, allocated);
+        }
+
+        [Test]
+        public void ValueWritesToSheetWithoutMergedRangesDoNotAllocate()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var cells = Enumerable.Range(1, 10_000).Select(row => ws.Cell(row, 1)).ToArray();
+            foreach (var cell in cells)
+                cell.Value = 0;
+
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            foreach (var cell in cells)
+                cell.Value = 1;
+            var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+            Assert.AreEqual(0, allocated);
+        }
+
+        [Test]
+        public void MergedRangeChecksFindRangeAfterMergeAndNotAfterUnmerge()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var inner = ws.Cell("C3");
+            Assert.IsNull(inner.MergedRange());
+
+            ws.Range("B2:D4").Merge();
+            inner.Value = "ignored";
+
+            Assert.AreEqual("B2:D4", inner.MergedRange()!.RangeAddress.ToStringRelative());
+            Assert.IsTrue(inner.IsMerged());
+            Assert.IsTrue(inner.Value.IsBlank);
+
+            ws.Range("B2:D4").Unmerge();
+            inner.Value = "kept";
+
+            Assert.IsNull(inner.MergedRange());
+            Assert.IsFalse(inner.IsMerged());
+            Assert.AreEqual("kept", inner.GetText());
         }
     }
 }
