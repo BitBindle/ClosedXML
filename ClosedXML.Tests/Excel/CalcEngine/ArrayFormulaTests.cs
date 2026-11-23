@@ -51,6 +51,79 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual("B3:B3", oneCell.FormulaReference.ToStringRelative());
         }
 
+        [Test]
+        [Issue("112")]
+        public void Array_formula_in_one_cell_in_the_first_cell_of_the_sheet_has_a_reference()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var cell = ws.Cell("A1");
+
+            cell.AsRange().FormulaArrayA1 = "2+5";
+
+            Assert.AreEqual("A1:A1", cell.FormulaReference?.ToStringRelative());
+        }
+
+        [Test]
+        [Issue("112")]
+        public void Array_formula_in_one_cell_in_the_first_cell_of_the_sheet_is_saved_and_loaded()
+        {
+            using var stream = new System.IO.MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                wb.AddWorksheet().Cell("A1").AsRange().FormulaArrayA1 = "2+5";
+                wb.SaveAs(stream);
+            }
+
+            using var loaded = new XLWorkbook(stream);
+            var cell = loaded.Worksheet(1).Cell("A1");
+            Assert.True(cell.HasArrayFormula);
+            Assert.AreEqual("2+5", cell.FormulaA1);
+            Assert.AreEqual("A1:A1", cell.FormulaReference?.ToStringRelative());
+        }
+
+        [Test]
+        [Issue("112")]
+        public void Array_formula_reference_cannot_be_set_to_null()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Range("B2:C3").FormulaArrayA1 = "2+5";
+            var cell = ws.Cell("B2");
+
+            Assert.Throws<ArgumentException>(() => cell.FormulaReference = null);
+            Assert.AreEqual("B2:C3", cell.FormulaReference?.ToStringRelative());
+        }
+
+        [Test]
+        [Issue("112")]
+        public void Data_table_reference_cannot_be_set_to_null()
+        {
+            using var wb = new XLWorkbook();
+            var ws = (XLWorksheet)wb.AddWorksheet();
+            var formula = XLCellFormula.DataTable1D(Area.Parse("B2:C3"), new Point(1, 1), false, true);
+            ws.Internals.CellsCollection.FormulaSlice.Set(new Point(2, 2), formula);
+            var cell = ws.Cell("B2");
+
+            Assert.Throws<ArgumentException>(() => cell.FormulaReference = null);
+            Assert.AreEqual("B2:C3", cell.FormulaReference?.ToStringRelative());
+        }
+
+        [Test]
+        [Issue("112")]
+        public void Normal_formula_reference_can_be_set_to_null()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var cell = ws.Cell("B2");
+            cell.FormulaA1 = "2+5";
+
+            cell.FormulaReference = null;
+
+            Assert.IsNull(cell.FormulaReference);
+            Assert.AreEqual("2+5", cell.FormulaA1);
+        }
+
         [TestCase("B2:C3")]
         [TestCase("B2:C4")]
         [TestCase("A1:D7")]

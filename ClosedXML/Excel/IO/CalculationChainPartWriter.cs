@@ -61,9 +61,6 @@ namespace ClosedXML.Excel.IO
                         }
                         else if (c.HasArrayFormula)
                         {
-                            if (formula.Range == default)
-                                formula.Range = new Area(c.Point);
-
                             var formulaRange = formula.Range;
                             if (formulaRange.FirstPoint == c.Point)
                             {
