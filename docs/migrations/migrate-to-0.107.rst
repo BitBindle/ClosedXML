@@ -211,6 +211,21 @@ Before, it threw an exception. The ``IEquatable<T>.Equals`` methods of a cell fi
 number format and of a differential protection now return false for null. Before, they threw
 ``NullReferenceException``.
 
+*****************************************************
+Copy of a range after the last row or the last column
+*****************************************************
+
+A range copy now throws ``InvalidOperationException`` when the copy of a used cell or a merged
+range is after the last row or the last column of the sheet. The copy throws before it changes the
+target. Excel also does not paste a copy that does not fit. Before, the copy cleared the target,
+copied some cells and then threw ``ArgumentOutOfRangeException``.
+
+A copy that has only empty cells after the last row or the last column still copies the used cells.
+
+A range copy now copies only the part of a data validation that is in the source. Before, the copy
+also put the data validation on cells outside the target. When the copied data validation was after
+the last row or the last column, the copy threw ``ArgumentOutOfRangeException``.
+
 *********
 New lines
 *********
