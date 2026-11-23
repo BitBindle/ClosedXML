@@ -18,6 +18,16 @@ A save now writes ``auto="1"`` for an ``XLColor.Automatic`` color of a data bar 
 Before, the save wrote an empty color element, and the file lost the automatic value. A load reads
 the element as ``XLColor.Automatic``, as before.
 
+*******************************************************
+Copy of a sparkline with source data outside the sheet
+*******************************************************
+
+A copy of a cell or a range moves the source data of a sparkline with the cell. When the moved source
+data is after the last row or the last column, the copy now does not copy the sparkline. The copy
+still copies the value and the format of the cell. Excel shows such a sparkline with a ``#REF!``
+reference, and that sparkline shows no data. Before, the copy cleared the target, copied some cells
+and then threw ``InvalidOperationException``.
+
 *************
 Save a stream
 *************

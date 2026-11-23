@@ -1078,6 +1078,57 @@ namespace ClosedXML.Tests.Excel.Sparklines
             Assert.AreEqual("Values", formulas[4]);
         }
 
+        [Test]
+        [Issue("131")]
+        public void Range_copy_of_sparkline_with_source_data_after_last_column_copies_the_cell_without_the_sparkline()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.SparklineGroups.Add("B2", "D2:XFD2");
+            ws.Cell("B2").Value = "Source";
+            ws.Cell("C5").Value = "Target";
+
+            ws.Range("B2").CopyTo(ws.Cell("C5"));
+
+            Assert.AreEqual("Source", ws.Cell("C5").Value);
+            Assert.False(ws.Cell("C5").HasSparkline);
+            Assert.True(ws.Cell("B2").HasSparkline);
+            Assert.AreEqual(1, ws.SparklineGroups.Single().Count());
+        }
+
+        [Test]
+        [Issue("131")]
+        public void Cell_copy_of_sparkline_with_source_data_after_last_row_to_other_sheet_does_not_add_a_group()
+        {
+            using var wb = new XLWorkbook();
+            var ws1 = wb.AddWorksheet("Sheet 1");
+            var ws2 = wb.AddWorksheet("Sheet 2");
+            ws1.SparklineGroups.Add("B2", "C2:C1048576");
+            var target = ws2.Cell("B5");
+
+            ws1.Cell("B2").CopyTo(target);
+
+            Assert.False(target.HasSparkline);
+            Assert.AreEqual(0, ws2.SparklineGroups.Count());
+        }
+
+        [Test]
+        [Issue("131")]
+        public void Cell_copy_of_sparkline_with_date_range_after_last_column_to_other_sheet_has_no_date_range()
+        {
+            using var wb = new XLWorkbook();
+            var ws1 = wb.AddWorksheet("Sheet 1");
+            var ws2 = wb.AddWorksheet("Sheet 2");
+            var group = ws1.SparklineGroups.Add("A2", "B2:F2");
+            group.SetDateRange(ws1.Range("XFA1:XFD1"));
+            var target = ws2.Cell("C2");
+
+            ws1.Cell("A2").CopyTo(target);
+
+            Assert.True(target.HasSparkline);
+            Assert.IsNull(target.Sparkline!.SparklineGroup.DateRange);
+        }
+
         #endregion Copy sparkline groups
 
         #region Test Examples
