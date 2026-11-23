@@ -337,6 +337,10 @@ namespace ClosedXML.Excel.IO
                 definedNames.AppendChild(definedName);
             }
 
+            // The text of a defined name is an ST_Formula. It is an ST_Xstring, so encode special characters.
+            foreach (var definedName in definedNames.Elements<DefinedName>())
+                definedName.Text = XmlEncoder.EncodeString(definedName.Text);
+
             workbook.DefinedNames = definedNames;
 
             if (workbook.CalculationProperties == null)

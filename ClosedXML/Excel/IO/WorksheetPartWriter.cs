@@ -655,6 +655,11 @@ namespace ClosedXML.Excel.IO
                     foreach (var cf in cfGroup.CfList)
                     {
                         var xlCf = XLCFConverters.Convert(cf, cf.Priority, context);
+
+                        // A formula of a rule is an ST_Formula. It is an ST_Xstring, so encode special characters.
+                        foreach (var formula in xlCf.Elements<Formula>())
+                            formula.Text = XmlEncoder.EncodeString(formula.Text);
+
                         conditionalFormatting.Append(xlCf);
                     }
                     worksheet.InsertAfter(conditionalFormatting, previousElement);
@@ -912,8 +917,8 @@ namespace ClosedXML.Excel.IO
                     var dataValidation = new DataValidation
                     {
                         AllowBlank = dv.IgnoreBlanks,
-                        Formula1 = new Formula1(minValue),
-                        Formula2 = new Formula2(maxValue),
+                        Formula1 = new Formula1(XmlEncoder.EncodeString(minValue)),
+                        Formula2 = new Formula2(XmlEncoder.EncodeString(maxValue)),
                         Type = dv.AllowedValues.ToOpenXml(),
                         ShowErrorMessage = dv.ShowErrorMessage,
                         Prompt = dv.InputMessage,

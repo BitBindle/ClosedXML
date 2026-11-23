@@ -368,7 +368,7 @@ internal class WorksheetPartReader
                 // non-empty formulas should also be ignored (Excel behavior).
                 var nonEmptyFormulas = fr.Elements<Formula>()
                     .Where(static f => !String.IsNullOrEmpty(f.Text))
-                    .Select<Formula, XLFormula>(f => GetFormula(f.Text))
+                    .Select<Formula, XLFormula>(f => GetFormula(XStringConvert.Decode(f.Text)))
                     .ToList();
                 if (conditionalFormat.Operator is XLCFOperator.Between or XLCFOperator.NotBetween)
                 {
@@ -398,7 +398,7 @@ internal class WorksheetPartReader
                 if (formula is null)
                     throw PartStructureException.IncorrectElementsCount();
 
-                conditionalFormat.Values.Add(GetFormula(formula.Text));
+                conditionalFormat.Values.Add(GetFormula(XStringConvert.Decode(formula.Text)));
             }
             else if (conditionalFormat.ConditionalFormatType is
                      XLConditionalFormatType.ContainsText or
@@ -518,8 +518,9 @@ internal class WorksheetPartReader
                 if (dvs.ErrorStyle != null) dvt.ErrorStyle = dvs.ErrorStyle.Value.ToClosedXml();
                 if (dvs.Type != null) dvt.AllowedValues = dvs.Type.Value.ToClosedXml();
                 if (dvs.Operator != null) dvt.Operator = dvs.Operator.Value.ToClosedXml();
-                if (dvs.Formula1 != null) dvt.MinValue = dvs.Formula1.Text;
-                if (dvs.Formula2 != null) dvt.MaxValue = dvs.Formula2.Text;
+                // The formulas are ST_Formula values. They can contain escaped characters (_xHHHH_).
+                if (dvs.Formula1 != null) dvt.MinValue = XStringConvert.Decode(dvs.Formula1.Text);
+                if (dvs.Formula2 != null) dvt.MaxValue = XStringConvert.Decode(dvs.Formula2.Text);
             }
         }
     }

@@ -1,5 +1,6 @@
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using ClosedXML.Utils;
 using System;
 using System.Linq;
 using static ClosedXML.Excel.XLWorkbook;
@@ -120,7 +121,7 @@ namespace ClosedXML.Excel.IO
                     {
                         tableColumn.CalculatedColumnFormula = new CalculatedColumnFormula
                         {
-                            Text = formula
+                            Text = XmlEncoder.EncodeString(formula)
                         };
                     }
                 }
@@ -134,7 +135,7 @@ namespace ClosedXML.Excel.IO
                         tableColumn.TotalsRowFunction = xlField.TotalsRowFunction.ToOpenXml();
 
                         if (xlField.TotalsRowFunction == XLTotalsRowFunction.Custom)
-                            tableColumn.TotalsRowFormula = new TotalsRowFormula(xlField.TotalsRowFormulaA1);
+                            tableColumn.TotalsRowFormula = new TotalsRowFormula(XmlEncoder.EncodeString(xlField.TotalsRowFormulaA1));
                     }
 
                     if (!String.IsNullOrWhiteSpace(xlField.TotalsRowLabel))

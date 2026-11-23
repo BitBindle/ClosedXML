@@ -358,7 +358,7 @@ namespace ClosedXML.Excel
 
                             if (tableColumn.TotalsRowFormula != null)
                                 xlTable.Field(tableColumnName).TotalsRowFormulaA1 =
-                                    tableColumn.TotalsRowFormula.Text;
+                                    XStringConvert.Decode(tableColumn.TotalsRowFormula.Text);
 
                             if (tableColumn.TotalsRowLabel != null)
                                 xlTable.Field(tableColumnName).TotalsRowLabel = tableColumn.TotalsRowLabel.Value;
@@ -1009,9 +1009,12 @@ namespace ClosedXML.Excel
                 var localSheetId = -1;
                 if (definedName.LocalSheetId?.HasValue ?? false) localSheetId = Convert.ToInt32(definedName.LocalSheetId.Value);
 
+                // The text is an ST_Formula. It can contain escaped characters (_xHHHH_).
+                var text = XStringConvert.Decode(definedName.Text);
+
                 if (name == "_xlnm.Print_Area")
                 {
-                    var fixedNames = validateDefinedNames(definedName.Text.Split(','));
+                    var fixedNames = validateDefinedNames(text.Split(','));
                     foreach (string area in fixedNames)
                     {
                         if (area.Contains("["))
@@ -1032,12 +1035,10 @@ namespace ClosedXML.Excel
                 }
                 else if (name == "_xlnm.Print_Titles")
                 {
-                    LoadPrintTitles(definedName);
+                    LoadPrintTitles(text);
                 }
                 else
                 {
-                    string text = definedName.Text;
-
                     var comment = definedName.Comment;
                     if (localSheetId == -1)
                     {
@@ -1078,9 +1079,9 @@ namespace ClosedXML.Excel
                 yield return sb.ToString();
         }
 
-        private void LoadPrintTitles(DefinedName definedName)
+        private void LoadPrintTitles(string definedNameText)
         {
-            var areas = validateDefinedNames(definedName.Text.Split(','));
+            var areas = validateDefinedNames(definedNameText.Split(','));
             foreach (var item in areas)
             {
                 if (this.Range(item) != null)
