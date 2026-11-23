@@ -99,6 +99,18 @@ have range rows with different columns, or range columns with different rows. Fo
 collections, the delete throws if an array formula or a data table is in the cells that the delete
 can move.
 
+*************************************
+One-cell array formula in cell A1
+*************************************
+
+A one-cell array formula in cell A1 now has a range. ``IXLCell.FormulaReference`` gives
+``A1:A1``. The save of the workbook writes the formula. Before, ``FormulaReference`` gave null.
+The save threw ``InvalidOperationException``.
+
+``IXLCell.FormulaReference`` does not accept null for an array formula or a data table. If you set
+it to null, it throws ``ArgumentException``. Before, it changed the range of the formula to
+``A1:A1``. To remove an array formula, set the value of its range.
+
 *****************
 Equality methods
 *****************
