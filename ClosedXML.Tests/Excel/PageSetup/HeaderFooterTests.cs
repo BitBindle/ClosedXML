@@ -9,6 +9,21 @@ namespace ClosedXML.Tests.Excel
     public class HeaderFooterTests
     {
         [Test]
+        [Issue("123")]
+        public void New_line_of_header_is_a_line_feed()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            var left = ws.PageSetup.Header.Left;
+
+            left.AddText("a");
+            left.AddNewLine();
+            left.AddText("b");
+
+            Assert.AreEqual("a\nb", left.GetText(XLHFOccurrence.OddPages));
+        }
+
+        [Test]
         public void CanChangeWorksheetHeader()
         {
             var wb = new XLWorkbook();

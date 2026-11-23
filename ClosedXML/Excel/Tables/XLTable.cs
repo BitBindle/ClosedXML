@@ -108,6 +108,27 @@ namespace ClosedXML.Excel
             }
         }
 
+        /// <summary>
+        /// Gets the field name that the header cell at the <paramref name="position"/> gives. The
+        /// name is the same as the name that the table gets when it reads the header row.
+        /// </summary>
+        /// <param name="position">The zero-based position of the field in the table.</param>
+        /// <returns>The text of the header cell. Returns <c>null</c> if the position is not in the
+        /// table, or if the header cell does not contain text.</returns>
+        internal string? GetHeaderCellName(int position)
+        {
+            if (position >= ColumnCount())
+                return null;
+
+            var firstAddress = RangeAddress.FirstAddress;
+            var cell = Worksheet.Cell(firstAddress.RowNumber, firstAddress.ColumnNumber + position);
+            var value = cell.CachedValue;
+
+            // The table changes a header cell with a number or a date to text. The text depends on the
+            // culture, so the load uses the name from the table part for such a cell.
+            return value.IsText ? value.GetText() : null;
+        }
+
         internal XLTableField AddField(string fieldName)
         {
             var field = new XLTableField(this, fieldName) { Index = _fieldNames.Count };
@@ -741,10 +762,6 @@ namespace ClosedXML.Excel
 
         public Int32 GetFieldIndex(String name)
         {
-            // There is a discrepancy in the way headers with line breaks are stored.
-            // The entry in the table definition will contain \r\n
-            // but the shared string value of the actual cell will contain only \n
-            name = name.Replace("\r\n", "\n");
             if (FieldNames.TryGetValue(name, out var tableField))
                 return tableField.Index;
 

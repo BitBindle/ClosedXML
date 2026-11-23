@@ -16,10 +16,24 @@ namespace ClosedXML.Utils
         /// </summary>
         private static readonly SearchValues<char> SpecialChars = SearchValues.Create(GetSpecialChars());
 
-        public static string EncodeString(string encodeStr)
+        /// <summary>
+        /// The special characters and the line feed.
+        /// </summary>
+        private static readonly SearchValues<char> SpecialCharsAndLineFeed = SearchValues.Create([.. GetSpecialChars(), '\n']);
+
+        /// <summary>
+        /// Encodes the text as an <c>ST_Xstring</c>.
+        /// </summary>
+        /// <param name="encodeStr">The text to encode.</param>
+        /// <param name="escapeLineFeed">
+        /// If <c>true</c>, the method also writes a line feed as an escape sequence. Excel does this for a
+        /// text in an attribute, for example the name of a table column.
+        /// </param>
+        public static string EncodeString(string encodeStr, bool escapeLineFeed = false)
         {
             // Most strings have no special characters. The fast path doesn't allocate memory.
-            if (encodeStr.AsSpan().IndexOfAny(SpecialChars) < 0)
+            var specialChars = escapeLineFeed ? SpecialCharsAndLineFeed : SpecialChars;
+            if (encodeStr.AsSpan().IndexOfAny(specialChars) < 0)
                 return encodeStr;
 
             var sb = new StringBuilder(encodeStr.Length + 16);
@@ -30,14 +44,15 @@ namespace ClosedXML.Utils
                 if (currentChar == '_')
                 {
                     // An escaped underscore keeps the decoder from reading an escape sequence.
-                    if (StartsEscapeSequence(encodeStr, i))
+                    if (StartsEscapeSequence(encodeStr, i, escapeLineFeed))
                         sb.Append("_x005F_");
                     else
                         sb.Append('_');
                 }
-                else if (currentChar == '\r')
+                else if (currentChar == '\r' || (escapeLineFeed && currentChar == '\n'))
                 {
-                    // An XML reader changes a carriage return to a line feed.
+                    // An XML reader changes a carriage return to a line feed. Excel writes a line feed in
+                    // an attribute as an escape sequence, because an XML reader changes it to a space.
                     AppendEscapeSequence(sb, currentChar);
                 }
                 else if (XmlConvert.IsXmlChar(currentChar))
@@ -63,7 +78,7 @@ namespace ClosedXML.Utils
         /// text after the encoding? The last underscore of the sequence can also be the first
         /// character of an escape sequence that the encoder writes for a character.
         /// </summary>
-        private static bool StartsEscapeSequence(string text, int index)
+        private static bool StartsEscapeSequence(string text, int index, bool escapeLineFeed)
         {
             if (index + 6 >= text.Length || text[index + 1] != 'x')
                 return false;
@@ -75,7 +90,7 @@ namespace ClosedXML.Utils
             }
 
             var lastChar = text[index + 6];
-            if (lastChar == '_' || lastChar == '\r')
+            if (lastChar == '_' || lastChar == '\r' || (escapeLineFeed && lastChar == '\n'))
                 return true;
 
             // The encoder keeps a valid surrogate pair.

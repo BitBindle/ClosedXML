@@ -53,6 +53,19 @@ namespace ClosedXML.Tests.Excel
             Assert.AreEqual(text, XStringConvert.Decode(encoded));
         }
 
+        [TestCase("a\nb", "a_x000A_b")]
+        [TestCase("a\r\nb", "a_x000D__x000A_b")]
+        [TestCase("_x0041\n", "_x005F_x0041_x000A_")]
+        [TestCase("_x000a_", "_x005F_x000a_")]
+        [Issue("123")]
+        public void Encoded_text_with_escaped_line_feed_has_the_same_decoded_text(string text, string expected)
+        {
+            var encoded = XmlEncoder.EncodeString(text, escapeLineFeed: true);
+
+            Assert.AreEqual(expected, encoded);
+            Assert.AreEqual(text, XStringConvert.Decode(encoded));
+        }
+
         [Test]
         [Issue("96")]
         public void Escape_text_before_a_surrogate_without_a_pair_is_escaped()

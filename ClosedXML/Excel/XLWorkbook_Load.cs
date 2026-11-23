@@ -290,20 +290,10 @@ namespace ClosedXML.Excel
                     xlTable.RelId = relId;
 
                     // Add columns to the table
-                    foreach (TableColumn tableColumn in tableColumns)
-                    {
-                        var fieldName = GetTableColumnName(tableColumn.Name?.Value ?? throw PartStructureException.MissingAttribute("name"));
-                        var xlField = xlTable.AddField(fieldName);
-
-                        if (tableColumn.HeaderRowDifferentialFormattingId is { } headerDxfId)
-                            xlField.HeaderFormatValue = Styles.DifferentialFormats[checked((int)headerDxfId.Value)];
-
-                        if (tableColumn.DataFormatId is { } dataDxfId)
-                            xlField.DataFormatValue = Styles.DifferentialFormats[checked((int)dataDxfId.Value)];
-
-                        if (tableColumn.TotalsRowDifferentialFormattingId is { } totalsDxfId)
-                            xlField.TotalFormatValue = Styles.DifferentialFormats[checked((int)totalsDxfId.Value)];
-                    }
+                    var hasHeaderRow = dTable.HeaderRowCount is null || dTable.HeaderRowCount.Value != 0;
+                    var xlFields = GetTableColumnNames(tableColumns, xlTable, hasHeaderRow)
+                        .Select(xlTable.AddField)
+                        .ToList();
 
                     if (dTable.HeaderRowCount != null && dTable.HeaderRowCount == 0)
                     {
@@ -312,6 +302,21 @@ namespace ClosedXML.Excel
                     else
                     {
                         xlTable.InitializeAutoFilter();
+                    }
+
+                    // The load finds each field by its position, because the name of a field can be
+                    // different from the name in the table part.
+                    var fieldsAndColumns = xlFields.Zip(tableColumns.Cast<TableColumn>()).ToList();
+                    foreach (var (xlField, tableColumn) in fieldsAndColumns)
+                    {
+                        if (tableColumn.HeaderRowDifferentialFormattingId is { } headerDxfId)
+                            xlField.HeaderFormatValue = Styles.DifferentialFormats[checked((int)headerDxfId.Value)];
+
+                        if (tableColumn.DataFormatId is { } dataDxfId)
+                            xlField.DataFormatValue = Styles.DifferentialFormats[checked((int)dataDxfId.Value)];
+
+                        if (tableColumn.TotalsRowDifferentialFormattingId is { } totalsDxfId)
+                            xlField.TotalFormatValue = Styles.DifferentialFormats[checked((int)totalsDxfId.Value)];
                     }
 
                     if (dTable.TotalsRowCount != null && dTable.TotalsRowCount.Value > 0)
@@ -349,19 +354,16 @@ namespace ClosedXML.Excel
 
                     if (xlTable.ShowTotalsRow)
                     {
-                        foreach (var tableColumn in tableColumns.Cast<TableColumn>())
+                        foreach (var (xlField, tableColumn) in fieldsAndColumns)
                         {
-                            var tableColumnName = GetTableColumnName(tableColumn.Name?.Value ?? throw PartStructureException.MissingAttribute("name"));
                             if (tableColumn.TotalsRowFunction != null)
-                                xlTable.Field(tableColumnName).TotalsRowFunction =
-                                    tableColumn.TotalsRowFunction.Value.ToClosedXml();
+                                xlField.TotalsRowFunction = tableColumn.TotalsRowFunction.Value.ToClosedXml();
 
                             if (tableColumn.TotalsRowFormula != null)
-                                xlTable.Field(tableColumnName).TotalsRowFormulaA1 =
-                                    XStringConvert.Decode(tableColumn.TotalsRowFormula.Text);
+                                xlField.TotalsRowFormulaA1 = XStringConvert.Decode(tableColumn.TotalsRowFormula.Text);
 
                             if (tableColumn.TotalsRowLabel != null)
-                                xlTable.Field(tableColumnName).TotalsRowLabel = tableColumn.TotalsRowLabel.Value;
+                                xlField.TotalsRowLabel = tableColumn.TotalsRowLabel.Value;
                         }
                         if (xlTable.AutoFilter != null)
                             xlTable.AutoFilter.Range = xlTable.Worksheet.Range(
@@ -654,9 +656,36 @@ namespace ClosedXML.Excel
 
         #endregion Comment Helpers
 
-        private String GetTableColumnName(string name)
+        /// <summary>
+        /// Gets the names of the table fields, in the order of the table columns.
+        /// </summary>
+        /// <remarks>
+        /// With a header row, a field gets the name of its header cell, as the table does when it
+        /// reads the header row. The field then keeps the formats and the totals row function that
+        /// the load sets. If the names are not unique, the load uses the names from the table part.
+        /// </remarks>
+        private static List<String> GetTableColumnNames(TableColumns tableColumns, XLTable xlTable, bool hasHeaderRow)
         {
-            return name.Replace("_x000a_", Environment.NewLine).Replace("_x005f_x000a_", "_x000a_");
+            var fileNames = tableColumns.Cast<TableColumn>()
+                .Select(c => c.Name?.Value ?? throw PartStructureException.MissingAttribute("name"))
+                .ToList();
+
+            // An earlier version wrote text such as _x0041_ in a name without an escape. If the
+            // decoded names are not unique, the load keeps the names from the file.
+            var decodedNames = fileNames.Select(name => XStringConvert.Decode(name)).ToList();
+            var names = AreUniqueFieldNames(decodedNames) ? decodedNames : fileNames;
+            if (!hasHeaderRow)
+                return names;
+
+            var headerNames = names
+                .Select((name, position) => xlTable.GetHeaderCellName(position) is { Length: > 0 } headerName ? headerName : name)
+                .ToList();
+            return AreUniqueFieldNames(headerNames) ? headerNames : names;
+        }
+
+        private static bool AreUniqueFieldNames(List<String> names)
+        {
+            return names.Distinct(StringComparer.CurrentCultureIgnoreCase).Count() == names.Count;
         }
 
         private void LoadColorsAndLines<T>(IXLDrawing<T> drawing, XElement shape)
