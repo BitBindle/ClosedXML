@@ -17,7 +17,7 @@ namespace ClosedXML.Excel
             {
                 RelIdGenerator = new RelIdGenerator();
                 TableId = 0;
-                TableNames = new HashSet<String>();
+                TableNames = new HashSet<String>(XLHelper.NameComparer);
                 PivotSourceCacheId = 0;
             }
 
@@ -37,7 +37,17 @@ namespace ClosedXML.Excel
             internal Dictionary<XLDxfValue, uint> DxfMap = new();
 
             public uint TableId { get; set; }
+
+            /// <summary>
+            /// The names of the saved tables. Excel compares table names without case.
+            /// </summary>
             public HashSet<string> TableNames { get; private set; }
+
+            /// <summary>
+            /// The names of all tables in the workbook. The save makes this set only when it must
+            /// rename a table.
+            /// </summary>
+            public HashSet<string>? WorkbookTableNames { get; set; }
 
             /// <summary>
             /// A free id that can be used by the workbook to reference to a pivot cache.

@@ -78,6 +78,25 @@ the character that it encodes. A load already decodes these escaped characters. 
 changed the text. For example, a cell with the text ``a_x0041_`` gave ``aA``. It now gives
 ``a_x0041_``, the same text as ``IXLCell.GetText()``.
 
+*******************************
+Table names in the saved file
+*******************************
+
+A save now compares table names without case, as Excel does. A table with the name of an earlier
+saved table gets a number in the file. Before, a file could have the names ``Sales`` and ``SALES``,
+and Excel had to repair it. Now the second table gets the name ``SALES1``. The table in the workbook
+keeps its name.
+
+If the name with the number is a cell reference, the save puts an underscore before the number. For
+example, a second table ``AB`` gets the name ``AB_1``, not ``AB1``.
+
+The save does not give a table the name of another table or of a defined name in the workbook. For
+example, if the workbook also has a table ``SALES1``, the second table gets the name ``SALES2``.
+
+The save does not change the formulas, the defined names and the pivot sources that use the old
+name. Excel compares names without case, so a reference to ``SALES`` goes to the table ``Sales``.
+Give each table a name that is unique without case.
+
 *******************************************
 Array formulas after an insert or a delete
 *******************************************

@@ -2,6 +2,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using ClosedXML.Utils;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using static ClosedXML.Excel.XLWorkbook;
 
@@ -49,7 +50,7 @@ namespace ClosedXML.Excel.IO
         {
             context.TableId++;
             var reference = xlTable.RangeAddress.FirstAddress + ":" + xlTable.RangeAddress.LastAddress;
-            var tableName = GetTableName(xlTable.Name, context);
+            var tableName = GetTableName(xlTable, context);
             var table = new Table
             {
                 Id = context.TableId,
@@ -178,24 +179,39 @@ namespace ClosedXML.Excel.IO
             tableDefinitionPart.Table = table;
         }
 
-        private static string GetTableName(String originalTableName, SaveContext context)
+        private static string GetTableName(XLTable xlTable, SaveContext context)
         {
+            var originalTableName = xlTable.Name;
             // The name rules of the setter make each new name valid. A name from a file stays as it is,
-            // because the formulas and the pivot sources of the file use that name.
+            // because the formulas and the pivot sources of the file use that name. The save changes
+            // the name only if an earlier saved table has the same name without case.
             var name = originalTableName;
-            if (context.TableNames.Contains(name))
+            var i = 0;
+            while (context.TableNames.Contains(name) || (i > 0 && IsUsedInWorkbook(name, xlTable.Worksheet.Workbook, context)))
             {
-                var i = 1;
+                i++;
                 name = originalTableName + i.ToInvariantString();
-                while (context.TableNames.Contains(name))
-                {
-                    i++;
-                    name = originalTableName + i.ToInvariantString();
-                }
+
+                // A number after some names makes a cell reference, for example AB1. Excel rejects
+                // such a name, so the name gets an underscore before the number.
+                if (XLHelper.IsValidA1Address(name) || XLHelper.IsValidRCAddress(name))
+                    name = originalTableName + "_" + i.ToInvariantString();
             }
 
             context.TableNames.Add(name);
             return name;
+        }
+
+        /// <summary>
+        /// Gets a value that tells if a table or a defined name of the workbook uses the name. A new
+        /// name must not be the name of a table that the save writes later.
+        /// </summary>
+        private static bool IsUsedInWorkbook(string name, XLWorkbook workbook, SaveContext context)
+        {
+            context.WorkbookTableNames ??= new HashSet<string>(
+                workbook.Worksheets.SelectMany(ws => ws.Tables).Select(t => t.Name),
+                XLHelper.NameComparer);
+            return context.WorkbookTableNames.Contains(name) || workbook.HasDefinedName(name);
         }
     }
 }
