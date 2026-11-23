@@ -244,7 +244,7 @@ internal partial class SheetDataReader
             {
                 xlCell.ShareString = false;
                 if (@is.Value.TryPickT0(out var text, out var richText))
-                    xlCell.SetOnlyValue(text.FixNewLines());
+                    xlCell.SetOnlyValue(text);
                 else
                     SetCellText(xlCell, richText);
             }

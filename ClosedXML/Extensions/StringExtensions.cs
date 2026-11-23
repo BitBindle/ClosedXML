@@ -37,32 +37,6 @@ namespace ClosedXML.Excel
             return escapedSheetName + '!' + name;
         }
 
-        /// <summary>
-        /// Replaces each line feed with <see cref="Environment.NewLine"/>. The method also removes a
-        /// carriage return that comes immediately before a line feed. A carriage return without a
-        /// line feed stays the same.
-        /// </summary>
-        internal static String FixNewLines(this String value)
-        {
-            if (!value.Contains('\n'))
-                return value;
-
-            var newLine = Environment.NewLine;
-            if (newLine == "\n" && !value.Contains("\r\n", StringComparison.Ordinal))
-                return value;
-
-            var sb = new StringBuilder(value.Length + 16);
-            var remaining = value.AsSpan();
-            while (remaining.IndexOf('\n') is var lineFeedIndex and >= 0)
-            {
-                var lineEnd = lineFeedIndex > 0 && remaining[lineFeedIndex - 1] == '\r' ? lineFeedIndex - 1 : lineFeedIndex;
-                sb.Append(remaining[..lineEnd]).Append(newLine);
-                remaining = remaining[(lineFeedIndex + 1)..];
-            }
-
-            return sb.Append(remaining).ToString();
-        }
-
         internal static Boolean PreserveSpaces(this String value)
         {
             return value.StartsWith(' ') || value.EndsWith(' ') || value.AsSpan().IndexOfAny('\n', '\r', '\t') >= 0;

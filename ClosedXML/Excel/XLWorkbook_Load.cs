@@ -418,7 +418,7 @@ namespace ClosedXML.Excel
                         {
                             var runProperties = run.RunProperties;
                             var runText = run.Text ?? throw PartStructureException.RequiredElementIsMissing("t");
-                            String text = XStringConvert.Decode(runText.InnerText).FixNewLines();
+                            String text = XStringConvert.Decode(runText.InnerText);
                             var rt = xlComment.AddText(text);
                             OpenXmlHelper.LoadFont(runProperties, rt);
                         }
