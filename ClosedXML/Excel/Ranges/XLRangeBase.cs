@@ -280,6 +280,9 @@ namespace ClosedXML.Excel
 
             if (checkIntersect)
             {
+                // The load and XLCell.CopyFrom merge without this check, so they keep the cells of the source.
+                ArrayFormulaShiftCheck.ThrowIfMergeHasArrayFormula(Worksheet, SheetRange);
+
                 var intersectedMergedRanges =
                     Worksheet.Internals.MergedRanges.GetIntersectedRanges(RangeAddress).ToList();
                 foreach (var intersectedMergedRange in intersectedMergedRanges)

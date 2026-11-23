@@ -199,8 +199,24 @@ namespace ClosedXML.Excel
         /// <summary>
         /// Merges this range. Only the top-left cell will have a value, other values will be blank.
         /// </summary>
+        /// <exception cref="InvalidOperationException">The range has cells of an array formula or a data table.</exception>
         IXLRange Merge();
 
+        /// <summary>
+        /// Merges this range.
+        /// </summary>
+        /// <param name="checkIntersect">
+        /// If <c>true</c>, the method does these steps.
+        /// It checks for array formulas and data tables.
+        /// It removes the merged ranges that intersect this range.
+        /// It clears all cells except the top-left cell.
+        /// It applies the format of the top-left cell to all cells.
+        /// The format keeps only the borders that are the same on the full edge of the range.
+        /// If <c>false</c>, the method only adds the merged range. The cells and their formats stay the same.
+        /// </param>
+        /// <exception cref="InvalidOperationException">
+        /// <paramref name="checkIntersect"/> is <c>true</c>, and the range has cells of an array formula or a data table.
+        /// </exception>
         IXLRange Merge(Boolean checkIntersect);
 
         /// <summary>

@@ -163,6 +163,18 @@ The load of a workbook does not do this check. A file with such a table still lo
 ``IXLRangeBase.FormulaArrayA1`` now accepts an array formula in one cell of a table. Before, it
 threw ``InvalidOperationException``. It still throws for an array formula with more than one cell.
 
+*****************************************
+Merge over an array formula
+*****************************************
+
+``IXLRangeBase.Merge`` now throws ``InvalidOperationException`` when the range has cells of an
+array formula or a data table. This also applies to an array formula in one cell. The method throws
+before it changes the sheet. Excel does not allow these formulas in merged cells. Before, the merge
+cleared the formula from some cells only. The other cells kept the formula with the old range.
+
+``IXLRangeBase.Merge(false)`` does not do this check. It does not clear cells. The load of a
+workbook and the copy of cells use it, so a file with such a merged range still loads.
+
 *****************
 Equality methods
 *****************
