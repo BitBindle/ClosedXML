@@ -254,6 +254,36 @@ namespace ClosedXML.Tests.Excel
 
         [Test]
         [Issue("123")]
+        public void Totals_row_is_loaded_when_column_name_differs_from_header_cell()
+        {
+            // Earlier versions wrote the text "_x0041_" in a column name without an escape.
+            using var ms = new MemoryStream();
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet();
+                ws.Cell("A1").SetValue("_x0041_");
+                ws.Cell("A2").SetValue(1);
+                var table = ws.Range("A1:A2").CreateTable();
+                table.ShowTotalsRow = true;
+                table.Field(0).TotalsRowFunction = XLTotalsRowFunction.Sum;
+                wb.SaveAs(ms);
+            }
+
+            using (var document = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(ms, true))
+            {
+                var tablePart = document.WorkbookPart!.WorksheetParts.Single().TableDefinitionParts.Single();
+                var tableColumn = tablePart.Table.TableColumns!.Elements<DocumentFormat.OpenXml.Spreadsheet.TableColumn>().Single();
+                tableColumn.Name = "_x0041_";
+            }
+
+            using var loaded = new XLWorkbook(ms);
+            var field = loaded.Worksheet(1).Table(0).Field(0);
+            Assert.AreEqual("_x0041_", field.Name);
+            Assert.AreEqual(XLTotalsRowFunction.Sum, field.TotalsRowFunction);
+        }
+
+        [Test]
+        [Issue("123")]
         public void Table_column_name_with_escaped_underscore_is_loaded_as_text()
         {
             // Earlier versions wrote the text "_x000a_" in a column name as "_x005f_x000a_".

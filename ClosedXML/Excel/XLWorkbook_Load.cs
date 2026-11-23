@@ -349,19 +349,20 @@ namespace ClosedXML.Excel
 
                     if (xlTable.ShowTotalsRow)
                     {
+                        // The load finds the field by its position. With a header row, the field names come
+                        // from the header cells, and the name in the table part can be different.
+                        var columnIndex = 0;
                         foreach (var tableColumn in tableColumns.Cast<TableColumn>())
                         {
-                            var tableColumnName = GetTableColumnName(tableColumn.Name?.Value ?? throw PartStructureException.MissingAttribute("name"));
+                            var xlField = xlTable.Field(columnIndex++);
                             if (tableColumn.TotalsRowFunction != null)
-                                xlTable.Field(tableColumnName).TotalsRowFunction =
-                                    tableColumn.TotalsRowFunction.Value.ToClosedXml();
+                                xlField.TotalsRowFunction = tableColumn.TotalsRowFunction.Value.ToClosedXml();
 
                             if (tableColumn.TotalsRowFormula != null)
-                                xlTable.Field(tableColumnName).TotalsRowFormulaA1 =
-                                    XStringConvert.Decode(tableColumn.TotalsRowFormula.Text);
+                                xlField.TotalsRowFormulaA1 = XStringConvert.Decode(tableColumn.TotalsRowFormula.Text);
 
                             if (tableColumn.TotalsRowLabel != null)
-                                xlTable.Field(tableColumnName).TotalsRowLabel = tableColumn.TotalsRowLabel.Value;
+                                xlField.TotalsRowLabel = tableColumn.TotalsRowLabel.Value;
                         }
                         if (xlTable.AutoFilter != null)
                             xlTable.AutoFilter.Range = xlTable.Worksheet.Range(

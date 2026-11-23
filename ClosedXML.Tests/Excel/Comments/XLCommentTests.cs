@@ -23,6 +23,20 @@ internal class XLCommentTests
     }
 
     [Test]
+    [Issue("123")]
+    public void Signature_of_comment_ends_with_a_line_feed()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.AddWorksheet();
+        var comment = ws.Cell("A1").CreateComment().SetAuthor("Author");
+
+        comment.AddSignature();
+        comment.AddText("b");
+
+        Assert.AreEqual("Author:\nb", comment.Text);
+    }
+
+    [Test]
     public void Copy_of_cell_copies_text_and_style_of_comment()
     {
         using var wb = new XLWorkbook();
