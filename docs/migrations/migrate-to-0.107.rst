@@ -209,6 +209,12 @@ defines them as ``ST_Xstring``:
 Before, an escape sequence from a file, for example ``_x000D_``, stayed as the escape text. A control
 character in these texts caused an exception on save. Now the save encodes it.
 
+A load no longer changes the line ends of an inline string or of a comment. The text stays the same
+as in the file, as for a shared string. Excel uses a line feed (``\n``) for a new line in a cell.
+Before, the load changed each line end to ``Environment.NewLine``. On Windows, a line feed became
+``\r\n``. On Linux, ``\r\n`` became a line feed. To get ``Environment.NewLine``, replace the line
+feeds in the text after the load.
+
 ********************
 Nullable annotations
 ********************

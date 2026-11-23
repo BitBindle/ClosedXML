@@ -1414,6 +1414,31 @@ namespace ClosedXML.Tests.Excel.Saving
             }
         }
 
+        [TestCase("a\nb")]
+        [TestCase("a\r\nb")]
+        [TestCase("a\n\r\nb\n")]
+        [Issue("105")]
+        public void Save_and_load_keep_the_line_ends_of_inline_strings_and_comments(string text)
+        {
+            var loaded = SaveAndLoad(wb =>
+            {
+                var ws = wb.AddWorksheet("Sheet1");
+                ws.Cell("A1").Value = text;
+                ws.Cell("A2").Value = text;
+                ws.Cell("A2").ShareString = false;
+                ws.Cell("A3").CreateComment().AddText(text);
+            }, new SaveOptions());
+
+            using (loaded)
+            {
+                // The result does not depend on the type of string or on the operating system.
+                var ws = loaded.Worksheet("Sheet1");
+                Assert.AreEqual(text, ws.Cell("A1").GetText());
+                Assert.AreEqual(text, ws.Cell("A2").GetText());
+                Assert.AreEqual(text, ws.Cell("A3").GetComment().Text);
+            }
+        }
+
         [Test]
         [Issue("96")]
         public void Load_decodes_the_escaped_characters_of_a_comment()
