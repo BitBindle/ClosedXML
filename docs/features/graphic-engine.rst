@@ -3,8 +3,8 @@ Graphic Engine
 ##############
 
 .. note::
-   For problems with a missing font exception, please see
-   `missing fonts </en/latest/tips/missing-font.html#solutions>`_ page.
+   For wrong column widths when a font is missing, see the
+   :doc:`../tips/missing-font` page.
 
 **********
 Background
@@ -55,7 +55,7 @@ Engine Creation
 ClosedXML contains a ``DefaultGraphicEngine`` that implements the
 ``IXLGraphicEngine``. It is able to read information about png, jpeg, gif,
 baseline tiff, bmp, tiff, emf, wmf, webp and pcx file formats. It uses
-``SixLabor.Fonts`` library to measure size of text rendered in a specified
+``SixLabors.Fonts`` library to measure size of text rendered in a specified
 font. It requires a fallback font that is used, when workbook needs to measure
 a size of a text with a font, that is not available. That happens especially
 on non-windows environments, where *Calibri* font (default font of workbooks)
@@ -66,9 +66,9 @@ There are several ways to get the engine that differ by where they get fonts.
 Default engine
 --------------
 
-There is an default instance ``ClosedXML.Graphic.DefaultGraphicEngine.Instance``
+There is a default instance ``ClosedXML.Graphics.DefaultGraphicEngine.Instance``
 used by ClosedXML by default. It uses "Microsoft Sans Serif" as a fallback font
-and uses any system font available to *SixLabor.Fonts*.
+and uses any system font available to *SixLabors.Fonts*.
 
 ClosedXML uses this engine, if no other is specified.
 
@@ -81,7 +81,7 @@ ClosedXML uses this engine, if no other is specified.
      - Loads system fonts
 	 - Usage
 
-   * - ``ClosedXML.Graphic.DefaultGraphicEngine.Instance``
+   * - ``ClosedXML.Graphics.DefaultGraphicEngine.Instance``
      - *Microsoft Sans Serif*
      - No
      - Yes
@@ -105,19 +105,19 @@ ClosedXML uses this engine, if no other is specified.
      - Yes
 	 - Application has extra fonts it wants to use, but it also wants to use system fonts.
 
-The *SixLabor.Fonts* looks for system fonts at various places for various
-environments, for deails look at the `source <https://github.com/SixLabors/Fonts/blob/main/src/SixLabors.Fonts/SystemFontCollection.cs#L27>`_).
+The *SixLabors.Fonts* looks for system fonts at various places for various
+environments (for details, see the `source <https://github.com/SixLabors/Fonts/blob/main/src/SixLabors.Fonts/SystemFontCollection.cs>`_).
 
 The options that don't load system fonts might be better for performance
 reasons, because font name doesn't have to correspond to the font file name
-(e.g. *Microsoft Sans Serif* is stored in *micross.ttf* file). SixLabor.Fonts
+(e.g. *Microsoft Sans Serif* is stored in *micross.ttf* file). SixLabors.Fonts
 thus has to check the content of the file to find out what font does it contain.
 
-It **might** be benficial to load font files to memory stream and pass
+It **might** be beneficial to load font files to memory stream and pass
 the stream back to the ``DefaultGraphicEngine``. It improved
 startup time in some test cases and didn't in others. *SixLabors.Fonts* read
 data in small chunks (generally less than 4 bytes) and in some cases, it might
-be better just to read whole file into memory and pass it to the the engine
+be better just to read whole file into memory and pass it to the engine
 (e.g. ``DefaultGraphicEngine.CreateOnlyWithFonts(new MemoryStream(File.ReadAllBytes("Carlito.ttf")))``).
 
 Fallback and embedded font
@@ -141,7 +141,7 @@ collision.
 This should achieve the following goals:
 
 * On Windows, fallback font is *Microsoft Sans Serif*. That is how Excel
-  behaves and there could be some suble consequnces if embedded font was used.
+  behaves and there could be some subtle consequences if embedded font was used.
   E.g. different default pixel width of a column, if font of a normal style
   of a workbook isn't present and fallback has to be used due to difference of
   maximum digit width.
@@ -177,10 +177,10 @@ If you need to specify an engine on per-workbook basis, use the `LoadOptions.Gra
    using var workbook = new XLWorkbook(loadOptions);
 
 
-Workbook will use the first available engine found int the following order:
+Workbook will use the first available engine found in the following order:
 
 * ``LoadOptions.GraphicEngine`` - if user specified a specific engine just for the workbook, use that.
-* ``LoadOptions.DefaultGraphicsEngine`` - is user specified default engine for all new workbooks, use that.
+* ``LoadOptions.DefaultGraphicEngine`` - is user specified default engine for all new workbooks, use that.
 * ``DefaultGraphicEngine.Instance`` - a graphic engine that uses `SixLabors.Fonts` library and a custom picture parsing
 
 
@@ -198,7 +198,7 @@ that accepts a stream containing a fallback font stream.
    using Stream fallbackFontStream = Assembly.GetManifestResourceStream("SomeEmbeddedFont.ttf");
    LoadOptions.DefaultGraphicEngine = DefaultGraphicEngine.CreateOnlyWithFonts(fallbackFontStream);
 
-Stream must be seekable, so unfortunately it is no possible to load font
+Stream must be seekable, so unfortunately it is not possible to load font
 directly from S3 or other http place without an intermediate stream.
 
 There is also a possibility to load some additional fonts through streams, not
