@@ -99,6 +99,15 @@ have range rows with different columns, or range columns with different rows. Fo
 collections, the delete throws if an array formula or a data table is in the cells that the delete
 can move.
 
+``IXLRange.Transpose`` and ``IXLTable.Resize`` do more than one insert or delete. They now check all
+steps before the first change to the sheet. If a step changes only part of an array formula or a
+data table, the method throws. Then the sheet does not change.
+
+``IXLRange.Transpose`` also throws when it moves cells of an array formula or a data table. The
+transpose cannot change the range of the formula. A cell on the diagonal does not move. With
+``XLTransposeOptions.ReplaceCells``, a transpose clears the cells next to the range. It throws if
+the clear removes only part of an array formula or a data table.
+
 *************************************
 One-cell array formula in cell A1
 *************************************
@@ -325,6 +334,8 @@ These bugs are fixed:
 * ``IXLRanges.AddToNamed(String, XLScope)`` ignored the scope and always added a workbook name.
 * ``IXLTable.Resize(IXLRangeAddress)`` ignored the address and used the current address of the
   table.
+* A resize of a table with a totals row to more rows gave the table one row fewer. The totals row
+  was not in the last row of the new range.
 * ``FirstRowUsed`` and ``LastRowUsed`` of ``IXLTableRange`` without a predicate returned a row that
   was not valid when the table range had no used rows. They now return null.
 * A new name, or a new totals row function, for a table with a hidden totals row threw
