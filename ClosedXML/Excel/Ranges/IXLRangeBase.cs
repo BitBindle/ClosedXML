@@ -206,8 +206,11 @@ namespace ClosedXML.Excel
         /// Merges this range.
         /// </summary>
         /// <param name="checkIntersect">
-        /// <c>true</c> to check for array formulas, to remove the merged ranges that intersect this range, to
-        /// clear all cells except the top-left cell and to apply the format of the top-left cell to all cells.
+        /// If <c>true</c>, the method does these steps.
+        /// It checks for array formulas and data tables.
+        /// It removes the merged ranges that intersect this range.
+        /// It clears all cells except the top-left cell.
+        /// It applies the format of the top-left cell to all cells.
         /// The format keeps only the borders that are the same on the full edge of the range.
         /// <c>false</c> to only add the merged range. The cells and their formats stay the same.
         /// </param>
