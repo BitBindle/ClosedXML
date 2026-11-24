@@ -657,11 +657,22 @@ namespace ClosedXML.Excel.CalcEngine
             if (!arg.TryPickText(out var text, out var error))
                 return error;
 
+            // VALUE accepts each text that a formula reads as a number, for example "2011/02/23" or "1 1/2".
+            // The parse below stays for the other texts.
+            if (ScalarValue.TextToNumber(text, ctx.Culture).TryPickT0(out var coercedNumber, out _))
+                return coercedNumber;
+
             const string percentSign = "%";
             var isPercent = text.IndexOf(percentSign, StringComparison.Ordinal) >= 0;
             var textWithoutPercent = isPercent ? text.Replace(percentSign, string.Empty) : text;
             if (double.TryParse(textWithoutPercent, NumberStyles.Any, ctx.Culture, out var parsedNumber))
+            {
+                // Excel has no NaN or infinity, for example "1E999", "NaN" or "Infinity".
+                if (!double.IsFinite(parsedNumber))
+                    return XLError.IncompatibleValue;
+
                 return isPercent ? parsedNumber / 100d : parsedNumber;
+            }
 
             // fraction not parsed, maybe in the future
             // No idea how Date/Time parsing works, good enough for initial approach

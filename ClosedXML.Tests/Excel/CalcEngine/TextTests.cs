@@ -1226,6 +1226,31 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(0.188056d, (double)wb.Evaluate("VALUE(\"16:48:00\")-VALUE(\"12:17:12\")"), 0.000001d);
         }
 
+        // VALUE reads each text in a number, date or time format that Excel recognizes. A formula reads a text
+        // as a number with the same formats, for example DATEVALUE("2011/02/23") gives 40597. The serial number
+        // of 1900-01-01 is 1, and Excel counts the day 1900-02-29.
+        [TestCase("2011/02/23", 40597)]
+        [TestCase("22-MAY-2011 6:35 AM", 40685.274305555555)]
+        [TestCase("1 1/2", 1.5)]
+        [TestCase("1/1/1900", 1)]
+        [TestCase("2/28/1900", 59)]
+        [TestCase("1-Jan-1900", 1)]
+        public void Value_reads_text_as_a_formula_reads_a_number(string text, double expected)
+        {
+            using var wb = new XLWorkbook();
+            Assert.AreEqual(expected, (double)wb.Evaluate($"VALUE(\"{text}\")"), 0.000001);
+        }
+
+        // Excel has no NaN or infinity. A number text outside the range of a double is not a number.
+        [TestCase("1E999")]
+        [TestCase("NaN")]
+        [TestCase("-Infinity")]
+        public void Value_returns_error_for_text_that_is_not_a_finite_number(string text)
+        {
+            using var wb = new XLWorkbook();
+            Assert.AreEqual(XLError.IncompatibleValue, wb.Evaluate($"VALUE(\"{text}\")"));
+        }
+
         [Test]
         [SetCulture("cs-CZ")]
         public void Value_NonEnglish()
