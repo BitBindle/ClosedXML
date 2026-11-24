@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <PackageId>BitBindle.ClosedXML.IO</PackageId>
     <LangVersion>14.0</LangVersion>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>

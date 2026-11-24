@@ -1,6 +1,6 @@
 name: Release
 
-# Manually triggered. Builds and tests the commit, publishes the NuGet packages to GitHub Packages and
+# Manually triggered. Builds and tests the commit, publishes the NuGet packages to nuget.org and
 # creates a GitHub release with generated release notes.
 #
 # The major and minor version are defined by VersionMajorMinor in Directory.Build.props. The patch
@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write   # Create the tag and the release
-      packages: write   # Restore ClosedXML.Parser from and push the packages to GitHub Packages
+      id-token: write   # Get a short-lived nuget.org API key with trusted publishing
 
     steps:
       - name: Checkout code
@@ -50,12 +50,25 @@ jobs:
           echo "Releasing $version" >> "$GITHUB_STEP_SUMMARY"
           echo "Releasing $version"
 
+      - name: Check that nuget.org does not have the version
+        # nuget.org refuses a version that it already has. The check stops the workflow before it creates the tag.
+        # The flat container returns 404 when the package ID does not exist yet. This is the case for the first release.
+        run: |
+          for id in bitbindle.closedxml bitbindle.closedxml.io; do
+            url="https://api.nuget.org/v3-flatcontainer/$id/index.json"
+            status="$(curl --silent --show-error --output versions.json --write-out '%{http_code}' "$url")"
+            if [[ "$status" == 200 ]]; then
+              if jq --exit-status --arg v "${version,,}" '.versions | index($v)' versions.json > /dev/null; then
+                echo "::error::nuget.org already has $id $version. Change VersionMajorMinor or VersionSuffix in Directory.Build.props."
+                exit 1
+              fi
+            elif [[ "$status" != 404 ]]; then
+              echo "::error::nuget.org returned HTTP $status for $url"
+              exit 1
+            fi
+          done
+
       - name: Restore dependencies
-        # nuget.config reads these variables. The fork of ClosedXML.Parser is on the GitHub Packages feed of BitBindle,
-        # and the feed needs authentication, also for a public package. Only the steps that use the feed get the token.
-        env:
-          GITHUB_PACKAGES_USER: ${{ github.actor }}
-          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: dotnet restore ClosedXML.slnx
 
       - name: Build
@@ -84,7 +97,7 @@ jobs:
       - name: Check packages
         run: |
           ls -l artifacts
-          for id in ClosedXML ClosedXML.IO; do
+          for id in BitBindle.ClosedXML BitBindle.ClosedXML.IO; do
             [[ -f "artifacts/$id.$version.nupkg" ]] || { echo "::error::Package $id.$version.nupkg is missing"; exit 1; }
           done
 
@@ -95,18 +108,25 @@ jobs:
           git tag "$version" "$GITHUB_SHA"
           git push origin "refs/tags/$version"
 
-      - name: Push to GitHub Packages
-        # GitHub Packages has no support for symbol packages (.snupkg), the pdb is in the package.
-        # An already published version is an error, a version is never published twice.
+      - name: Log in to nuget.org
+        # Trusted publishing. The action exchanges the OIDC token of the workflow for a short-lived API key.
+        # The secret NUGET_USER holds the nuget.org user name (not the e-mail address) of the policy owner.
         if: ${{ !inputs.dry_run }}
-        # The source URL matches the feed in nuget.config, which reads these variables.
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push to nuget.org
+        # The packages contain the pdb, so the workflow does not push the .snupkg symbol packages
+        # (see the comment about the checksum in Directory.Build.props).
+        if: ${{ !inputs.dry_run }}
         env:
-          GITHUB_PACKAGES_USER: ${{ github.actor }}
-          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: >
           dotnet nuget push "artifacts/*.nupkg"
-          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
-          --api-key "${{ secrets.GITHUB_TOKEN }}"
+          --source "https://api.nuget.org/v3/index.json"
+          --api-key "$NUGET_API_KEY"
           --no-symbols
 
       - name: Create GitHub release
