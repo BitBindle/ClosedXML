@@ -320,7 +320,7 @@ namespace ClosedXML.Excel.CalcEngine
         /// <param name="style">The style of the parse.</param>
         /// <param name="timeProvider">The clock that gives the year.</param>
         /// <param name="date">The parsed date.</param>
-        internal static bool TryParseWithClockYear(string text, string[] patterns, CultureInfo culture, DateTimeStyles style, TimeProvider timeProvider, out DateTime date)
+        private static bool TryParseWithClockYear(string text, string[] patterns, CultureInfo culture, DateTimeStyles style, TimeProvider timeProvider, out DateTime date)
         {
             // The parser reads the year in the calendar of the culture (e.g. the Thai Buddhist calendar).
             var year = culture.DateTimeFormat.Calendar.GetYear(timeProvider.GetLocalNow().DateTime);
