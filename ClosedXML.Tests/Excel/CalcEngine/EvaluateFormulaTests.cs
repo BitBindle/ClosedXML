@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using ClosedXML.Excel;
+using ClosedXML.Excel.CalcEngine.Exceptions;
 using NUnit.Framework;
 
 namespace ClosedXML.Tests.Excel.CalcEngine
@@ -110,6 +111,39 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreSame(data, range.Worksheet);
             Assert.AreEqual("B1:B2", range.RangeAddress.ToStringRelative());
             Assert.AreEqual(XLCellValue.FromObject("Item"), range.LastCell().Value);
+        }
+
+        [Test]
+        public void Reference_to_a_deleted_sheet_is_an_error()
+        {
+            using var wb = new XLWorkbook();
+            var form = wb.AddWorksheet("Form");
+            wb.AddWorksheet("Data");
+            wb.Worksheet("Data").Delete();
+
+            var result = form.EvaluateFormula("Data!$A$1:$A$3", "B1");
+
+            Assert.AreEqual(XLFormulaResultType.Value, result.Type);
+            Assert.AreEqual(XLCellValue.FromObject(XLError.CellReference), result.Value);
+        }
+
+        [Test]
+        public void Reference_to_a_sheet_span_gives_one_range_for_each_sheet()
+        {
+            using var wb = new XLWorkbook();
+            var form = wb.AddWorksheet("Form");
+            var middle = wb.AddWorksheet("Middle");
+            var data = wb.AddWorksheet("Data");
+
+            var result = form.EvaluateFormula("Form:Data!$A$1", "B1");
+
+            Assert.AreEqual(XLFormulaResultType.Reference, result.Type);
+            Assert.AreEqual(new[] { form, middle, data }, result.Ranges.Select(r => r.Worksheet));
+            Assert.That(result.Ranges.All(r => r.RangeAddress.ToStringRelative() == "A1:A1"));
+
+            // Evaluate cannot intersect a reference to more than one sheet. Without an address, it has no cell to intersect.
+            Assert.AreEqual(XLCellValue.FromObject(XLError.IncompatibleValue), form.Evaluate("Form:Data!$A$1", "B1"));
+            Assert.Throws<MissingContextException>(() => form.Evaluate("Form:Data!$A$1"));
         }
 
         [Test]

@@ -39,7 +39,9 @@ namespace ClosedXML.Excel
 
         /// <summary>
         /// The ranges of a result of type <see cref="XLFormulaResultType.Reference"/>, in the order of the
-        /// formula. A union, for example <c>(A1:A2,C1)</c>, has more than one range. Each range has its worksheet.
+        /// formula. A union, for example <c>(A1:A2,C1)</c>, has more than one range. A reference to more than one
+        /// sheet, for example <c>Sheet1:Sheet3!A1</c>, has one range for each sheet in the order of the sheets. Each
+        /// range has its worksheet.
         /// </summary>
         /// <exception cref="InvalidOperationException">The result is a value or an array.</exception>
         public IReadOnlyList<IXLRange> Ranges => Type == XLFormulaResultType.Reference

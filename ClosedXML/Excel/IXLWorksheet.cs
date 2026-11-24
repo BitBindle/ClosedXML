@@ -463,9 +463,10 @@ namespace ClosedXML.Excel
         XLCellValue Evaluate(String expression, string? formulaAddress = null);
 
         /// <summary>
-        /// Evaluate a formula without implicit intersection of the result. A formula that gives a reference
-        /// gives all its ranges, and a formula that gives an array gives all its values. Use it for a formula
-        /// that gives a list, for example the source of a data validation list or a defined name.
+        /// Evaluate a formula as <see cref="Evaluate"/> does, but without implicit intersection of the result.
+        /// A formula that gives a reference gives all its ranges, and a formula that gives an array gives all its
+        /// values. Use it for a formula that gives a list, for example the source of a data validation list or a
+        /// defined name.
         /// </summary>
         /// <param name="expression">Formula to evaluate.</param>
         /// <param name="formulaAddress">A cell address that is used to provide context for formula calculation. An

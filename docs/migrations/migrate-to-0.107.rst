@@ -547,3 +547,12 @@ These bugs are fixed:
   ``NullReferenceException``. The save now writes the comments without the old VML content.
 * A save after the delete of a worksheet with a pivot table threw
   ``ArgumentOutOfRangeException``.
+
+*****************************************
+New member of IXLWorksheet
+*****************************************
+
+``IXLWorksheet`` has a new method ``EvaluateFormula``. It gives the result of a formula without
+implicit intersection: a value, the ranges of a reference or the values of an array. A class that
+implements ``IXLWorksheet`` does not compile until it adds the method. ``IXLWorksheet.Evaluate``
+does not change.
