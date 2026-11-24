@@ -119,6 +119,19 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             AssertCoercion(text, expectedValue);
         }
 
+        // Excel reads the name of a month and a day without a year as a date in the current year. For example, it
+        // changes the gene symbols "DEC1" and "MARCH1" to dates (Zeeberg et al., BMC Bioinformatics 5:80, 2004).
+        [TestCase("jan 1", 1, 1)]
+        [TestCase("JAN  1", 1, 1)]
+        [TestCase("December 31", 12, 31)]
+        [TestCase("dec 31 ", 12, 31)]
+        [TestCase("DEC1", 12, 1)]
+        [TestCase("MARCH1", 3, 1)]
+        public void Date_month_name_and_day_without_year(string text, int month, int day)
+        {
+            AssertCoercion(text, new DateTime(DateTime.Now.Year, month, day).ToOADate());
+        }
+
         [SetCulture("cs-CZ")]
         [TestCase("3-leden", 36528)] // Serial datetime is for 03-01-2000
         [TestCase("3-led", 36528)] // Serial datetime is for 03-01-2000
@@ -192,6 +205,21 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         public void DateTime_Format22(string text, double? expectedValue) // Format 22 'm/d/yyyy h:mm'. Specification incorrectly states 'm/d/yy h:mm', but fixed per MS errata.
         {
             AssertCoercion(text, expectedValue);
+        }
+
+        // No recorded Excel value exists for a date with a time with seconds. Formats 19 'h:mm:ss AM/PM' and
+        // 21 'h:mm:ss' are time formats only. The parse takes the time with seconds also after a date.
+        [TestCase("22-May-2011 6:35:10 AM", 40685.274421296296d)]
+        [TestCase("22-May-11 6:35:10 PM", 40685.774421296296d)]
+        [TestCase("22-May-2011 18:35:10", 40685.774421296296d)]
+        [TestCase("2011/5/22 6:35:10 PM", 40685.774421296296d)]
+        [TestCase("2011-5-22 18:35:10", 40685.774421296296d)]
+        [TestCase("5/22/2011 6:35:10 AM", 40685.274421296296d)]
+        [TestCase("5/22/2011 18:35:10", 40685.774421296296d)]
+        [TestCase("22-May-2011 18:35:60", null)] // Seconds must be 0-59
+        public void DateTime_with_seconds(string text, double? expectedValue)
+        {
+            AssertCoercion(text, expectedValue, Tolerance);
         }
 
         [TestCase("00:00", 0)] // Can parse zero

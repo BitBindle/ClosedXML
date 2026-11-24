@@ -291,9 +291,20 @@ namespace ClosedXML.Excel.CalcEngine
             "d-MMM-yyyy H:m", "d-MMMM-yyyy H:m", "d-MMM-yy H:m", "d-MMMM-yy H:m",
         };
 
+        private static readonly string[] DateFormat15PatternsWithSeconds =
+        {
+            "d-MMM-yyyy", "d-MMMM-yyyy", "d-MMM-yy", "d-MMMM-yy",
+            "d-MMM-yyyy h:m tt", "d-MMMM-yyyy h:m tt", "d-MMM-yy h:m tt", "d-MMMM-yy h:m tt",
+            "d-MMM-yyyy H:m", "d-MMMM-yyyy H:m", "d-MMM-yy H:m", "d-MMMM-yy H:m",
+            "d-MMM-yyyy h:m:s tt", "d-MMMM-yyyy h:m:s tt", "d-MMM-yy h:m:s tt", "d-MMMM-yy h:m:s tt",
+            "d-MMM-yyyy H:m:s", "d-MMMM-yyyy H:m:s", "d-MMM-yy H:m:s", "d-MMMM-yy H:m:s",
+        };
+
         private static readonly string[] DateFormat16Patterns = { "d-MMM", "d-MMMM" };
 
         private static readonly string[] DateFormat17Patterns = { "MMM-y", "MMMM-y" };
+
+        private static readonly string[] MonthDayPatterns = { "MMM d", "MMMM d" };
 
         public static bool ToSerialDateTime(string text, CultureInfo culture, out double serialDateTime)
         {
@@ -308,8 +319,9 @@ namespace ClosedXML.Excel.CalcEngine
             }
 
             // Date with names of months. The names of months differ across cultures.
-            // Format 15 'd-mmm-yy', optionally with time (e.g. '15-Jan-2011 3:30 PM')
-            if (DateTime.TryParseExact(text, DateFormat15Patterns, culture, dateStyle, out var dateFormat15))
+            // Format 15 'd-mmm-yy', optionally with time (e.g. '15-Jan-2011 3:30 PM' or '15-Jan-2011 15:30:45')
+            var dateFormat15Patterns = DateTimeParser.MayHaveDateWithSeconds(text, culture) ? DateFormat15PatternsWithSeconds : DateFormat15Patterns;
+            if (DateTime.TryParseExact(text, dateFormat15Patterns, culture, dateStyle, out var dateFormat15))
             {
                 return ToSerialDate(dateFormat15, out serialDateTime);
             }
@@ -330,6 +342,13 @@ namespace ClosedXML.Excel.CalcEngine
                     dateFormat17 = dateFormat17.AddYears(-100);
 
                 return ToSerialDate(dateFormat17, out serialDateTime);
+            }
+
+            // The name of a month and a day without a year, as Excel reads "JAN 1" or "DEC1" in en-US. As for
+            // format 16, the parse uses the current year. Only a text that starts with a letter can match.
+            if (text.Length > 0 && char.IsLetter(text[0]) && DateTime.TryParseExact(text, MonthDayPatterns, culture, dateStyle, out var monthDay))
+            {
+                return ToSerialDate(monthDay, out serialDateTime);
             }
 
             // Format 18 'h:mm AM/PM', works for both localized and AM/PM literal
