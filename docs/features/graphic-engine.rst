@@ -210,6 +210,9 @@ to ``false``. Then:
   are ``AdjustToContents``, ``AddPicture`` and the load of a file, which calculates the default
   column width from the font of the normal style.
 
+An application that loads files with the switch off must set ``LoadOptions.DefaultGraphicEngine``
+to its own ``IXLGraphicEngine``.
+
 The switch applies also to an application that is not trimmed.
 
 

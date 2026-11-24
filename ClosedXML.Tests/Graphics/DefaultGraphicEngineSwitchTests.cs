@@ -12,6 +12,7 @@ namespace ClosedXML.Tests.Graphics
     /// the trimmer removes the engine, SixLabors.Fonts and the embedded fonts from a trimmed application.
     /// </summary>
     [TestFixture]
+    [NonParallelizable]
     public class DefaultGraphicEngineSwitchTests
     {
         private const string SwitchName = "ClosedXML.Graphics.DefaultGraphicEngine.IsSupported";
