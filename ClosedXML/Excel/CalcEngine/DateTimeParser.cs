@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -18,13 +19,13 @@ namespace ClosedXML.Excel.CalcEngine
         // .NET Core and .NET Framework also produce different patterns for GetAllDateTimePatterns.
         // This is not a perfect solution by any means, but best we can do in absence of knowledge
         // what patterns Excel uses for which cultures.
-        private static readonly ConcurrentDictionary<CultureInfo, string[]> CultureSpecificPatterns = new();
+        private static readonly ConcurrentDictionary<CultureInfo, (string[] Patterns, string[] PatternsWithSeconds)> CultureSpecificPatterns = new();
 
         private static readonly string[] TimeOfDayPatterns = { "h:m tt", "h:m t", "h:m:s tt", "h:m:s t" };
 
         public static bool TryParseCultureDate(string s, CultureInfo culture, out DateTime date)
         {
-            var datePatterns = CultureSpecificPatterns.GetOrAdd(culture, static ci =>
+            var (datePatterns, datePatternsWithSeconds) = CultureSpecificPatterns.GetOrAdd(culture, static ci =>
             {
                 // Patterns that look for exactly two MM/dd that aren't part of longer sequence of MMM/ddd.
                 // The MM/dd matches only two digit month/day and date recognition should be more fuzzy, it
@@ -48,13 +49,38 @@ namespace ClosedXML.Excel.CalcEngine
                 // but every single format from CultureInfo.DateTimeFormat requires AM/PM. and two digits for minutes (thus
                 // the input couldn't match in any format => excel has likely it's own logic, independent of region setting).
                 var timePatterns = new[] { "h:m tt", "H:m", "h:m" };
-                var longDatePatterns = shortDatePatterns
-                    .SelectMany(datePattern => timePatterns.Select(timePattern => FormattableString.Invariant($"{datePattern} {timePattern}")));
+                var patterns = shortDatePatterns.Concat(WithTime(shortDatePatterns, timePatterns)).Distinct().ToArray();
 
-                return shortDatePatterns.Concat(longDatePatterns).Distinct().ToArray();
+                // Excel also reads a time with seconds after a date.
+                var secondsPatterns = new[] { "h:m:s tt", "H:m:s" };
+                var patternsWithSeconds = patterns.Concat(WithTime(shortDatePatterns, secondsPatterns)).Distinct().ToArray();
+                return (patterns, patternsWithSeconds);
+
+                static IEnumerable<string> WithTime(string[] datePatterns, string[] timePatterns) => datePatterns
+                    .SelectMany(datePattern => timePatterns.Select(timePattern => FormattableString.Invariant($"{datePattern} {timePattern}")));
             });
 
-            return DateTime.TryParseExact(s, datePatterns, culture, Style, out date);
+            var patterns = MayHaveSeconds(s, culture) ? datePatternsWithSeconds : datePatterns;
+            return DateTime.TryParseExact(s, patterns, culture, Style, out date);
+        }
+
+        /// <summary>
+        /// A time with seconds has two time separators. A text with fewer separators skips the patterns with
+        /// seconds, so that a text that is not a date does not try more patterns.
+        /// </summary>
+        public static bool MayHaveSeconds(string s, CultureInfo culture)
+        {
+            // A ':' in a pattern matches a ':' or the time separator of the culture.
+            var separator = culture.DateTimeFormat.TimeSeparator;
+            var other = separator.Length > 0 ? separator[0] : ':';
+            var count = 0;
+            foreach (var c in s)
+            {
+                if ((c == ':' || c == other) && ++count == 2)
+                    return true;
+            }
+
+            return false;
         }
 
         public static bool TryParseTimeOfDay(string s, CultureInfo c, out DateTime timeOfDay)
