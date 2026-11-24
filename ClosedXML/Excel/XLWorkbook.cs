@@ -866,28 +866,15 @@ namespace ClosedXML.Excel
         }
 
         /// <summary>
-        /// Is the <paramref name="name"/> blocked by the <see cref="CalculationNameFilter"/>? A
-        /// sheet-scoped name hides the workbook-scoped name with the same name, so the method
-        /// asks for the sheet-scoped name first.
+        /// Is the <paramref name="name"/> blocked by the <see cref="CalculationNameFilter"/>?
         /// </summary>
-        /// <param name="sheet">The sheet where a formula looks for the name. It is <c>null</c> for a table.</param>
-        /// <param name="name">The name of a defined name or a table.</param>
+        /// <param name="sheet">The sheet of a sheet-scoped defined name. It is <c>null</c> for a
+        /// workbook-scoped name, a table and a name that the workbook doesn't have.</param>
+        /// <param name="name">The stored name of a defined name or a table, or the text of the
+        /// formula for a name that the workbook doesn't have.</param>
         internal bool IsBlockedName(XLWorksheet? sheet, string name)
         {
-            var filter = CalculationNameFilter;
-            if (filter is null)
-                return false;
-
-            if (sheet is not null)
-            {
-                if (!filter(sheet.Name, name))
-                    return true;
-
-                if (sheet.DefinedNames.TryGetScopedValue(name, out _))
-                    return false;
-            }
-
-            return !filter(null, name);
+            return CalculationNameFilter is { } filter && !filter(sheet?.Name, name);
         }
 
         /// <summary>

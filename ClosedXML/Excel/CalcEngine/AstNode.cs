@@ -364,9 +364,14 @@ namespace ClosedXML.Excel.CalcEngine
                 worksheet = (XLWorksheet)ws!;
             }
 
-            worksheet.Workbook.ThrowIfBlockedName(worksheet, Name);
             if (!TryGetNameRange(worksheet, out var definedName))
+            {
+                worksheet.Workbook.ThrowIfBlockedName(null, Name);
                 return XLError.NameNotRecognized;
+            }
+
+            var scope = definedName.Scope == XLNamedRangeScope.Worksheet ? worksheet : null;
+            worksheet.Workbook.ThrowIfBlockedName(scope, definedName.Name);
 
             // Parser needs an equal sign for a union of ranges (or braces around formula)
             var nameFormula = definedName.RefersTo;

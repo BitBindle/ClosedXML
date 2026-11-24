@@ -39,12 +39,10 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase("S1", "S2!Rate", false)]
         [TestCase("S2", "Rate", false)]
         [TestCase("S2", "S1!Rate", true)]
-        [TestCase("S3", "Rate", true)] // S3 doesn't have the name, but the filter blocks it.
         public void Blocked_sheet_name_hides_the_workbook_name_on_its_sheet(string formulaSheet, string formula, bool fails)
         {
-            using var wb = Workbook((sheet, name) => sheet is not ("S1" or "S3"));
+            using var wb = Workbook((sheet, _) => sheet != "S1");
             wb.AddWorksheet("S2");
-            wb.AddWorksheet("S3");
             var ws = wb.Worksheet("S1");
             wb.DefinedNames.Add("Rate", "S1!$A$1");
             ws.DefinedNames.Add("Rate", "S1!$A$2");
@@ -71,7 +69,45 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.That(ws.Cell("B1").Value, Is.EqualTo(XLCellValue.FromObject(2)));
         }
 
+        [Test]
+        public void Allow_list_with_workbook_names_allows_them_on_each_sheet()
+        {
+            var trusted = new HashSet<(string?, string)> { (null, "Rate") };
+            using var wb = Workbook((sheet, name) => trusted.Contains((sheet, name)));
+            var ws = wb.Worksheet("S1");
+            wb.DefinedNames.Add("Rate", "S1!$A$1");
+            wb.DefinedNames.Add("Other", "S1!$A$1");
+            ws.Cell("B1").FormulaA1 = "Rate*2";
+            ws.Cell("B2").FormulaA1 = "rate*2"; // The filter gets the stored name.
+            ws.Cell("B3").FormulaA1 = "Other*2";
+
+            var failed = new List<IXLCell>();
+            wb.RecalculateAllFormulas(failed);
+
+            Assert.That(failed, Is.EqualTo(new[] { ws.Cell("B3") }));
+            Assert.That(ws.Cell("B1").Value, Is.EqualTo(XLCellValue.FromObject(2)));
+            Assert.That(ws.Cell("B2").Value, Is.EqualTo(XLCellValue.FromObject(2)));
+        }
+
+        [TestCase("Missing*2", true)]
+        [TestCase("Unknown*2", false)]
+        public void Blocked_name_that_workbook_does_not_have_fails_the_cell(string formula, bool fails)
+        {
+            using var wb = Workbook((_, name) => name != "Missing");
+            var ws = wb.Worksheet("S1");
+            ws.Cell("B1").FormulaA1 = formula;
+
+            var failed = new List<IXLCell>();
+            wb.RecalculateAllFormulas(failed);
+
+            Assert.That(failed.Count, Is.EqualTo(fails ? 1 : 0));
+            if (!fails)
+                Assert.That(ws.Cell("B1").Value, Is.EqualTo(XLCellValue.FromObject(XLError.NameNotRecognized)));
+        }
+
         [TestCase("INDIRECT(\"Rate\")", true)]
+        [TestCase("INDIRECT(\"RATE\")", true)] // The filter gets the stored name, not the text.
+        [TestCase("rate*1", true)]
         [TestCase("INDIRECT(\"Other\")", false)]
         public void Indirect_of_blocked_name_fails_the_cell(string formula, bool fails)
         {
@@ -90,25 +126,30 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         }
 
         [Test]
-        public void Calculation_does_not_read_formula_of_blocked_name()
+        public void Dependency_tree_does_not_read_formula_of_blocked_name()
         {
-            // The names are a cycle. The dependency tree doesn't read the formula of a blocked name.
-            using var wb = Workbook((_, name) => name != "First");
+            // A formula that reads the cell of an allowed name becomes dirty when the cell changes.
+            // The dependency tree doesn't read the formula of a blocked name, so its formula doesn't.
+            using var wb = Workbook((_, name) => name != "Blocked");
             var ws = wb.Worksheet("S1");
-            wb.DefinedNames.Add("First", "Second");
-            wb.DefinedNames.Add("Second", "First");
-            ws.Cell("B2").FormulaA1 = "1+1";
-            Assert.That(ws.Cell("B2").Value, Is.EqualTo(XLCellValue.FromObject(2)));
-
-            ws.Cell("B1").FormulaA1 = "First";
+            wb.DefinedNames.Add("Blocked", "S1!$A$1");
+            wb.DefinedNames.Add("Allowed", "S1!$A$1");
+            ws.Cell("B1").FormulaA1 = "Blocked";
+            ws.Cell("B2").FormulaA1 = "Allowed";
             var failed = new List<IXLCell>();
             wb.RecalculateAllFormulas(failed);
-
             Assert.That(failed, Is.EqualTo(new[] { ws.Cell("B1") }));
+
+            ws.Cell("A1").Value = 5;
+
+            Assert.That(ws.Cell("B2").NeedsRecalculation, Is.True);
+            Assert.That(ws.Cell("B1").NeedsRecalculation, Is.False);
         }
 
         [TestCase("SUM(Pastries[Price])")]
         [TestCase("SUM(INDIRECT(\"Pastries[Price]\"))")]
+        [TestCase("SUM(pastries[Price])")] // The filter gets the stored name, not the text.
+        [TestCase("SUM(INDIRECT(\"PASTRIES[Price]\"))")]
         [TestCase("SUM(Missing[Price])")] // The workbook doesn't have the table.
         public void Blocked_table_fails_the_cell(string formula)
         {
