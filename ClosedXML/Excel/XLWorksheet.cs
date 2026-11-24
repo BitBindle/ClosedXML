@@ -1606,6 +1606,13 @@ namespace ClosedXML.Excel
             return CalcEngine.EvaluateFormula(expression, Workbook, this, address, true).ToCellValue();
         }
 
+        public XLFormulaResult EvaluateFormula(String expression, string? formulaAddress = null)
+        {
+            IXLAddress? address = formulaAddress is not null ? XLAddress.Create(formulaAddress) : null;
+            var result = CalcEngine.EvaluateFormulaWithoutIntersection(expression, this, address);
+            return XLFormulaResult.From(result, this);
+        }
+
         public void RecalculateAllFormulas()
         {
             Internals.CellsCollection.FormulaSlice.MarkDirty(Excel.Area.Full);

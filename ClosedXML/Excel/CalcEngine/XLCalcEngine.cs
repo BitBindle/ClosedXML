@@ -339,6 +339,17 @@ namespace ClosedXML.Excel.CalcEngine
             return ToCellContentValue(result, ctx);
         }
 
+        /// <summary>
+        /// Evaluates a formula without implicit intersection of the result. A reference stays a reference, and an
+        /// array stays an array. As <see cref="EvaluateFormula(string, XLWorkbook?, XLWorksheet?, IXLAddress?, bool, string?)"/>
+        /// with <c>recursive</c>, the engine calculates a dirty cell that the formula reads first.
+        /// </summary>
+        internal AnyValue EvaluateFormulaWithoutIntersection(string expression, XLWorksheet ws, IXLAddress? address)
+        {
+            var ctx = new CalcContext(this, _culture, ws.Workbook, ws, address, recursive: true);
+            return EvaluateFormula(expression, ctx);
+        }
+
         private Array EvaluateArrayFormula(string expression, XLCell masterCell, string? recalculateSheetName)
         {
             var ctx = new CalcContext(this, _culture, masterCell)
