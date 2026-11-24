@@ -275,7 +275,7 @@ namespace ClosedXML.Excel
         /// </para>
         /// <para>
         /// The records cover the operations of the calculation engine, e.g. a conversion of a text with a digit to
-        /// a number. The other overloads don't collect records.
+        /// a number. The overloads without a collection of records don't collect records.
         /// </para>
         /// </remarks>
         /// <param name="failed">A collection the cells that failed are added to.</param>
