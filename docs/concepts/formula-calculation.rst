@@ -43,6 +43,9 @@ In order to acheve a performant code while working with formulas
 * Use ``IXLWorkbook.RecalculateAllFormulas()`` or
   ``IXLWorksheet.RecalculateAllFormulas()`` to update formulas. Note that this
   recalculates all formulas, not just non-dirty ones.
+* Use ``IXLWorkbook.RecalculateDirtyFormulas()`` to recalculate only the dirty
+  formulas, e.g. after a change of a few cells. The overload with a collection
+  of failed cells doesn't stop at a cell that fails.
 
 Dirty tracking
 ==============
@@ -62,6 +65,21 @@ Whether a formula is dirty can be checked through ``IXLCell.NeedsRecalculation``
 property. Cells without formulas are never dirty.
 
 Use ``IXLCell.InvalidateFormula()`` to mark the formula as dirty.
+
+Some changes don't set a value of a cell, so they don't mark a formula as
+dirty. Examples are a hide of a row for ``SUBTOTAL(109, ...)`` and a new time
+for ``NOW()``. Use ``IXLWorkbook.MarkDependentsDirty(range)`` to mark the
+formulas that read the range as dirty:
+
+.. code-block:: csharp
+
+   ws.Row(2).Hide();
+   wb.MarkDependentsDirty(ws.Row(2));
+   wb.RecalculateDirtyFormulas();
+
+The dependency tree exists only after the first calculation. Before it, a set
+of a value in a loaded workbook doesn't mark the formulas that read the cell.
+Call ``RecalculateAllFormulas()`` once after a load.
 
 Transitive nature
 -----------------

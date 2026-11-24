@@ -1323,6 +1323,36 @@ namespace ClosedXML.Excel
             CalcEngine.Recalculate(this, null, failed);
         }
 
+        /// <inheritdoc/>
+        public void RecalculateDirtyFormulas()
+        {
+            ThrowIfDisposed();
+            CalcEngine.Recalculate(this, null);
+        }
+
+        /// <inheritdoc/>
+        public void RecalculateDirtyFormulas(ICollection<IXLCell> failed)
+        {
+            ThrowIfDisposed();
+            if (failed is null)
+                throw new ArgumentNullException(nameof(failed));
+
+            CalcEngine.Recalculate(this, null, failed);
+        }
+
+        /// <inheritdoc/>
+        public void MarkDependentsDirty(IXLRangeBase range)
+        {
+            ThrowIfDisposed();
+            if (range is null)
+                throw new ArgumentNullException(nameof(range));
+
+            if (!ReferenceEquals(range.Worksheet.Workbook, this) || !range.RangeAddress.IsValid)
+                throw new ArgumentException("The range is not a valid range of the workbook.", nameof(range));
+
+            CalcEngine.MarkDirty((XLWorksheet)range.Worksheet, Area.FromRangeAddress(range.RangeAddress));
+        }
+
         private void MarkAllFormulasDirty()
         {
             foreach (var sheet in WorksheetsInternal)
