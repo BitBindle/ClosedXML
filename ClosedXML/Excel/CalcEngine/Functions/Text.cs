@@ -641,6 +641,8 @@ namespace ClosedXML.Excel.CalcEngine
             return text.ToUpper(ctx.Culture);
         }
 
+        private static readonly string[] ValueFormat16Patterns = { "d-MMMM yyyy" };
+
         private static AnyValue Value(CalcContext ctx, ScalarValue arg)
         {
             // Specification is vague/misleading:
@@ -673,7 +675,6 @@ namespace ClosedXML.Excel.CalcEngine
                 ctx.Culture.DateTimeFormat.LongTimePattern,
                 @"mm-dd-yy", // format 14
                 @"d-MMMM-yy", // format 15
-                @"d-MMMM", // format 16
                 @"d-MMM-yyyy",
                 @"H:mm", // format 20
                 @"H:mm:ss" // format 21
@@ -681,6 +682,10 @@ namespace ClosedXML.Excel.CalcEngine
             const DateTimeStyles dateTimeStyle = DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.NoCurrentDateDefault;
             if (DateTime.TryParseExact(text, dateTimeFormats, ctx.Culture, dateTimeStyle, out var parsedDate))
                 return parsedDate.ToOADate();
+
+            // Format 16 has no year, so it uses the year of the clock.
+            if (ScalarValue.TryParseWithClockYear(text, ValueFormat16Patterns, ctx.Culture, dateTimeStyle, ctx.TimeProvider, out var parsedDayAndMonth))
+                return parsedDayAndMonth.ToOADate();
 
             return XLError.IncompatibleValue;
         }

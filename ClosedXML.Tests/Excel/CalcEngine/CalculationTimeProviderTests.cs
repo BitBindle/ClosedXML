@@ -76,6 +76,7 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase("\"29-Feb\"*1")]
         [TestCase("DATEVALUE(\"29-Feb\")")]
         [TestCase("\"29-February\"+0")]
+        [TestCase("VALUE(\"29-February\")")]
         public void Day_and_month_text_uses_the_year_of_the_time_provider(string formula)
         {
             // Format 16 'd-mmm' has no year. 2028 is a leap year, so the date exists only in the year of the time provider.
@@ -84,6 +85,16 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             var actual = wb.Evaluate(formula);
 
             Assert.AreEqual(new DateTime(2028, 2, 29).ToOADate(), actual.GetNumber());
+        }
+
+        [Test]
+        public void Value_of_day_and_month_text_uses_the_year_of_the_time_provider()
+        {
+            using var wb = CreateWorkbook(new DateTimeOffset(2028, 6, 1, 12, 0, 0, TimeSpan.Zero), TimeZoneInfo.Utc);
+
+            var actual = wb.Evaluate("VALUE(\"5-July\")");
+
+            Assert.AreEqual(new DateTime(2028, 7, 5).ToOADate(), actual.GetNumber());
         }
 
         [Test]

@@ -294,10 +294,41 @@ namespace ClosedXML.Excel.CalcEngine
             "d-MMM-yyyy H:m", "d-MMMM-yyyy H:m", "d-MMM-yy H:m", "d-MMMM-yy H:m",
         };
 
-        // The year of the clock is added to the text, because the .NET parser takes a missing year from the system clock.
         private static readonly string[] DateFormat16Patterns = { "d-MMM yyyy", "d-MMMM yyyy" };
 
         private static readonly string[] DateFormat17Patterns = { "MMM-y", "MMMM-y" };
+
+        /// <summary>
+        /// Parse a text of a day and a month without a year (e.g. <c>5-Jul</c>). The .NET parser takes a missing year
+        /// from the system clock, so the method adds the year of the <paramref name="timeProvider"/> to the text.
+        /// </summary>
+        /// <param name="text">The text to parse.</param>
+        /// <param name="patterns">Patterns of a day, a literal <c>-</c> and a month, followed by <c> yyyy</c>.</param>
+        /// <param name="culture">The culture of the names of months and of the calendar.</param>
+        /// <param name="style">The style of the parse.</param>
+        /// <param name="timeProvider">The clock that gives the year.</param>
+        /// <param name="date">The parsed date.</param>
+        internal static bool TryParseWithClockYear(string text, string[] patterns, CultureInfo culture, DateTimeStyles style, TimeProvider timeProvider, out DateTime date)
+        {
+            // The patterns have a literal '-'. Skip the work for a text without it, e.g. for each text cell of SUMIF.
+            if (text.IndexOf('-') < 0)
+            {
+                date = default;
+                return false;
+            }
+
+            // The parser reads the year in the calendar of the culture (e.g. the Thai Buddhist calendar).
+            var year = culture.DateTimeFormat.Calendar.GetYear(timeProvider.GetLocalNow().DateTime);
+            Span<char> yearText = stackalloc char[11];
+            year.TryFormat(yearText, out var yearLength, provider: CultureInfo.InvariantCulture);
+
+            var length = text.Length + 1 + yearLength;
+            Span<char> buffer = length <= 128 ? stackalloc char[128] : new char[length];
+            text.AsSpan().CopyTo(buffer);
+            buffer[text.Length] = ' ';
+            yearText[..yearLength].CopyTo(buffer[(text.Length + 1)..]);
+            return DateTime.TryParseExact(buffer[..length], patterns, culture, style, out date);
+        }
 
         public static bool ToSerialDateTime(string text, CultureInfo culture, TimeProvider timeProvider, out double serialDateTime)
         {
@@ -320,7 +351,7 @@ namespace ClosedXML.Excel.CalcEngine
 
             // Since format doesn't have a year, it uses the year of the clock
             // Format 16 'd-mmm'
-            if (DateTime.TryParseExact(text + " " + ClockYear(timeProvider, culture), DateFormat16Patterns, culture, dateStyle, out var dateFormat16))
+            if (TryParseWithClockYear(text, DateFormat16Patterns, culture, dateStyle, timeProvider, out var dateFormat16))
             {
                 return ToSerialDate(dateFormat16, out serialDateTime);
             }
@@ -356,13 +387,6 @@ namespace ClosedXML.Excel.CalcEngine
 
             serialDateTime = default;
             return false;
-
-            static string ClockYear(TimeProvider timeProvider, CultureInfo culture)
-            {
-                // The parser reads the year in the calendar of the culture (e.g. the Thai Buddhist calendar).
-                var year = culture.DateTimeFormat.Calendar.GetYear(timeProvider.GetLocalNow().DateTime);
-                return year.ToString(CultureInfo.InvariantCulture);
-            }
 
             static bool ToSerialDate(DateTime dateTime, out double serialDate)
             {
