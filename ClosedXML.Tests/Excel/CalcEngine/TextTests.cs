@@ -1076,6 +1076,23 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             return XLWorkbook.EvaluateExpr($"TEXT({numberArg},\"{format}\")").GetText();
         }
 
+        // Excel refuses a number outside the date system only for a date or a time format. The TEXT page of
+        // Microsoft Support has the example TEXT(12200000,"0.00E+00") with the result 1.22E+07.
+        [TestCase("12200000", "0.00E+00", ExpectedResult = "1.22E+07")]
+        [TestCase("2958466", "0", ExpectedResult = "2958466")]
+        public string Text_formats_number_after_date_system_with_number_format(string numberArg, string format)
+        {
+            return XLWorkbook.EvaluateExpr($"TEXT({numberArg},\"{format}\")").GetText();
+        }
+
+        [TestCase("2958466", "yyyy")]
+        [TestCase("2958466", "h:mm")]
+        [TestCase("-1", "yyyy")]
+        public void Text_returns_error_for_date_format_and_number_outside_date_system(string numberArg, string format)
+        {
+            Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr($"TEXT({numberArg},\"{format}\")"));
+        }
+
         [TestCase("\"211x\"", ExpectedResult = "211x")]
         [TestCase("true", ExpectedResult = "TRUE")]
         public string Text_returns_string_representation_of_non_numbers(string valueArg)
