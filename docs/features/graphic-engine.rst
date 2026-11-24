@@ -184,6 +184,38 @@ Workbook will use the first available engine found in the following order:
 * ``DefaultGraphicEngine.Instance`` - a graphic engine that uses `SixLabors.Fonts` library and a custom picture parsing
 
 
+Remove the default engine from a trimmed application
+====================================================
+
+The default engine keeps *SixLabors.Fonts* and the embedded fonts (about 100 KB) in a trimmed
+application, also when the application never measures text. An application can turn off the
+default engine with a `feature switch <https://learn.microsoft.com/dotnet/core/deploying/trimming/trimming-options>`_.
+Set the MSBuild property in the project file of the application:
+
+.. code-block:: xml
+
+   <PropertyGroup>
+     <ClosedXMLDefaultGraphicEngineSupport>false</ClosedXMLDefaultGraphicEngineSupport>
+   </PropertyGroup>
+
+The property sets the runtime switch ``ClosedXML.Graphics.DefaultGraphicEngine.IsSupported``
+to ``false``. Then:
+
+* If the application does not use ``DefaultGraphicEngine``, the trimmer removes it,
+  *SixLabors.Fonts* and the embedded fonts.
+* ``DefaultGraphicEngine.Instance.Value``, the constructor and the factory methods of
+  ``DefaultGraphicEngine`` throw ``NotSupportedException``.
+* If ``LoadOptions.GraphicEngine`` and ``LoadOptions.DefaultGraphicEngine`` give no engine,
+  each method that measures text or reads a picture throws ``NotSupportedException``. Examples
+  are ``AdjustToContents``, ``AddPicture`` and the load of a file, which calculates the default
+  column width from the font of the normal style.
+
+An application that loads files with the switch off must set ``LoadOptions.DefaultGraphicEngine``
+to its own ``IXLGraphicEngine``.
+
+The switch applies also to an application that is not trimmed.
+
+
 How to use in Blazor
 ====================
 

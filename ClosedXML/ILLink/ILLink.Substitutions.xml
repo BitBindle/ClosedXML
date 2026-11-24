@@ -1,0 +1,10 @@
+<linker>
+  <!-- If the application turns off the default graphic engine, nothing reads the embedded fonts. The trimmer does
+       not remove an unused resource, so remove the fonts here. -->
+  <assembly fullname="ClosedXML" feature="ClosedXML.Graphics.DefaultGraphicEngine.IsSupported" featurevalue="false">
+    <resource name="ClosedXML.Graphics.Fonts.CarlitoBare-Bold.ttf" action="remove" />
+    <resource name="ClosedXML.Graphics.Fonts.CarlitoBare-BoldItalic.ttf" action="remove" />
+    <resource name="ClosedXML.Graphics.Fonts.CarlitoBare-Italic.ttf" action="remove" />
+    <resource name="ClosedXML.Graphics.Fonts.CarlitoBare-Regular.ttf" action="remove" />
+  </assembly>
+</linker>

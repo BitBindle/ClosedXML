@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
 using ClosedXML.Excel;
@@ -18,6 +19,12 @@ namespace ClosedXML.Graphics
         /// font through strip-fonts.sh script.
         /// </summary>
         private const string EmbeddedFontName = "CarlitoBare";
+
+        /// <summary>
+        /// The name of the feature switch that turns off the engine. An application sets it to <c>false</c> with the
+        /// MSBuild property <c>ClosedXMLDefaultGraphicEngineSupport</c>.
+        /// </summary>
+        internal const string IsSupportedSwitchName = "ClosedXML.Graphics.DefaultGraphicEngine.IsSupported";
 
         /// <summary>
         /// Vertical metrics (in 2048 units per em) of Calibri. Carlito has glyphs and advances of Calibri, but its
@@ -57,6 +64,14 @@ namespace ClosedXML.Graphics
         private readonly Func<MetricId, double> _calculateMaxDigitWidth;
 
         /// <summary>
+        /// Can the application use the engine? The value is <c>true</c>, unless the application sets the feature switch
+        /// <c>ClosedXML.Graphics.DefaultGraphicEngine.IsSupported</c> to <c>false</c>. Then a trimmed application does
+        /// not contain the engine, SixLabors.Fonts and the embedded fonts.
+        /// </summary>
+        [FeatureSwitchDefinition(IsSupportedSwitchName)]
+        internal static bool IsSupported => !AppContext.TryGetSwitch(IsSupportedSwitchName, out var isSupported) || isSupported;
+
+        /// <summary>
         /// Get a singleton instance of the engine that uses <c>Microsoft Sans Serif</c> as a fallback font.
         /// </summary>
         public static Lazy<DefaultGraphicEngine> Instance { get; } = new(() => new("Microsoft Sans Serif"));
@@ -65,8 +80,12 @@ namespace ClosedXML.Graphics
         /// Initialize a new instance of the engine.
         /// </summary>
         /// <param name="fallbackFont">A name of a font that is used when a font in a workbook is not available.</param>
+        /// <exception cref="NotSupportedException">The application turned off the engine.</exception>
         public DefaultGraphicEngine(string fallbackFont)
         {
+            if (!IsSupported)
+                throw CreateNotSupportedException();
+
             if (string.IsNullOrWhiteSpace(fallbackFont))
                 throw new ArgumentException(nameof(fallbackFont));
 
@@ -88,6 +107,9 @@ namespace ClosedXML.Graphics
         /// <param name="fontStreams">Extra fonts that should be loaded to the engine.</param>
         private DefaultGraphicEngine(Stream fallbackFontStream, bool useSystemFonts, Stream[] fontStreams)
         {
+            if (!IsSupported)
+                throw CreateNotSupportedException();
+
             if (fallbackFontStream is null)
                 throw new ArgumentNullException(nameof(fallbackFontStream));
 
@@ -272,6 +294,16 @@ namespace ClosedXML.Graphics
             // Size is irrelevant for metric. If the family does not have the style, SixLabors.Fonts uses the
             // nearest style that the family has, for example bold for bold italic, or regular.
             return fontFamily.CreateFont(FontMetricSize, metricId.Style);
+        }
+
+        /// <summary>
+        /// The exception for a use of the engine when the application turned it off.
+        /// </summary>
+        internal static NotSupportedException CreateNotSupportedException()
+        {
+            return new NotSupportedException(
+                $"The default graphic engine is not available, because the feature switch '{IsSupportedSwitchName}' is false. " +
+                $"Set {nameof(LoadOptions)}.{nameof(LoadOptions.GraphicEngine)} or {nameof(LoadOptions)}.{nameof(LoadOptions.DefaultGraphicEngine)} to measure text or to read a picture.");
         }
 
         private void AddEmbeddedFont(FontCollection fontCollection)
