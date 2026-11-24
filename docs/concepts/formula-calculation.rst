@@ -170,3 +170,33 @@ Cyclic dependencies
 
 Calc engine will throw an ``InvalidOperationException``, when it encounteres a
 cycle in a calculation chain.
+
+Blocked names
+=============
+
+A workbook from an unknown source can have defined names with formulas that
+the application doesn't trust, or tables that it doesn't support. Set
+``LoadOptions.CalculationNameFilter`` to block defined names and tables. The
+function gets the sheet name of a sheet-scoped name, or ``null`` for a
+workbook-scoped name, a table or a name that the workbook doesn't have, and the
+name. It returns ``false`` to block the name:
+
+.. code-block:: csharp
+
+   var trusted = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Rate" };
+   var options = new LoadOptions
+   {
+       CalculationNameFilter = (sheetName, name) => sheetName is null && trusted.Contains(name)
+   };
+   using var wb = new XLWorkbook(stream, options);
+
+The function gets the stored name of a defined name or a table. For a name that
+the workbook doesn't have, it gets the text of the formula, so compare names
+without case (``StringComparer.OrdinalIgnoreCase`` above).
+
+A formula that uses a blocked name throws an ``InvalidOperationException``,
+also through ``INDIRECT`` or a structured reference.
+``RecalculateAllFormulas(failed)`` adds the cell to the failed cells. The
+calculation doesn't read the formula of a blocked name. A sheet-scoped name
+hides the workbook-scoped name with the same name on its sheet, also when the
+function blocks the sheet-scoped name.

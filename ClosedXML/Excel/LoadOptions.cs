@@ -70,6 +70,39 @@ namespace ClosedXML.Excel
         public bool StrictAttributeParsing { get; set; } = true;
 
         /// <summary>
+        /// <para>
+        /// A function that tells if formulas can use a defined name or a table. The arguments are
+        /// the sheet name of a sheet-scoped name and the name. The sheet name is <c>null</c> for a
+        /// workbook-scoped name, for a table and for a name that the workbook doesn't have. The
+        /// function returns <c>false</c> to block the name. The default is <c>null</c>: formulas
+        /// can use each name.
+        /// </para>
+        /// <para>
+        /// The function gets the stored name of a defined name or a table. For a name that the
+        /// workbook doesn't have, it gets the text of the formula, so compare names without case.
+        /// A table and a workbook-scoped defined name with the same name get the same arguments,
+        /// so the function blocks both or neither.
+        /// </para>
+        /// <para>
+        /// The evaluation of a blocked name throws an <see cref="InvalidOperationException"/>,
+        /// also through <c>INDIRECT</c> and in a structured reference. A blocked name that the
+        /// workbook doesn't have also throws.
+        /// <see cref="IXLWorkbook.RecalculateAllFormulas(System.Collections.Generic.ICollection{IXLCell})"/>
+        /// adds the cell to the failed cells. The calculation doesn't read the formula of a
+        /// blocked defined name. A sheet-scoped name hides the workbook-scoped name with the same
+        /// name on its sheet, also when the function blocks the sheet-scoped name.
+        /// </para>
+        /// </summary>
+        /// <remarks>
+        /// The calculation calls the function on its own thread. If more than one workbook uses
+        /// the same function at the same time, the function must be thread-safe. The function
+        /// must not change the workbook. The dependency tree of the workbook keeps the result for
+        /// a defined name, so the function must give the same result for the same arguments each
+        /// time.
+        /// </remarks>
+        public Func<string?, string, bool>? CalculationNameFilter { get; set; }
+
+        /// <summary>
         /// A cancellation token to cancel recalculation. Recalculation may be triggered during
         /// various calls, e.g. <c>IXLCell.Value</c> can start recalculation of a workbook, but
         /// doesn't have a way to pass token.
