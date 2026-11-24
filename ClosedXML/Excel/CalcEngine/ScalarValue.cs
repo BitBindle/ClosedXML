@@ -294,29 +294,34 @@ namespace ClosedXML.Excel.CalcEngine
             "d-MMM-yyyy H:m", "d-MMMM-yyyy H:m", "d-MMM-yy H:m", "d-MMMM-yy H:m",
         };
 
+        private static readonly string[] DateFormat15PatternsWithSeconds =
+        {
+            "d-MMM-yyyy", "d-MMMM-yyyy", "d-MMM-yy", "d-MMMM-yy",
+            "d-MMM-yyyy h:m tt", "d-MMMM-yyyy h:m tt", "d-MMM-yy h:m tt", "d-MMMM-yy h:m tt",
+            "d-MMM-yyyy H:m", "d-MMMM-yyyy H:m", "d-MMM-yy H:m", "d-MMMM-yy H:m",
+            "d-MMM-yyyy h:m:s tt", "d-MMMM-yyyy h:m:s tt", "d-MMM-yy h:m:s tt", "d-MMMM-yy h:m:s tt",
+            "d-MMM-yyyy H:m:s", "d-MMMM-yyyy H:m:s", "d-MMM-yy H:m:s", "d-MMMM-yy H:m:s",
+        };
+
         private static readonly string[] DateFormat16Patterns = { "d-MMM yyyy", "d-MMMM yyyy" };
 
         private static readonly string[] DateFormat17Patterns = { "MMM-y", "MMMM-y" };
 
+        private static readonly string[] MonthDayPatterns = { "MMM d yyyy", "MMMM d yyyy" };
+
         /// <summary>
-        /// Parse a text of a day and a month without a year (e.g. <c>5-Jul</c>). The .NET parser takes a missing year
-        /// from the system clock, so the method adds the year of the <paramref name="timeProvider"/> to the text.
+        /// Parse a text of a day and a month without a year (e.g. <c>5-Jul</c> or <c>JAN 1</c>). The .NET parser takes
+        /// a missing year from the system clock, so the method adds the year of the <paramref name="timeProvider"/> to
+        /// the text.
         /// </summary>
         /// <param name="text">The text to parse.</param>
-        /// <param name="patterns">Patterns of a day, a literal <c>-</c> and a month, followed by <c> yyyy</c>.</param>
+        /// <param name="patterns">Patterns of a day and a month, each followed by <c> yyyy</c>.</param>
         /// <param name="culture">The culture of the names of months and of the calendar.</param>
         /// <param name="style">The style of the parse.</param>
         /// <param name="timeProvider">The clock that gives the year.</param>
         /// <param name="date">The parsed date.</param>
         internal static bool TryParseWithClockYear(string text, string[] patterns, CultureInfo culture, DateTimeStyles style, TimeProvider timeProvider, out DateTime date)
         {
-            // The patterns have a literal '-'. Skip the work for a text without it, e.g. for each text cell of SUMIF.
-            if (text.IndexOf('-') < 0)
-            {
-                date = default;
-                return false;
-            }
-
             // The parser reads the year in the calendar of the culture (e.g. the Thai Buddhist calendar).
             var year = culture.DateTimeFormat.Calendar.GetYear(timeProvider.GetLocalNow().DateTime);
             Span<char> yearText = stackalloc char[11];
@@ -343,15 +348,17 @@ namespace ClosedXML.Excel.CalcEngine
             }
 
             // Date with names of months. The names of months differ across cultures.
-            // Format 15 'd-mmm-yy', optionally with time (e.g. '15-Jan-2011 3:30 PM')
-            if (DateTime.TryParseExact(text, DateFormat15Patterns, culture, dateStyle, out var dateFormat15))
+            // Format 15 'd-mmm-yy', optionally with time (e.g. '15-Jan-2011 3:30 PM' or '15-Jan-2011 15:30:45')
+            var dateFormat15Patterns = DateTimeParser.MayHaveDateWithSeconds(text, culture) ? DateFormat15PatternsWithSeconds : DateFormat15Patterns;
+            if (DateTime.TryParseExact(text, dateFormat15Patterns, culture, dateStyle, out var dateFormat15))
             {
                 return ToSerialDate(dateFormat15, out serialDateTime);
             }
 
             // Since format doesn't have a year, it uses the year of the clock
-            // Format 16 'd-mmm'
-            if (TryParseWithClockYear(text, DateFormat16Patterns, culture, dateStyle, timeProvider, out var dateFormat16))
+            // Format 16 'd-mmm'. The patterns have a literal '-', so skip the work for a text without it, e.g. for
+            // each text cell of SUMIF.
+            if (text.IndexOf('-') >= 0 && TryParseWithClockYear(text, DateFormat16Patterns, culture, dateStyle, timeProvider, out var dateFormat16))
             {
                 return ToSerialDate(dateFormat16, out serialDateTime);
             }
@@ -365,6 +372,13 @@ namespace ClosedXML.Excel.CalcEngine
                     dateFormat17 = dateFormat17.AddYears(-100);
 
                 return ToSerialDate(dateFormat17, out serialDateTime);
+            }
+
+            // The name of a month and a day without a year, as Excel reads "JAN 1" or "DEC1" in en-US. As for
+            // format 16, the parse uses the year of the clock. Only a text that starts with a letter can match.
+            if (text.Length > 0 && char.IsLetter(text[0]) && TryParseWithClockYear(text, MonthDayPatterns, culture, dateStyle, timeProvider, out var monthDay))
+            {
+                return ToSerialDate(monthDay, out serialDateTime);
             }
 
             // Format 18 'h:mm AM/PM', works for both localized and AM/PM literal

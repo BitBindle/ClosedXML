@@ -1,3 +1,4 @@
+using System;
 using ClosedXML.Excel;
 using NUnit.Framework;
 
@@ -121,6 +122,11 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase("SUMPRODUCT(SUMIF(A1:A3,A1:A3,B1:B3))", 15)]
         [TestCase("INDEX(A1:A3*10,2)", 20)]
         [TestCase("MATCH(1,INDEX((A1:A3=2)*(B1:B3=5),0,1),0)", 2)]
+        [TestCase("SUMX2MY2(A1:A3*2,B1:B3)", -21)]
+        [TestCase("SUMX2PY2(A1:A3,B1:B3*2)", 322)]
+        [TestCase("SUMXMY2(A1:A3*2,B1:B3+0)", 5)]
+        [TestCase("MODE((A1:B3>2)*1)", 1)]
+        [TestCase("MODE(5,A1:A3*0+5)", 5)]
         public void ImplicitIntersection_ArgumentOfArrayParameterIsEvaluatedAsArray(string formula, double expected)
         {
             using var wb = new XLWorkbook();
@@ -129,6 +135,24 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             ws.Cell("D5").FormulaA1 = formula;
 
             Assert.AreEqual(expected, ws.Cell("D5").Value);
+        }
+
+        [Test]
+        public void ImplicitIntersection_ValuesArgumentOfIrrIsEvaluatedAsArray()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new[] { new[] { 1, 4 }, new[] { 2, 5 }, new[] { 3, 6 } });
+
+            ws.Cell("E5").Value = 0.2;
+
+            // The cash flows are 1, -1 and -3. The guess is not an array parameter, so E1:E9 gives the value of E5.
+            ws.Cell("D5").FormulaA1 = "IRR(B1:B3-A1:A3*3,E1:E9)";
+
+            var expected = 6 / (Math.Sqrt(13) - 1) - 1;
+            var actual = ws.Cell("D5").Value;
+            Assert.IsTrue(actual.IsNumber, $"The result is {actual}.");
+            Assert.AreEqual(expected, actual.GetNumber(), 1e-7);
         }
 
         [Test]

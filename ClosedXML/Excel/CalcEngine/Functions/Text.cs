@@ -562,9 +562,9 @@ namespace ClosedXML.Excel.CalcEngine
 
             var nf = new NumberFormat(format);
 
-            // Values formated as date/time must be in the limit for dates
+            // Values formated as date/time must be in the limit for dates. Other formats accept each number.
             var isDateFormat = nf.IsDateTimeFormat || nf.IsTimeSpanFormat;
-            if (isDateFormat && number < 0 || number >= ctx.DateSystemUpperLimit)
+            if (isDateFormat && (number < 0 || number >= ctx.DateSystemUpperLimit))
                 return XLError.IncompatibleValue;
 
             try
@@ -641,8 +641,6 @@ namespace ClosedXML.Excel.CalcEngine
             return text.ToUpper(ctx.Culture);
         }
 
-        private static readonly string[] ValueFormat16Patterns = { "d-MMMM yyyy" };
-
         private static AnyValue Value(CalcContext ctx, ScalarValue arg)
         {
             // Specification is vague/misleading:
@@ -659,13 +657,24 @@ namespace ClosedXML.Excel.CalcEngine
             if (!arg.TryPickText(out var text, out var error))
                 return error;
 
+            // VALUE accepts each text that a formula reads as a number, for example "2011/02/23" or "1 1/2".
+            // The parse below stays for the other texts.
+            if (ScalarValue.TextToNumber(text, ctx.Culture, ctx.TimeProvider).TryPickT0(out var coercedNumber, out _))
+                return coercedNumber;
+
             const string percentSign = "%";
             var isPercent = text.IndexOf(percentSign, StringComparison.Ordinal) >= 0;
             var textWithoutPercent = isPercent ? text.Replace(percentSign, string.Empty) : text;
             if (double.TryParse(textWithoutPercent, NumberStyles.Any, ctx.Culture, out var parsedNumber))
-                return isPercent ? parsedNumber / 100d : parsedNumber;
+            {
+                // Excel has no NaN or infinity, for example "1E999", "NaN" or "Infinity".
+                if (!double.IsFinite(parsedNumber))
+                    return XLError.IncompatibleValue;
 
-            // fraction not parsed, maybe in the future
+                return isPercent ? parsedNumber / 100d : parsedNumber;
+            }
+
+            // The texts that a formula does not read as a number, for example "January 2022".
             // No idea how Date/Time parsing works, good enough for initial approach
             var dateTimeFormats = new[]
             {
@@ -675,6 +684,7 @@ namespace ClosedXML.Excel.CalcEngine
                 ctx.Culture.DateTimeFormat.LongTimePattern,
                 @"mm-dd-yy", // format 14
                 @"d-MMMM-yy", // format 15
+                // Format 16 'd-mmmm' has no year. TextToNumber above reads it with the year of the clock.
                 @"d-MMM-yyyy",
                 @"H:mm", // format 20
                 @"H:mm:ss" // format 21
@@ -682,10 +692,6 @@ namespace ClosedXML.Excel.CalcEngine
             const DateTimeStyles dateTimeStyle = DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.NoCurrentDateDefault;
             if (DateTime.TryParseExact(text, dateTimeFormats, ctx.Culture, dateTimeStyle, out var parsedDate))
                 return parsedDate.ToOADate();
-
-            // Format 16 has no year, so it uses the year of the clock.
-            if (ScalarValue.TryParseWithClockYear(text, ValueFormat16Patterns, ctx.Culture, dateTimeStyle, ctx.TimeProvider, out var parsedDayAndMonth))
-                return parsedDayAndMonth.ToOADate();
 
             return XLError.IncompatibleValue;
         }

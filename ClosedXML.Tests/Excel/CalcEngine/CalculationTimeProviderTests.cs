@@ -87,6 +87,19 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(new DateTime(2028, 2, 29).ToOADate(), actual.GetNumber());
         }
 
+        [TestCase("\"JAN 1\"*1", 1, 1)]
+        [TestCase("VALUE(\"DEC1\")", 12, 1)]
+        [TestCase("DATEVALUE(\"Feb 29\")", 2, 29)]
+        public void Month_and_day_text_uses_the_year_of_the_time_provider(string formula, int month, int day)
+        {
+            // The name of a month and a day has no year. 2028 is a leap year, so February 29 exists only in it.
+            using var wb = CreateWorkbook(new DateTimeOffset(2028, 6, 1, 12, 0, 0, TimeSpan.Zero), TimeZoneInfo.Utc);
+
+            var actual = wb.Evaluate(formula);
+
+            Assert.AreEqual(new DateTime(2028, month, day).ToOADate(), actual.GetNumber());
+        }
+
         [Test]
         public void Value_of_day_and_month_text_uses_the_year_of_the_time_provider()
         {

@@ -1076,6 +1076,23 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             return XLWorkbook.EvaluateExpr($"TEXT({numberArg},\"{format}\")").GetText();
         }
 
+        // Excel refuses a number outside the date system only for a date or a time format. The TEXT page of
+        // Microsoft Support has the example TEXT(12200000,"0.00E+00") with the result 1.22E+07.
+        [TestCase("12200000", "0.00E+00", ExpectedResult = "1.22E+07")]
+        [TestCase("2958466", "0", ExpectedResult = "2958466")]
+        public string Text_formats_number_after_date_system_with_number_format(string numberArg, string format)
+        {
+            return XLWorkbook.EvaluateExpr($"TEXT({numberArg},\"{format}\")").GetText();
+        }
+
+        [TestCase("2958466", "yyyy")]
+        [TestCase("2958466", "h:mm")]
+        [TestCase("-1", "yyyy")]
+        public void Text_returns_error_for_date_format_and_number_outside_date_system(string numberArg, string format)
+        {
+            Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExpr($"TEXT({numberArg},\"{format}\")"));
+        }
+
         [TestCase("\"211x\"", ExpectedResult = "211x")]
         [TestCase("true", ExpectedResult = "TRUE")]
         public string Text_returns_string_representation_of_non_numbers(string valueArg)
@@ -1224,6 +1241,31 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(1000d, wb.Evaluate("VALUE(\"$1,000\")"));
             Assert.AreEqual(new DateTime(2002, 3, 23).ToSerialDateTime(), wb.Evaluate("VALUE(\"23-Mar-2002\")"));
             Assert.AreEqual(0.188056d, (double)wb.Evaluate("VALUE(\"16:48:00\")-VALUE(\"12:17:12\")"), 0.000001d);
+        }
+
+        // VALUE reads each text in a number, date or time format that Excel recognizes. A formula reads a text
+        // as a number with the same formats, for example DATEVALUE("2011/02/23") gives 40597. The serial number
+        // of 1900-01-01 is 1, and Excel counts the day 1900-02-29.
+        [TestCase("2011/02/23", 40597)]
+        [TestCase("22-MAY-2011 6:35 AM", 40685.274305555555)]
+        [TestCase("1 1/2", 1.5)]
+        [TestCase("1/1/1900", 1)]
+        [TestCase("2/28/1900", 59)]
+        [TestCase("1-Jan-1900", 1)]
+        public void Value_reads_text_as_a_formula_reads_a_number(string text, double expected)
+        {
+            using var wb = new XLWorkbook();
+            Assert.AreEqual(expected, (double)wb.Evaluate($"VALUE(\"{text}\")"), 0.000001);
+        }
+
+        // Excel has no NaN or infinity. A number text outside the range of a double is not a number.
+        [TestCase("1E999")]
+        [TestCase("NaN")]
+        [TestCase("-Infinity")]
+        public void Value_returns_error_for_text_that_is_not_a_finite_number(string text)
+        {
+            using var wb = new XLWorkbook();
+            Assert.AreEqual(XLError.IncompatibleValue, wb.Evaluate($"VALUE(\"{text}\")"));
         }
 
         [Test]
