@@ -1,0 +1,9 @@
+<Project>
+  <!-- Set ClosedXMLDefaultGraphicEngineSupport to false to turn off the default graphic engine. A trimmed application
+       then does not contain the engine, SixLabors.Fonts and the embedded fonts. -->
+  <ItemGroup Condition="'$(ClosedXMLDefaultGraphicEngineSupport)' != ''">
+    <RuntimeHostConfigurationOption Include="ClosedXML.Graphics.DefaultGraphicEngine.IsSupported"
+                                    Value="$(ClosedXMLDefaultGraphicEngineSupport)"
+                                    Trim="true" />
+  </ItemGroup>
+</Project>

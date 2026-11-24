@@ -105,7 +105,14 @@ namespace ClosedXML.Excel
 
         internal readonly List<UnsupportedSheet> UnsupportedSheets = [];
 
-        internal IXLGraphicEngine GraphicEngine { get; }
+        private readonly IXLGraphicEngine? _graphicEngine;
+
+        /// <summary>
+        /// The engine that measures text and reads pictures.
+        /// </summary>
+        /// <exception cref="NotSupportedException">The load options give no engine, and the application turned off
+        /// the default engine.</exception>
+        internal IXLGraphicEngine GraphicEngine => _graphicEngine ?? throw DefaultGraphicEngine.CreateNotSupportedException();
 
         internal double DpiX { get; }
 
@@ -1111,7 +1118,8 @@ namespace ClosedXML.Excel
             DpiX = loadOptions.Dpi.X;
             DpiY = loadOptions.Dpi.Y;
             StrictAttributeParsing = loadOptions.StrictAttributeParsing;
-            GraphicEngine = loadOptions.GraphicEngine ?? LoadOptions.DefaultGraphicEngine ?? DefaultGraphicEngine.Instance.Value;
+            _graphicEngine = loadOptions.GraphicEngine ?? LoadOptions.DefaultGraphicEngine ??
+                             (DefaultGraphicEngine.IsSupported ? DefaultGraphicEngine.Instance.Value : null);
             CancellationToken = loadOptions.CancellationToken;
             MaxCalculationMemoryBytes = loadOptions.MaxCalculationMemoryBytes;
             Protection = new XLWorkbookProtection(DefaultProtectionAlgorithm);
