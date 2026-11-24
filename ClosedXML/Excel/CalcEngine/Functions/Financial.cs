@@ -38,7 +38,7 @@ namespace ClosedXML.Excel.CalcEngine
             // FVSCHEDULE Returns the future value of an initial principal after applying a series of compound interest rates
             // INTRATE Returns the interest rate for a fully invested security
             ce.RegisterFunction("IPMT", 4, 6, AdaptLastTwoOptional(Ipmt, 0, 0), FunctionFlags.Scalar); // Returns the interest payment for an investment for a given period
-            ce.RegisterFunction("IRR", 1, 2, AdaptLastOptional(Irr, 0.1), FunctionFlags.Range, AllowRange.Only, 0); // Returns the internal rate of return for a series of cash flows
+            ce.RegisterFunction("IRR", 1, 2, AdaptLastOptional(Irr, 0.1), FunctionFlags.Range | FunctionFlags.ArrayParameters, AllowRange.Only, 0); // Returns the internal rate of return for a series of cash flows
             // ISPMT Calculates the interest paid during a specific period of an investment
             // MDURATION Returns the Macauley modified duration for a security with an assumed par value of $100
             // MIRR Returns the internal rate of return where positive and negative cash flows are financed at different rates
