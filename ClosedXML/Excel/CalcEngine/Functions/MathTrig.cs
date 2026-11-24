@@ -535,7 +535,7 @@ namespace ClosedXML.Excel.CalcEngine
                     if (scalar.IsLogical)
                         return XLError.IncompatibleValue;
 
-                    if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
+                    if (!scalar.ToNumber(ctx.Culture, ctx.TimeProvider).TryPickT0(out var number, out var error))
                         return error;
 
                     if (number is < 0 or > MaxDoubleInt)
@@ -597,7 +597,7 @@ namespace ClosedXML.Excel.CalcEngine
                     if (scalar.IsLogical)
                         return XLError.IncompatibleValue;
 
-                    if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
+                    if (!scalar.ToNumber(ctx.Culture, ctx.TimeProvider).TryPickT0(out var number, out var error))
                         return error;
 
                     if (number is < 0 or > MaxDoubleInt)
@@ -734,7 +734,7 @@ namespace ClosedXML.Excel.CalcEngine
                     if (scalar.IsLogical)
                         return XLError.IncompatibleValue;
 
-                    if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
+                    if (!scalar.ToNumber(ctx.Culture, ctx.TimeProvider).TryPickT0(out var number, out var error))
                         return error;
 
                     if (number < 0)
@@ -1009,7 +1009,7 @@ namespace ClosedXML.Excel.CalcEngine
                 sumRange = range;
 
             var tally = new TallyCriteria();
-            var criteria = Criteria.Create(selectionCriteria, ctx.Culture);
+            var criteria = Criteria.Create(selectionCriteria, ctx.Culture, ctx.TimeProvider);
 
             // Excel doesn't support anything but area in the syntax, but we need to deal with it somehow.
             if (!range.TryPickArea(out var area, out var areaError))
@@ -1031,7 +1031,7 @@ namespace ClosedXML.Excel.CalcEngine
             var tally = new TallyCriteria();
             foreach (var (selectionRange, selectionCriteria) in criteriaRanges)
             {
-                var criteria = Criteria.Create(selectionCriteria, ctx.Culture);
+                var criteria = Criteria.Create(selectionCriteria, ctx.Culture, ctx.TimeProvider);
                 if (!selectionRange.TryPickArea(out var selectionArea, out var selectionAreaError))
                     return selectionAreaError;
 

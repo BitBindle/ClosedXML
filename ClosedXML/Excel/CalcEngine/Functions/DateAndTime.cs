@@ -198,7 +198,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             if (!value.TryPickText(out var text, out var error))
                 return error;
 
-            if (!ScalarValue.ToSerialDateTime(text, ctx.Culture, out var serialDateTime))
+            if (!ScalarValue.ToSerialDateTime(text, ctx.Culture, ctx.TimeProvider, out var serialDateTime))
                 return XLError.IncompatibleValue;
 
             return Math.Truncate(serialDateTime);
@@ -376,9 +376,9 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             return BusinessDaysUntil(ctx, startSerialDate, endSerialDate, allHolidays);
         }
 
-        private static ScalarValue Now()
+        private static ScalarValue Now(CalcContext ctx)
         {
-            return DateTime.Now.ToSerialDateTime();
+            return ctx.TimeProvider.GetLocalNow().DateTime.ToSerialDateTime();
         }
 
         private static ScalarValue Second(CalcContext ctx, double serialDate)
@@ -419,15 +419,15 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             if (!value.TryPickText(out var text, out var error))
                 return error;
 
-            if (!ScalarValue.ToSerialDateTime(text, ctx.Culture, out var serialDateTime))
+            if (!ScalarValue.ToSerialDateTime(text, ctx.Culture, ctx.TimeProvider, out var serialDateTime))
                 return XLError.IncompatibleValue;
 
             return serialDateTime % 1.0;
         }
 
-        private static ScalarValue Today()
+        private static ScalarValue Today(CalcContext ctx)
         {
-            return DateTime.Today.ToSerialDateTime();
+            return ctx.TimeProvider.GetLocalNow().Date.ToSerialDateTime();
         }
 
         private static ScalarValue Weekday(CalcContext ctx, ScalarValue date, ScalarValue flag)
@@ -436,7 +436,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
                 return dateError;
 
             // Omitted flag is 1, but blank (e.g. empty argument) is 0
-            if (!flag.ToNumber(ctx.Culture).TryPickT0(out var flagValue, out var flagError))
+            if (!flag.ToNumber(ctx.Culture, ctx.TimeProvider).TryPickT0(out var flagValue, out var flagError))
                 return flagError;
 
             var result = Weekday(serialDate, (int)Math.Truncate(flagValue));
@@ -538,7 +538,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             if (!TryGetDate(ctx, startDateScalar, out var startDate, out var startDateError))
                 return startDateError;
 
-            if (!dayOffsetValue.ToNumber(ctx.Culture).TryPickT0(out var dayOffsetDouble, out var dayOffsetError))
+            if (!dayOffsetValue.ToNumber(ctx.Culture, ctx.TimeProvider).TryPickT0(out var dayOffsetDouble, out var dayOffsetError))
                 return dayOffsetError;
 
             var dayOffset = (int)Math.Truncate(dayOffsetDouble);
@@ -705,7 +705,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
                 return false;
             }
 
-            if (!value.ToNumber(ctx.Culture).TryPickT0(out var serialDateTime, out error))
+            if (!value.ToNumber(ctx.Culture, ctx.TimeProvider).TryPickT0(out var serialDateTime, out error))
             {
                 serialDate = default;
                 return false;

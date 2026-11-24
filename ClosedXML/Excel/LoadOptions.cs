@@ -91,5 +91,27 @@ namespace ClosedXML.Excel
                 ? value
                 : throw new ArgumentOutOfRangeException(nameof(value), "Calculation memory limit must be non-negative.");
         } = 0;
+
+        /// <summary>
+        /// <para>
+        /// The clock of the formula calculation. The default is <c>null</c>, which means
+        /// <see cref="System.TimeProvider.System"/>.
+        /// </para>
+        /// <para>
+        /// <c>TODAY</c> and <c>NOW</c> return the local time of the clock, i.e.
+        /// <see cref="System.TimeProvider.GetLocalNow"/> in the
+        /// <see cref="System.TimeProvider.LocalTimeZone"/> of the clock. The conversion of a text
+        /// to a date in a formula uses the year of the local time for a text without a year
+        /// (e.g. <c>5-Jul</c>) and for the century of a two-digit year (e.g. <c>Mar-35</c>).
+        /// </para>
+        /// </summary>
+        /// <remarks>
+        /// The clock sets only the time of the calculation. A conversion outside of a formula,
+        /// e.g. <see cref="XLCellValue.TryConvert(out double, System.Globalization.CultureInfo)"/>,
+        /// uses the system clock. A formula with <c>TODAY</c> or <c>NOW</c> doesn't become dirty
+        /// when the time changes, so call <see cref="XLWorkbook.RecalculateAllFormulas()"/> to
+        /// calculate it again.
+        /// </remarks>
+        public TimeProvider? TimeProvider { get; set; }
     }
 }

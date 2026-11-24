@@ -35,6 +35,7 @@ internal sealed class CalcContext
         // If workbook is null, the context is from XLWorkbook.EvaluateExpr. Ignore limits in such case.
         CancellationToken = workbook?.CancellationToken ?? CancellationToken.None;
         MaxCalculationMemoryBytes = workbook?.MaxCalculationMemoryBytes ?? 0;
+        TimeProvider = workbook?.TimeProvider ?? TimeProvider.System;
     }
 
     // LEGACY: Remove once legacy functions are migrated
@@ -64,6 +65,11 @@ internal sealed class CalcContext
     /// A culture used for comparisons and conversions (e.g. text to number).
     /// </summary>
     public CultureInfo Culture { get; }
+
+    /// <summary>
+    /// The clock of the calculation (e.g. for <c>TODAY</c> or a date text without a year).
+    /// </summary>
+    public TimeProvider TimeProvider { get; }
 
     /// <summary>
     /// Excel 2016 and earlier doesn't support dynamic array formulas (it used an array formulas instead). As a consequence,

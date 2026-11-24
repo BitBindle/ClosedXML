@@ -58,7 +58,7 @@ internal class TallyNumbers : ITally
                     continue;
 
                 // Scalars are converted to number.
-                if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
+                if (!scalar.ToNumber(ctx.Culture, ctx.TimeProvider).TryPickT0(out var number, out var error))
                 {
                     if (_ignoreErrors)
                         continue;

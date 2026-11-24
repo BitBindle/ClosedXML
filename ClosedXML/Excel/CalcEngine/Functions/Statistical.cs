@@ -231,7 +231,7 @@ namespace ClosedXML.Excel.CalcEngine
                 return areaError;
 
             var tally = new TallyCriteria(static _ => 1);
-            var criteria = Criteria.Create(selectionCriteria, ctx.Culture);
+            var criteria = Criteria.Create(selectionCriteria, ctx.Culture, ctx.TimeProvider);
             tally.Add(countArea, criteria);
 
             // TallyCriteria only sums up the value.
@@ -250,7 +250,7 @@ namespace ClosedXML.Excel.CalcEngine
             var tally = new TallyCriteria(static _ => 1);
             foreach (var (selectionRange, selectionCriteria) in criteriaRanges)
             {
-                var criteria = Criteria.Create(selectionCriteria, ctx.Culture);
+                var criteria = Criteria.Create(selectionCriteria, ctx.Culture, ctx.TimeProvider);
                 if (!selectionRange.TryPickArea(out var selectionArea, out var selectionAreaError))
                     return selectionAreaError;
 
@@ -575,7 +575,7 @@ namespace ClosedXML.Excel.CalcEngine
             int size;
             if (arrayParam.TryPickScalar(out var scalar, out var collection))
             {
-                if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
+                if (!scalar.ToNumber(ctx.Culture, ctx.TimeProvider).TryPickT0(out var number, out var error))
                     return error;
 
                 values = [number];

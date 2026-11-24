@@ -549,7 +549,7 @@ namespace ClosedXML.Excel.CalcEngine
         private static ScalarValue _Text(CalcContext ctx, ScalarValue value, string format)
         {
             // Non-convertible values are turned to string
-            if (!value.ToNumber(ctx.Culture).TryPickT0(out var number, out _) || value.IsLogical)
+            if (!value.ToNumber(ctx.Culture, ctx.TimeProvider).TryPickT0(out var number, out _) || value.IsLogical)
             {
                 return value
                     .ToText(ctx.Culture)
@@ -659,7 +659,7 @@ namespace ClosedXML.Excel.CalcEngine
 
             // VALUE accepts each text that a formula reads as a number, for example "2011/02/23" or "1 1/2".
             // The parse below stays for the other texts.
-            if (ScalarValue.TextToNumber(text, ctx.Culture).TryPickT0(out var coercedNumber, out _))
+            if (ScalarValue.TextToNumber(text, ctx.Culture, ctx.TimeProvider).TryPickT0(out var coercedNumber, out _))
                 return coercedNumber;
 
             const string percentSign = "%";
@@ -684,7 +684,7 @@ namespace ClosedXML.Excel.CalcEngine
                 ctx.Culture.DateTimeFormat.LongTimePattern,
                 @"mm-dd-yy", // format 14
                 @"d-MMMM-yy", // format 15
-                @"d-MMMM", // format 16
+                // Format 16 'd-mmmm' has no year. TextToNumber above reads it with the year of the clock.
                 @"d-MMM-yyyy",
                 @"H:mm", // format 20
                 @"H:mm:ss" // format 21

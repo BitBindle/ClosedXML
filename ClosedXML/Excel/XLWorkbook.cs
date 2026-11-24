@@ -125,6 +125,11 @@ namespace ClosedXML.Excel
 
         internal long MaxCalculationMemoryBytes { get; }
 
+        /// <summary>
+        /// The clock of the formula calculation.
+        /// </summary>
+        internal TimeProvider TimeProvider { get; }
+
         internal XLPivotCaches PivotCachesInternal
         {
             get
@@ -1122,6 +1127,7 @@ namespace ClosedXML.Excel
                              (DefaultGraphicEngine.IsSupported ? DefaultGraphicEngine.Instance.Value : null);
             CancellationToken = loadOptions.CancellationToken;
             MaxCalculationMemoryBytes = loadOptions.MaxCalculationMemoryBytes;
+            TimeProvider = loadOptions.TimeProvider ?? TimeProvider.System;
             Protection = new XLWorkbookProtection(DefaultProtectionAlgorithm);
             DefaultRowHeight = 15;
             DefaultColumnWidth = 8.43;
