@@ -562,9 +562,9 @@ namespace ClosedXML.Excel.CalcEngine
 
             var nf = new NumberFormat(format);
 
-            // Values formated as date/time must be in the limit for dates
+            // Values formated as date/time must be in the limit for dates. Other formats accept each number.
             var isDateFormat = nf.IsDateTimeFormat || nf.IsTimeSpanFormat;
-            if (isDateFormat && number < 0 || number >= ctx.DateSystemUpperLimit)
+            if (isDateFormat && (number < 0 || number >= ctx.DateSystemUpperLimit))
                 return XLError.IncompatibleValue;
 
             try
