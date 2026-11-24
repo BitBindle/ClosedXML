@@ -75,8 +75,8 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             ws.Cell("C1").FormulaA1 = "A1*10";
             wb.RecalculateAllFormulas();
 
-            // The reference to a spill range is not implemented, so the calculation of B1 throws.
-            ws.Cell("B1").FormulaA1 = "A1#";
+            // B1 reads itself, so the calculation of B1 fails with a cycle.
+            ws.Cell("B1").FormulaA1 = "A1+B1";
 
             // A set of a formula moves the cell to the end of the calculation chain, so C1 comes after B1.
             ws.Cell("C1").FormulaA1 = "A1*10";
