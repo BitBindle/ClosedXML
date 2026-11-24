@@ -1069,7 +1069,7 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase("DATE(2010, 1, 1)", "M/d/y", ExpectedResult = "1/1/10")]
         [TestCase("1234.567", "$0.00", ExpectedResult = "$1234.57")]
         [TestCase(".125", "$0.0%", ExpectedResult = "$12.5%")]
-        [TestCase("1234.567", "YYYY-MM-DD HH:MM:SS", ExpectedResult = "1903-05-18 13:36:28")] // Excel is one second off (29), but that is in the library
+        [TestCase("1234.567", "YYYY-MM-DD HH:MM:SS", ExpectedResult = "1903-05-18 13:36:29")] // Excel rounds the time 13:36:28.8 to 13:36:29
         [TestCase("\"0.0245\"", "00%", ExpectedResult = "02%")]
         public string Text_formats_number(string numberArg, string format)
         {
