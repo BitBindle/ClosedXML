@@ -272,8 +272,12 @@ namespace ClosedXML.Excel
         /// <para>
         /// A change that doesn't set a value doesn't mark a formula as dirty, e.g. a hide of a row for
         /// <c>SUBTOTAL</c>, or a new time for <c>NOW</c>. Use <see cref="MarkDependentsDirty"/> and
-        /// <see cref="IXLCell.InvalidateFormula"/> for these. The formulas of a loaded workbook get marked
-        /// only after the first calculation, so call <see cref="RecalculateAllFormulas()"/> once after a load.
+        /// <see cref="IXLCell.InvalidateFormula"/> for these.
+        /// </para>
+        /// <para>
+        /// A set of a value marks the formulas that read the cell only when the dependency tree exists. Each
+        /// calculation builds the tree, this method included, and so does <see cref="MarkDependentsDirty"/>.
+        /// A loaded workbook has no tree. Call this method once after a load and before the first change.
         /// </para>
         /// </remarks>
         void RecalculateDirtyFormulas();
@@ -282,8 +286,15 @@ namespace ClosedXML.Excel
         /// Recalculate only the dirty cell formulas. A cell that fails doesn't stop the recalculation.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// The method calculates the same formulas as <see cref="RecalculateDirtyFormulas()"/>. A failed cell
         /// is handled as in <see cref="RecalculateAllFormulas(ICollection{IXLCell})"/>.
+        /// </para>
+        /// <para>
+        /// A failed cell is marked as calculated. A later recalculation of dirty formulas doesn't report the
+        /// cell again until the cell becomes dirty, e.g. for a cycle that still exists. Each
+        /// <see cref="RecalculateAllFormulas(ICollection{IXLCell})"/> reports it again.
+        /// </para>
         /// </remarks>
         /// <param name="failed">A collection the cells that failed are added to.</param>
         /// <exception cref="ArgumentNullException"><paramref name="failed"/> is <c>null</c>.</exception>
@@ -294,13 +305,20 @@ namespace ClosedXML.Excel
         /// other formulas. The next recalculation of dirty formulas calculates them.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// Use the method after a change that doesn't set a value of a cell, e.g. after a hide of a row for
-        /// <c>SUBTOTAL</c>. A formula in the <paramref name="range"/> stays as it is. Before the first
-        /// calculation, the method does nothing.
+        /// <c>SUBTOTAL</c>. A formula in the <paramref name="range"/> stays as it is. If the dependency tree
+        /// doesn't exist (e.g. in a loaded workbook before the first calculation), the method builds it.
+        /// </para>
+        /// <para>
+        /// The mark doesn't go past a formula that is already dirty. After <see cref="IXLCell.InvalidateFormula"/>,
+        /// call the method for the cell (<c>cell.AsRange()</c>), so that the formulas that read the cell become
+        /// dirty too.
+        /// </para>
         /// </remarks>
         /// <param name="range">The range whose dependent formulas become dirty.</param>
         /// <exception cref="ArgumentNullException"><paramref name="range"/> is <c>null</c>.</exception>
-        /// <exception cref="ArgumentException"><paramref name="range"/> is not a valid range of the workbook.</exception>
+        /// <exception cref="ArgumentException"><paramref name="range"/> is not a valid range of a worksheet of the workbook.</exception>
         void MarkDependentsDirty(IXLRangeBase range);
 
         /// <summary>

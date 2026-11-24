@@ -1347,10 +1347,13 @@ namespace ClosedXML.Excel
             if (range is null)
                 throw new ArgumentNullException(nameof(range));
 
-            if (!ReferenceEquals(range.Worksheet.Workbook, this) || !range.RangeAddress.IsValid)
-                throw new ArgumentException("The range is not a valid range of the workbook.", nameof(range));
+            // A range of a deleted worksheet keeps its worksheet, so check that the workbook still has it.
+            if (!WorksheetsInternal.TryGetWorksheet(range.Worksheet.Name, out var sheet) ||
+                !ReferenceEquals(sheet, range.Worksheet) ||
+                !range.RangeAddress.IsValid)
+                throw new ArgumentException("The range is not a valid range of a worksheet of the workbook.", nameof(range));
 
-            CalcEngine.MarkDirty((XLWorksheet)range.Worksheet, Area.FromRangeAddress(range.RangeAddress));
+            CalcEngine.MarkDependentsDirty(this, sheet, Area.FromRangeAddress(range.RangeAddress));
         }
 
         private void MarkAllFormulasDirty()

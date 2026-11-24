@@ -77,9 +77,15 @@ formulas that read the range as dirty:
    wb.MarkDependentsDirty(ws.Row(2));
    wb.RecalculateDirtyFormulas();
 
-The dependency tree exists only after the first calculation. Before it, a set
-of a value in a loaded workbook doesn't mark the formulas that read the cell.
-Call ``RecalculateAllFormulas()`` once after a load.
+The mark doesn't go past a formula that is already dirty. After
+``IXLCell.InvalidateFormula()``, call ``MarkDependentsDirty(cell.AsRange())``
+so that the formulas that read the cell become dirty too.
+
+A set of a value marks the formulas that read the cell only when the
+dependency tree exists. A loaded workbook has no tree. Each calculation builds
+it, ``RecalculateDirtyFormulas()`` included, and so does
+``MarkDependentsDirty``. Call ``RecalculateDirtyFormulas()`` once after a load
+and before the first change.
 
 Transitive nature
 -----------------

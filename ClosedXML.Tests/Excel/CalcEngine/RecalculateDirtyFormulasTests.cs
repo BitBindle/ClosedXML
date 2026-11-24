@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using ClosedXML.Excel;
 using NUnit.Framework;
@@ -181,6 +182,116 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             var deletedRange = ws.Range("A2:B2");
             ws.Row(2).Delete();
             Assert.Throws<ArgumentException>(() => wb.MarkDependentsDirty(deletedRange));
+        }
+
+        [Test]
+        public void Mark_of_dependents_requires_a_worksheet_that_the_workbook_still_has()
+        {
+            using var wb = new XLWorkbook();
+            var a = wb.AddWorksheet("A");
+            var b = wb.AddWorksheet("B");
+            b.Cell("A1").FormulaA1 = "SUM(A!A1:A3)";
+            var range = a.Range("A1:A3");
+            wb.RecalculateAllFormulas();
+
+            a.Delete();
+            wb.RecalculateAllFormulas();
+            Assert.Throws<ArgumentException>(() => wb.MarkDependentsDirty(range));
+
+            // A new worksheet with the same name is not the worksheet of the range.
+            wb.AddWorksheet("A");
+            Assert.Throws<ArgumentException>(() => wb.MarkDependentsDirty(range));
+        }
+
+        [Test]
+        public void Mark_of_dependents_builds_the_dependency_tree_of_a_loaded_workbook()
+        {
+            using var stream = new MemoryStream();
+            using (var source = new XLWorkbook())
+            {
+                var sheet = source.AddWorksheet("S");
+                sheet.Cell("A1").Value = 1;
+                sheet.Cell("B1").FormulaA1 = "A1*2";
+                sheet.Cell("C1").FormulaA1 = "B1+1";
+                source.SaveAs(stream, new SaveOptions { EvaluateFormulasBeforeSaving = true });
+            }
+
+            using var wb = new XLWorkbook(stream);
+            var ws = wb.Worksheet("S");
+            Assert.IsFalse(ws.Cell("B1").NeedsRecalculation);
+
+            // Before the first calculation, the set of a value marks no formula, because the tree doesn't exist.
+            ws.Cell("A1").Value = 5;
+            Assert.IsFalse(ws.Cell("B1").NeedsRecalculation);
+
+            wb.MarkDependentsDirty(ws.Range("A1"));
+
+            Assert.IsTrue(ws.Cell("B1").NeedsRecalculation);
+            Assert.IsTrue(ws.Cell("C1").NeedsRecalculation);
+            wb.RecalculateDirtyFormulas();
+            Assert.AreEqual(10, ws.Cell("B1").CachedValue);
+            Assert.AreEqual(11, ws.Cell("C1").CachedValue);
+        }
+
+        [Test]
+        public void Recalculation_of_dirty_formulas_builds_the_dependency_tree_of_a_loaded_workbook()
+        {
+            using var stream = new MemoryStream();
+            using (var source = new XLWorkbook())
+            {
+                var sheet = source.AddWorksheet("S");
+                sheet.Cell("A1").Value = 1;
+                sheet.Cell("B1").FormulaA1 = "A1*2";
+                source.SaveAs(stream, new SaveOptions { EvaluateFormulasBeforeSaving = true });
+            }
+
+            using var wb = new XLWorkbook(stream);
+            var ws = wb.Worksheet("S");
+            wb.RecalculateDirtyFormulas();
+
+            ws.Cell("A1").Value = 5;
+            Assert.IsTrue(ws.Cell("B1").NeedsRecalculation);
+            wb.RecalculateDirtyFormulas();
+            Assert.AreEqual(10, ws.Cell("B1").CachedValue);
+        }
+
+        [Test]
+        public void Mark_of_dependents_after_an_invalidation_reaches_the_readers_of_the_cell()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").Value = 1;
+            ws.Cell("B1").FormulaA1 = "A1*2";
+            ws.Cell("C1").FormulaA1 = "B1+1";
+            wb.RecalculateAllFormulas();
+
+            // The mark doesn't go past a formula that is already dirty, so the invalidation of B1 needs a mark of its readers.
+            ws.Cell("B1").InvalidateFormula();
+            wb.MarkDependentsDirty(ws.Cell("B1").AsRange());
+            ws.Cell("A1").Value = 5;
+            wb.RecalculateDirtyFormulas();
+
+            Assert.AreEqual(11, ws.Cell("C1").CachedValue);
+        }
+
+        [Test]
+        public void Recalculation_of_dirty_formulas_does_not_report_a_failed_cell_again()
+        {
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet("S");
+            ws.Cell("A1").FormulaA1 = "A2";
+            ws.Cell("A2").FormulaA1 = "A1";
+
+            var first = new List<IXLCell>();
+            wb.RecalculateDirtyFormulas(first);
+            var second = new List<IXLCell>();
+            wb.RecalculateDirtyFormulas(second);
+            var all = new List<IXLCell>();
+            wb.RecalculateAllFormulas(all);
+
+            Assert.AreEqual(1, first.Count);
+            Assert.IsEmpty(second);
+            Assert.AreEqual(1, all.Count);
         }
     }
 }
