@@ -207,8 +207,8 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             AssertCoercion(text, expectedValue);
         }
 
-        // No recorded Excel value exists for a date with a time with seconds. Formats 19 'h:mm:ss AM/PM' and
-        // 21 'h:mm:ss' are time formats only. The parse takes the time with seconds also after a date.
+        // TIMEVALUE reads time_text in each Excel time format and ignores the date in it, for example
+        // "22-Aug-2011 6:35 AM". Formats 19 'h:mm:ss AM/PM' and 21 'h:mm:ss' are Excel time formats.
         [TestCase("22-May-2011 6:35:10 AM", 40685.274421296296d)]
         [TestCase("22-May-11 6:35:10 PM", 40685.774421296296d)]
         [TestCase("22-May-2011 18:35:10", 40685.774421296296d)]
