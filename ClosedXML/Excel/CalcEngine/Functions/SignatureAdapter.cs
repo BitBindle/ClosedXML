@@ -18,6 +18,11 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             return (_, _) => f().ToAnyValue();
         }
 
+        public static CalcEngineFunction Adapt(Func<CalcContext, ScalarValue> f)
+        {
+            return (ctx, _) => f(ctx).ToAnyValue();
+        }
+
         public static CalcEngineFunction AdaptCoerced(Func<Boolean, AnyValue> f)
         {
             return (ctx, args) =>
@@ -831,7 +836,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
                     if (scalar.IsLogical)
                         return XLError.IncompatibleValue;
 
-                    if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
+                    if (!scalar.ToNumber(ctx.Culture, ctx.TimeProvider).TryPickT0(out var number, out var error))
                         return error;
 
                     arg3 = new ScalarArray(number, 1, 1);
@@ -1141,14 +1146,14 @@ namespace ClosedXML.Excel.CalcEngine.Functions
         private static OneOf<double, XLError> ToNumber(in AnyValue value, CalcContext ctx)
         {
             if (value.TryPickScalar(out var scalar, out var collection))
-                return scalar.ToNumber(ctx.Culture);
+                return scalar.ToNumber(ctx.Culture, ctx.TimeProvider);
 
             // When user specifies array as an argument in an array formula for a scalar function, use [0,0]
             if (collection.TryPickT0(out var array, out var reference))
-                return array[0, 0].ToNumber(ctx.Culture);
+                return array[0, 0].ToNumber(ctx.Culture, ctx.TimeProvider);
 
             if (reference.TryGetSingleCellValue(out var scalarValue, ctx))
-                return scalarValue.ToNumber(ctx.Culture);
+                return scalarValue.ToNumber(ctx.Culture, ctx.TimeProvider);
 
             throw new NotImplementedException("Array formulas not implemented.");
         }
@@ -1164,7 +1169,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             if (scalar.IsLogical)
                 return XLError.IncompatibleValue;
 
-            return scalar.ToNumber(ctx.Culture);
+            return scalar.ToNumber(ctx.Culture, ctx.TimeProvider);
         }
 
         private static OneOf<string, XLError> ToText(in AnyValue value, CalcContext ctx)

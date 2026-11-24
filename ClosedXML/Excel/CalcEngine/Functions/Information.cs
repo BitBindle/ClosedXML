@@ -57,7 +57,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
                 if (scalar.IsLogical)
                     return XLError.IncompatibleValue;
 
-                if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
+                if (!scalar.ToNumber(ctx.Culture, ctx.TimeProvider).TryPickT0(out var number, out var error))
                     return error;
 
                 return Math.Truncate(number) % 2 == 0;
@@ -91,7 +91,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
                 if (scalar.IsLogical)
                     return XLError.IncompatibleValue;
 
-                if (!scalar.ToNumber(ctx.Culture).TryPickT0(out var number, out var error))
+                if (!scalar.ToNumber(ctx.Culture, ctx.TimeProvider).TryPickT0(out var number, out var error))
                     return error;
 
                 return Math.Truncate(number) % 2 != 0;

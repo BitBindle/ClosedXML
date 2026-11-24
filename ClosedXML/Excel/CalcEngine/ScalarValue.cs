@@ -187,14 +187,16 @@ namespace ClosedXML.Excel.CalcEngine
         /// <summary>
         /// Convert value to number. Error is not convertible.
         /// </summary>
-        public OneOf<double, XLError> ToNumber(CultureInfo culture)
+        /// <param name="culture">Culture used to convert a text.</param>
+        /// <param name="timeProvider">Clock used to convert a date text without a year.</param>
+        public OneOf<double, XLError> ToNumber(CultureInfo culture, TimeProvider timeProvider)
         {
             return _index switch
             {
                 BlankValue => 0,
                 LogicalValue => _logical ? 1.0 : 0.0,
                 NumberValue => _number,
-                TextValue => TextToNumber(TextOrThrow, culture),
+                TextValue => TextToNumber(TextOrThrow, culture, timeProvider),
                 ErrorValue => _error,
                 _ => throw new InvalidOperationException()
             };
@@ -205,8 +207,9 @@ namespace ClosedXML.Excel.CalcEngine
         /// </summary>
         /// <param name="text">Text to parse.</param>
         /// <param name="culture">Culture used for parsing numbers or dates.</param>
+        /// <param name="timeProvider">Clock used to parse a date text without a year.</param>
         /// <returns>Parsed scalar value.</returns>
-        public static ScalarValue Parse(string text, CultureInfo culture)
+        public static ScalarValue Parse(string text, CultureInfo culture, TimeProvider timeProvider)
         {
             if (text is null)
                 return Blank;
@@ -216,7 +219,7 @@ namespace ClosedXML.Excel.CalcEngine
                 return true;
             if (StringComparer.OrdinalIgnoreCase.Equals("FALSE", text))
                 return false;
-            if (TextToNumber(text, culture).TryPickT0(out var number, out _))
+            if (TextToNumber(text, culture, timeProvider).TryPickT0(out var number, out _))
                 return number;
             if (XLErrorParser.TryParseError(text, out var error))
                 return error;
@@ -224,7 +227,7 @@ namespace ClosedXML.Excel.CalcEngine
             return text;
         }
 
-        public static OneOf<double, XLError> TextToNumber(string text, CultureInfo culture)
+        public static OneOf<double, XLError> TextToNumber(string text, CultureInfo culture, TimeProvider timeProvider)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return XLError.IncompatibleValue;
@@ -266,7 +269,7 @@ namespace ClosedXML.Excel.CalcEngine
             if (FractionParser.TryParse(text, out var fraction))
                 return fraction;
 
-            if (ToSerialDateTime(text, culture, out var serialDateTime))
+            if (ToSerialDateTime(text, culture, timeProvider, out var serialDateTime))
                 return serialDateTime;
 
             return XLError.IncompatibleValue;
@@ -291,11 +294,12 @@ namespace ClosedXML.Excel.CalcEngine
             "d-MMM-yyyy H:m", "d-MMMM-yyyy H:m", "d-MMM-yy H:m", "d-MMMM-yy H:m",
         };
 
-        private static readonly string[] DateFormat16Patterns = { "d-MMM", "d-MMMM" };
+        // The year of the clock is added to the text, because the .NET parser takes a missing year from the system clock.
+        private static readonly string[] DateFormat16Patterns = { "d-MMM yyyy", "d-MMMM yyyy" };
 
         private static readonly string[] DateFormat17Patterns = { "MMM-y", "MMMM-y" };
 
-        public static bool ToSerialDateTime(string text, CultureInfo culture, out double serialDateTime)
+        public static bool ToSerialDateTime(string text, CultureInfo culture, TimeProvider timeProvider, out double serialDateTime)
         {
             const DateTimeStyles dateStyle = DateTimeStyles.NoCurrentDateDefault | DateTimeStyles.AllowInnerWhite | DateTimeStyles.AllowTrailingWhite;
 
@@ -314,9 +318,9 @@ namespace ClosedXML.Excel.CalcEngine
                 return ToSerialDate(dateFormat15, out serialDateTime);
             }
 
-            // Since format doesn't have a year, it uses current year
+            // Since format doesn't have a year, it uses the year of the clock
             // Format 16 'd-mmm'
-            if (DateTime.TryParseExact(text, DateFormat16Patterns, culture, dateStyle, out var dateFormat16))
+            if (DateTime.TryParseExact(text + " " + ClockYear(timeProvider, culture), DateFormat16Patterns, culture, dateStyle, out var dateFormat16))
             {
                 return ToSerialDate(dateFormat16, out serialDateTime);
             }
@@ -326,7 +330,7 @@ namespace ClosedXML.Excel.CalcEngine
             // Format 17 'mmm-yy'
             if (DateTime.TryParseExact(text, DateFormat17Patterns, culture, dateStyle, out var dateFormat17))
             {
-                if (dateFormat17.Year != DateTime.Now.Year && dateFormat17.Year >= 2030)
+                if (dateFormat17.Year != timeProvider.GetLocalNow().Year && dateFormat17.Year >= 2030)
                     dateFormat17 = dateFormat17.AddYears(-100);
 
                 return ToSerialDate(dateFormat17, out serialDateTime);
@@ -352,6 +356,13 @@ namespace ClosedXML.Excel.CalcEngine
 
             serialDateTime = default;
             return false;
+
+            static string ClockYear(TimeProvider timeProvider, CultureInfo culture)
+            {
+                // The parser reads the year in the calendar of the culture (e.g. the Thai Buddhist calendar).
+                var year = culture.DateTimeFormat.Calendar.GetYear(timeProvider.GetLocalNow().DateTime);
+                return year.ToString(CultureInfo.InvariantCulture);
+            }
 
             static bool ToSerialDate(DateTime dateTime, out double serialDate)
             {

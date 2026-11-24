@@ -25,12 +25,14 @@ internal class Criteria
     private readonly Comparison _comparison;
     private readonly ScalarValue _value;
     private readonly CultureInfo _culture;
+    private readonly TimeProvider _timeProvider;
 
-    private Criteria(Comparison comparison, ScalarValue value, CultureInfo culture)
+    private Criteria(Comparison comparison, ScalarValue value, CultureInfo culture, TimeProvider timeProvider)
     {
         _comparison = comparison;
         _value = value;
         _culture = culture;
+        _timeProvider = timeProvider;
     }
 
     /// <summary>
@@ -54,7 +56,7 @@ internal class Criteria
         }
     }
 
-    internal static Criteria Create(ScalarValue criteria, CultureInfo culture)
+    internal static Criteria Create(ScalarValue criteria, CultureInfo culture, TimeProvider timeProvider)
     {
         if (criteria.IsText)
         {
@@ -64,16 +66,16 @@ internal class Criteria
             var criteriaText = criteria.GetText();
             var (prefix, comparison) = GetComparison(criteriaText);
             var operandText = criteriaText[prefix.Length..];
-            var operand = ScalarValue.Parse(operandText, culture);
-            return new Criteria(comparison, operand, culture);
+            var operand = ScalarValue.Parse(operandText, culture, timeProvider);
+            return new Criteria(comparison, operand, culture, timeProvider);
         }
 
         // If criteria is real blank (either through cell reference or IF(TRUE,))
         // it is interpreted as number 0.
         if (criteria.IsBlank)
-            return new Criteria(Comparison.Equal, 0, culture);
+            return new Criteria(Comparison.Equal, 0, culture, timeProvider);
 
-        return new Criteria(Comparison.None, criteria, culture);
+        return new Criteria(Comparison.None, criteria, culture, timeProvider);
 
         static (string Prefix, Comparison Comparison) GetComparison(string criteriaText)
         {
@@ -138,7 +140,7 @@ internal class Criteria
         {
             number = value.GetNumber();
         }
-        else if (value.IsText && ScalarValue.TextToNumber(value.GetText(), _culture).TryPickT0(out var parsedNumber, out _))
+        else if (value.IsText && ScalarValue.TextToNumber(value.GetText(), _culture, _timeProvider).TryPickT0(out var parsedNumber, out _))
         {
             number = parsedNumber;
         }

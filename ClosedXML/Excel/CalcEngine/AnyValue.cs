@@ -411,7 +411,7 @@ namespace ClosedXML.Excel.CalcEngine
 
         private static ScalarValue UnaryArithmeticOp(ScalarValue value, Func<double, double> op, CalcContext ctx)
         {
-            var conversionResult = value.ToNumber(ctx.Culture);
+            var conversionResult = value.ToNumber(ctx.Culture, ctx.TimeProvider);
             if (!conversionResult.TryPickT0(out var number, out var error))
                 return error;
 
@@ -581,13 +581,13 @@ namespace ClosedXML.Excel.CalcEngine
 
         private static ScalarValue BinaryArithmeticOp(in ScalarValue left, in ScalarValue right, BinaryNumberFunc func, CalcContext ctx)
         {
-            var leftConversionResult = left.ToNumber(ctx.Culture);
+            var leftConversionResult = left.ToNumber(ctx.Culture, ctx.TimeProvider);
             if (!leftConversionResult.TryPickT0(out var leftNumber, out var leftError))
             {
                 return leftError;
             }
 
-            var rightConversionResult = right.ToNumber(ctx.Culture);
+            var rightConversionResult = right.ToNumber(ctx.Culture, ctx.TimeProvider);
             if (!rightConversionResult.TryPickT0(out var rightNumber, out var rightError))
             {
                 return rightError;

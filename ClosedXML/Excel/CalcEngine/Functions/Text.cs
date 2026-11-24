@@ -549,7 +549,7 @@ namespace ClosedXML.Excel.CalcEngine
         private static ScalarValue _Text(CalcContext ctx, ScalarValue value, string format)
         {
             // Non-convertible values are turned to string
-            if (!value.ToNumber(ctx.Culture).TryPickT0(out var number, out _) || value.IsLogical)
+            if (!value.ToNumber(ctx.Culture, ctx.TimeProvider).TryPickT0(out var number, out _) || value.IsLogical)
             {
                 return value
                     .ToText(ctx.Culture)

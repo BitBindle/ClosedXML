@@ -86,6 +86,25 @@ truth about what value of a cell should be.
 If a cell contains a formula, but not a value, the formula is marked as a dirty
 during load.
 
+Time of the calculation
+=======================
+
+``TODAY`` and ``NOW`` return the local time of the clock of the workbook. The
+conversion of a date text without a year (e.g. ``"5-Jul"``) uses the year of
+this time, and so does the century of a two-digit year (e.g. ``"Mar-35"``).
+The default clock is ``TimeProvider.System``. Set ``LoadOptions.TimeProvider``
+to use a fixed time or the time zone of a user:
+
+.. code-block:: csharp
+
+   var options = new LoadOptions { TimeProvider = userClock };
+   using var wb = new XLWorkbook(options);
+
+``TimeProvider.GetLocalNow()`` gives the local time in the
+``TimeProvider.LocalTimeZone``. A change of the time doesn't mark a formula as
+dirty. Call ``RecalculateAllFormulas()`` to calculate the formulas again.
+A conversion outside of a formula (e.g. ``XLCellValue.TryConvert``) uses the
+system clock.
 
 Calculation chain
 =================

@@ -276,7 +276,7 @@ namespace ClosedXML.Excel
                 return true;
             if (StringComparer.OrdinalIgnoreCase.Equals("FALSE", text))
                 return false;
-            if (ScalarValue.TextToNumber(text, culture).TryPickT0(out var number, out _))
+            if (ScalarValue.TextToNumber(text, culture, TimeProvider.System).TryPickT0(out var number, out _))
                 return number;
             if (XLErrorParser.TryParseError(text, out var error))
                 return error;
@@ -563,7 +563,7 @@ namespace ClosedXML.Excel
                     return true;
                 case XLDataType.Text:
                     {
-                        var coercionResult = ScalarValue.TextToNumber(GetText(), culture);
+                        var coercionResult = ScalarValue.TextToNumber(GetText(), culture, TimeProvider.System);
                         if (coercionResult.TryPickT0(out var number, out _))
                         {
                             value = number;

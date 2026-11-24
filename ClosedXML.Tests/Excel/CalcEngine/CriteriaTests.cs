@@ -28,7 +28,7 @@ internal class CriteriaTests
     [TestCaseSource(nameof(CriteriaTestCases))]
     public void Selection_criteria_uses_type_and_comparator_to_match_values(ScalarValue selectionCriteria, XLCellValue value, bool expectedResult)
     {
-        var criteria = Criteria.Create(selectionCriteria, CultureInfo.CurrentCulture);
+        var criteria = Criteria.Create(selectionCriteria, CultureInfo.CurrentCulture, System.TimeProvider.System);
         var matchResult = criteria.Match(value);
         Assert.AreEqual(expectedResult, matchResult);
 
