@@ -3,6 +3,7 @@ using ClosedXML.Excel;
 using NUnit.Framework;
 using System;
 using System.Linq;
+using System.Threading;
 
 namespace ClosedXML.Tests.Excel.CalcEngine
 {
@@ -726,6 +727,66 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(5, sheet.Evaluate($"S!{name254}"));
             Assert.AreEqual(5, sheet.Evaluate($"INDIRECT(\"S!{name253}\")"));
             Assert.AreEqual(XLError.CellReference, sheet.Evaluate($"INDIRECT(\"S!{name254}\")"));
+        }
+
+        [TestCase(64, 5)]
+        [TestCase(65, XLError.CellReference)]
+        public void Indirect_refuses_text_with_more_than_64_levels(int levels, object expected)
+        {
+            // A text of more than 64 levels gives #REF! on each stack size. Excel allows 64 nested levels of functions.
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet();
+            sheet.Cell("A1").Value = 5;
+            sheet.Cell("B1").Value = new string('(', levels) + "A1" + new string(')', levels);
+
+            Assert.AreEqual(expected, sheet.Evaluate("INDIRECT(B1)"));
+        }
+
+        [Test]
+        public void Indirect_counts_a_minus_sign_of_a_reference_as_a_level()
+        {
+            // The count includes the minus sign of a relative R1C1 reference, although it does not start a level.
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet();
+            sheet.Cell("A1").Value = 5;
+            sheet.Cell("B1").Value = 5;
+            sheet.Cell("C1").Value = new string('(', 63) + "R[-1]C" + new string(')', 63);
+            sheet.Cell("C2").Value = new string('(', 64) + "R[-1]C" + new string(')', 64);
+            sheet.Cell("A2").FormulaA1 = "INDIRECT(C1,FALSE)";
+            sheet.Cell("B2").FormulaA1 = "INDIRECT(C2,FALSE)";
+
+            Assert.AreEqual(5, sheet.Cell("A2").Value);
+            Assert.AreEqual(XLError.CellReference, sheet.Cell("B2").Value);
+        }
+
+        [Test]
+        public void Indirect_does_not_count_characters_in_a_quoted_sheet_name()
+        {
+            // A character in quotes cannot start a level, so a valid reference keeps its value.
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet("S({+-@");
+            sheet.Cell("A1").Value = 5;
+            sheet.Cell("B1").Value = new string('(', 64) + "'S({+-@'!A1" + new string(')', 64);
+
+            Assert.AreEqual(5, sheet.Evaluate("INDIRECT(B1)"));
+        }
+
+        [TestCase(256 * 1024)]
+        [TestCase(16 * 1024 * 1024)]
+        public void Indirect_refuses_text_with_more_than_64_levels_on_each_stack_size(int stackSize)
+        {
+            // Without the limit, the parser stops with an error on a small stack, and the same text gives a value on a large stack.
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet();
+            sheet.Cell("A1").Value = 5;
+            sheet.Cell("B1").Value = new string('(', 126) + "A1" + new string(')', 126);
+
+            XLCellValue result = default;
+            var thread = new Thread(() => result = sheet.Evaluate("INDIRECT(B1)"), stackSize);
+            thread.Start();
+            thread.Join();
+
+            Assert.AreEqual(XLError.CellReference, result);
         }
 
         [Test]
