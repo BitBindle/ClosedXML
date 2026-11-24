@@ -18,42 +18,14 @@ workbook.SaveAs("HelloWorld.xlsx");
 
 ## Install
 
-The release workflow publishes the `ClosedXML` and `ClosedXML.IO` packages to the GitHub Packages feed of BitBindle. The packages target `net10.0`. ClosedXML also needs `ClosedXML.Parser` 3.0.0 or later from the same feed.
+The `BitBindle.ClosedXML` and `BitBindle.ClosedXML.IO` packages are on nuget.org. The packages target `net10.0`. `BitBindle.ClosedXML` needs `BitBindle.ClosedXML.Parser` 3.0.0 or later, and NuGet installs it with the package.
 
-GitHub Packages needs authentication, also for a public package. Use a token with the `read:packages` scope.
+The package IDs differ from the IDs of the original project (`ClosedXML`, `ClosedXML.IO` and `ClosedXML.Parser`). The assembly names and the namespaces stay the same. A project cannot reference both the original packages and these packages, because they contain the same assembly names. Other packages that depend on the original `ClosedXML` package bring the original assemblies. The fork does not support this case.
 
-nuget.org has packages with the same IDs from the original project. Use package source mapping, so that NuGet gets these packages only from the GitHub Packages feed of BitBindle. In this example `nuget.config`, NuGet reads the user name and the token from the `GITHUB_PACKAGES_USER` and `GITHUB_PACKAGES_TOKEN` environment variables:
-
-```xml
-<configuration>
-  <packageSources>
-    <clear />
-    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
-    <add key="github-bitbindle" value="https://nuget.pkg.github.com/BitBindle/index.json" />
-  </packageSources>
-  <packageSourceCredentials>
-    <github-bitbindle>
-      <add key="Username" value="%GITHUB_PACKAGES_USER%" />
-      <add key="ClearTextPassword" value="%GITHUB_PACKAGES_TOKEN%" />
-    </github-bitbindle>
-  </packageSourceCredentials>
-  <packageSourceMapping>
-    <packageSource key="github-bitbindle">
-      <package pattern="ClosedXML" />
-      <package pattern="ClosedXML.IO" />
-      <package pattern="ClosedXML.Parser" />
-    </packageSource>
-    <packageSource key="nuget.org">
-      <package pattern="*" />
-    </packageSource>
-  </packageSourceMapping>
-</configuration>
-```
-
-Then add the package to your project. The current versions are previews, so use the `--prerelease` option:
+Add the package to your project. The current versions are previews, so use the `--prerelease` option:
 
 ```
-dotnet add package ClosedXML --prerelease
+dotnet add package BitBindle.ClosedXML --prerelease
 ```
 
 ## Documentation

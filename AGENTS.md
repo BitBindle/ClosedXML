@@ -22,21 +22,20 @@ The base branch is `develop`.
 
 Do these steps before the review gate. The commands are based on `.github/workflows/ci.yml`.
 
-1. Set the credentials of the GitHub Packages feed of BitBindle. The `ClosedXML.Parser` package comes from this feed (see `nuget.config`), and the feed needs authentication, also for a public package. Set `GITHUB_PACKAGES_USER` to a GitHub user name and `GITHUB_PACKAGES_TOKEN` to a token with the `read:packages` scope.
-2. Build the solution:
+1. Build the solution:
 
    ```bash
    dotnet build ClosedXML.slnx --configuration Release
    ```
 
-3. Run the tests with coverage. On Linux, skip the `OLEDB` category, because it needs a Windows driver:
+2. Run the tests with coverage. On Linux, skip the `OLEDB` category, because it needs a Windows driver:
 
    ```bash
    dotnet test ClosedXML.Tests/ClosedXML.Tests.csproj --configuration Release --no-build --filter "TestCategory!=OLEDB" --collect "Code Coverage;Format=cobertura" --results-directory test-results
    ```
 
-4. Measure the line coverage of the new code from the Cobertura report. For example, use `diff-cover` against `origin/develop`.
-5. Run the text check:
+3. Measure the line coverage of the new code from the Cobertura report. For example, use `diff-cover` against `origin/develop`.
+4. Run the text check:
 
    ```bash
    scripts/check.sh
@@ -44,7 +43,7 @@ Do these steps before the review gate. The commands are based on `.github/workfl
 
    If you change `scripts/check.sh`, also run `scripts/check-test.sh`.
 
-6. If a step fails, fix the cause. Do not skip, disable or ignore a test to make a step pass.
+5. If a step fails, fix the cause. Do not skip, disable or ignore a test to make a step pass.
 
 ## Review gate
 

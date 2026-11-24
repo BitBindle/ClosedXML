@@ -4,11 +4,11 @@ ClosedXML
 ClosedXML is a .NET library that reads, changes and writes Excel 2007+ files (.xlsx, .xlsm). It gives an easy interface to the
 Open XML SDK.
 
-The packages are on the GitHub Packages feed of BitBindle. Set up the feed as the `README <https://github.com/BitBindle/ClosedXML#install>`_ shows. Then install the library through the .NET CLI:
+The ``BitBindle.ClosedXML`` package is on nuget.org. Install the library through the .NET CLI:
 
 .. code-block:: batch
 
-   C:\source> dotnet add package ClosedXML --prerelease
+   C:\source> dotnet add package BitBindle.ClosedXML --prerelease
 
 ClosedXML allows you to create Excel files without the Excel application. The typical example is creating Excel reports on a web server.
 

@@ -21,7 +21,7 @@
   <PropertyGroup>
     <Product>ClosedXML</Product>
 
-    <Authors>Jan Havlíček, Francois Botha, Aleksei Pankratev, Manuel de Leon, Amir Ghezelbash</Authors>
+    <Authors>Jan Havlíček, Francois Botha, Aleksei Pankratev, Manuel de Leon, Amir Ghezelbash, BitBindle</Authors>
     <Owners>Jan Havlíček, Francois Botha, Aleksei Pankratev</Owners>
 
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
