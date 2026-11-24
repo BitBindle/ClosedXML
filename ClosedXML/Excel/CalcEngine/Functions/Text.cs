@@ -674,7 +674,7 @@ namespace ClosedXML.Excel.CalcEngine
                 return isPercent ? parsedNumber / 100d : parsedNumber;
             }
 
-            // fraction not parsed, maybe in the future
+            // The texts that a formula does not read as a number, for example "January 2022".
             // No idea how Date/Time parsing works, good enough for initial approach
             var dateTimeFormats = new[]
             {
