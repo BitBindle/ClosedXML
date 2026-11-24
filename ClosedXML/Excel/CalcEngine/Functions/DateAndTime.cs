@@ -378,7 +378,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
 
         private static ScalarValue Now(CalcContext ctx)
         {
-            return ctx.TimeProvider.GetLocalNow().DateTime.ToSerialDateTime();
+            return CalculationRecorder.GetLocalNow(ctx.TimeProvider).DateTime.ToSerialDateTime();
         }
 
         private static ScalarValue Second(CalcContext ctx, double serialDate)
@@ -427,7 +427,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
 
         private static ScalarValue Today(CalcContext ctx)
         {
-            return ctx.TimeProvider.GetLocalNow().Date.ToSerialDateTime();
+            return CalculationRecorder.GetLocalNow(ctx.TimeProvider).Date.ToSerialDateTime();
         }
 
         private static ScalarValue Weekday(CalcContext ctx, ScalarValue date, ScalarValue flag)

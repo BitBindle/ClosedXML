@@ -200,3 +200,36 @@ also through ``INDIRECT`` or a structured reference.
 calculation doesn't read the formula of a blocked name. A sheet-scoped name
 hides the workbook-scoped name with the same name on its sheet, also when the
 function blocks the sheet-scoped name.
+
+Records of a recalculation
+==========================
+
+The result of some operations depends on the locale of the application that
+calculates the formula, e.g. ``="1.5"*2`` or ``=TEXT(A1,"0.0")``. For some
+other operations, ClosedXML can give another result than Excel. Use the
+overload with records to find the formula cells that use such an operation:
+
+.. code-block:: csharp
+
+   var failed = new List<IXLCell>();
+   var records = new List<XLCalculationRecord>();
+   wb.RecalculateAllFormulas(failed, records);
+   foreach (var (cell, kind) in records)
+       Console.WriteLine($"{cell.Address}: {kind}");
+
+``XLCalculationRecordKind.LocaleOperation`` marks a conversion of a text with a
+digit to a number or a date, a conversion of a number or a logical value to a
+text, a text read as a logical value, a criterion with the name of a logical or
+an error value in English or German, a text criterion on a logical or an error
+value, an order comparison of two texts, an equality of two texts that both
+have ``i``, ``I``, ``ı`` or ``İ``, ``TEXT``, ``FIXED`` and ``DOLLAR`` of a
+number, and ``UPPER``, ``LOWER`` and ``PROPER`` of a text with one of these
+letters.
+
+``XLCalculationRecordKind.EngineDifference`` marks a ``MATCH`` lookup text or a
+criterion longer than 255 characters, and a wildcard pattern with a ``~`` that
+is not followed by ``*``, ``?`` or ``~``.
+
+A cell gets at most one record of each kind. The records don't change the
+values. ``RecalculateDirtyFormulas(failed, records)`` gives the records of the
+dirty formulas that it calculates. The other overloads don't collect records.

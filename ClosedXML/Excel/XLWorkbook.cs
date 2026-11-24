@@ -886,7 +886,7 @@ namespace ClosedXML.Excel
         /// formula for a name that the workbook doesn't have.</param>
         internal bool IsBlockedName(XLWorksheet? sheet, string name)
         {
-            return CalculationNameFilter is { } filter && !filter(sheet?.Name, name);
+            return CalculationNameFilter is { } filter && !CalculationRecorder.CallFilter(filter, sheet?.Name, name);
         }
 
         /// <summary>
@@ -1364,6 +1364,19 @@ namespace ClosedXML.Excel
         }
 
         /// <inheritdoc/>
+        public void RecalculateAllFormulas(ICollection<IXLCell> failed, ICollection<XLCalculationRecord> records)
+        {
+            ThrowIfDisposed();
+            if (failed is null)
+                throw new ArgumentNullException(nameof(failed));
+            if (records is null)
+                throw new ArgumentNullException(nameof(records));
+
+            MarkAllFormulasDirty();
+            CalcEngine.Recalculate(this, null, failed, records);
+        }
+
+        /// <inheritdoc/>
         public void RecalculateDirtyFormulas()
         {
             ThrowIfDisposed();
@@ -1378,6 +1391,18 @@ namespace ClosedXML.Excel
                 throw new ArgumentNullException(nameof(failed));
 
             CalcEngine.Recalculate(this, null, failed);
+        }
+
+        /// <inheritdoc/>
+        public void RecalculateDirtyFormulas(ICollection<IXLCell> failed, ICollection<XLCalculationRecord> records)
+        {
+            ThrowIfDisposed();
+            if (failed is null)
+                throw new ArgumentNullException(nameof(failed));
+            if (records is null)
+                throw new ArgumentNullException(nameof(records));
+
+            CalcEngine.Recalculate(this, null, failed, records);
         }
 
         /// <inheritdoc/>

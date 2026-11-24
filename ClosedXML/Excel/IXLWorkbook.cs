@@ -261,6 +261,29 @@ namespace ClosedXML.Excel
         void RecalculateAllFormulas(ICollection<IXLCell> failed);
 
         /// <summary>
+        /// Force recalculation of all cell formulas, as <see cref="RecalculateAllFormulas(ICollection{IXLCell})"/>
+        /// does. Also add each formula cell that uses an operation of a <see cref="XLCalculationRecordKind"/> to
+        /// <paramref name="records"/>.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A cell gets at most one record of each kind. A failed cell keeps the records of the operations before
+        /// the failure. The records of an array formula go to the first cell of its range. The records don't change
+        /// the values of the cells. An exception from a collection stops the recalculation and goes to the caller.
+        /// A collection must not read the value of another formula cell during the recalculation: the read
+        /// calculates that cell outside the recalculation, so the cell gets no record.
+        /// </para>
+        /// <para>
+        /// The records cover the operations of the calculation engine, e.g. a conversion of a text with a digit to
+        /// a number. The overloads without a collection of records don't collect records.
+        /// </para>
+        /// </remarks>
+        /// <param name="failed">A collection the cells that failed are added to.</param>
+        /// <param name="records">A collection the records are added to.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="failed"/> or <paramref name="records"/> is <c>null</c>.</exception>
+        void RecalculateAllFormulas(ICollection<IXLCell> failed, ICollection<XLCalculationRecord> records);
+
+        /// <summary>
         /// Recalculate only the dirty cell formulas.
         /// </summary>
         /// <remarks>
@@ -299,6 +322,21 @@ namespace ClosedXML.Excel
         /// <param name="failed">A collection the cells that failed are added to.</param>
         /// <exception cref="ArgumentNullException"><paramref name="failed"/> is <c>null</c>.</exception>
         void RecalculateDirtyFormulas(ICollection<IXLCell> failed);
+
+        /// <summary>
+        /// Recalculate only the dirty cell formulas, as <see cref="RecalculateDirtyFormulas(ICollection{IXLCell})"/>
+        /// does. Also add each calculated formula cell that uses an operation of a <see cref="XLCalculationRecordKind"/>
+        /// to <paramref name="records"/>.
+        /// </summary>
+        /// <remarks>
+        /// The records follow the rules of
+        /// <see cref="RecalculateAllFormulas(ICollection{IXLCell}, ICollection{XLCalculationRecord})"/>. A formula
+        /// that isn't dirty isn't calculated, so it gets no record.
+        /// </remarks>
+        /// <param name="failed">A collection the cells that failed are added to.</param>
+        /// <param name="records">A collection the records are added to.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="failed"/> or <paramref name="records"/> is <c>null</c>.</exception>
+        void RecalculateDirtyFormulas(ICollection<IXLCell> failed, ICollection<XLCalculationRecord> records);
 
         /// <summary>
         /// Mark as dirty each cell formula that reads a cell of the <paramref name="range"/>, directly or through

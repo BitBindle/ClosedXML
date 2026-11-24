@@ -173,6 +173,10 @@ namespace ClosedXML.Excel.CalcEngine
         /// </summary>
         public OneOf<string, XLError> ToText(CultureInfo culture)
         {
+            // The text of a number (e.g. the decimal separator) and of a logical value depends on the language.
+            if (_index is NumberValue or LogicalValue)
+                CalculationRecorder.Current?.Locale();
+
             return _index switch
             {
                 BlankValue => string.Empty,
@@ -215,14 +219,24 @@ namespace ClosedXML.Excel.CalcEngine
                 return Blank;
             if (text.Length == 0)
                 return Blank;
+            // The names of the logical and the error values depend on the language.
             if (StringComparer.OrdinalIgnoreCase.Equals("TRUE", text))
+            {
+                CalculationRecorder.Current?.Locale();
                 return true;
+            }
             if (StringComparer.OrdinalIgnoreCase.Equals("FALSE", text))
+            {
+                CalculationRecorder.Current?.Locale();
                 return false;
+            }
             if (TextToNumber(text, culture, timeProvider).TryPickT0(out var number, out _))
                 return number;
             if (XLErrorParser.TryParseError(text, out var error))
+            {
+                CalculationRecorder.Current?.Locale();
                 return error;
+            }
 
             return text;
         }
@@ -236,6 +250,9 @@ namespace ClosedXML.Excel.CalcEngine
             // digit is not a number. This check also stops texts such as 'Infinity' or 'NaN'.
             if (text.AsSpan().IndexOfAnyInRange('0', '9') < 0)
                 return XLError.IncompatibleValue;
+
+            // The separators and the date patterns depend on the locale, also when the text is not a number.
+            CalculationRecorder.Current?.Locale();
 
             // Numbers. The parsing method recognizes braces as negative number, includes currency parsing.
             // Format 1 '0'
@@ -323,7 +340,7 @@ namespace ClosedXML.Excel.CalcEngine
         private static bool TryParseWithClockYear(string text, string[] patterns, CultureInfo culture, DateTimeStyles style, TimeProvider timeProvider, out DateTime date)
         {
             // The parser reads the year in the calendar of the culture (e.g. the Thai Buddhist calendar).
-            var year = culture.DateTimeFormat.Calendar.GetYear(timeProvider.GetLocalNow().DateTime);
+            var year = culture.DateTimeFormat.Calendar.GetYear(CalculationRecorder.GetLocalNow(timeProvider).DateTime);
             Span<char> yearText = stackalloc char[11];
             year.TryFormat(yearText, out var yearLength, provider: CultureInfo.InvariantCulture);
 
@@ -337,6 +354,9 @@ namespace ClosedXML.Excel.CalcEngine
 
         public static bool ToSerialDateTime(string text, CultureInfo culture, TimeProvider timeProvider, out double serialDateTime)
         {
+            // The date patterns and the names of the months depend on the locale.
+            CalculationRecorder.Current?.LocaleIfDigit(text);
+
             const DateTimeStyles dateStyle = DateTimeStyles.NoCurrentDateDefault | DateTimeStyles.AllowInnerWhite | DateTimeStyles.AllowTrailingWhite;
 
             // This date varies by the culture. Keep first before other standard patterns. Must be for both yy and yyyy.
@@ -368,7 +388,7 @@ namespace ClosedXML.Excel.CalcEngine
             // Format 17 'mmm-yy'
             if (DateTime.TryParseExact(text, DateFormat17Patterns, culture, dateStyle, out var dateFormat17))
             {
-                if (dateFormat17.Year != timeProvider.GetLocalNow().Year && dateFormat17.Year >= 2030)
+                if (dateFormat17.Year != CalculationRecorder.GetLocalNow(timeProvider).Year && dateFormat17.Year >= 2030)
                     dateFormat17 = dateFormat17.AddYears(-100);
 
                 return ToSerialDate(dateFormat17, out serialDateTime);
@@ -513,6 +533,10 @@ namespace ClosedXML.Excel.CalcEngine
         /// <remarks>Used for coercion in functions.</remarks>
         public bool TryCoerceLogicalOrBlankOrNumberOrText(out Boolean value, out XLError error)
         {
+            // Excel reads a text as a logical value only in the language of the application.
+            if (_index == TextValue)
+                CalculationRecorder.Current?.Locale();
+
             switch (_index)
             {
                 case BlankValue:

@@ -235,6 +235,9 @@ namespace ClosedXML.Excel.CalcEngine
             if (numDecimals > 99)
                 return XLError.IncompatibleValue;
 
+            // The separators of a number depend on the locale.
+            CalculationRecorder.Current?.Locale();
+
             var culture = ctx.Culture;
             if (suppressComma)
             {
@@ -286,6 +289,9 @@ namespace ClosedXML.Excel.CalcEngine
 
         private static ScalarValue Lower(CalcContext ctx, string text)
         {
+            // The lower case of the letter i depends on the language, e.g. in Turkish.
+            CalculationRecorder.Current?.LocaleIfLetterI(text);
+
             // Spec says "by doing a character-by-character conversion"
             // so don't do the whole string at once.
             var sb = new StringBuilder(text.Length);
@@ -333,6 +339,9 @@ namespace ClosedXML.Excel.CalcEngine
         {
             if (text.Length == 0)
                 return string.Empty;
+
+            // The upper and the lower case of the letter i depend on the language, e.g. in Turkish.
+            CalculationRecorder.Current?.LocaleIfLetterI(text);
 
             var culture = ctx.Culture;
             var sb = new StringBuilder(text.Length);
@@ -556,6 +565,9 @@ namespace ClosedXML.Excel.CalcEngine
                     .Match<ScalarValue>(static x => x, static x => x);
             }
 
+            // The text of a number depends on the locale, also for a format without a number part.
+            CalculationRecorder.Current?.Locale();
+
             // Library doesn't format whitespace formats
             if (string.IsNullOrWhiteSpace(format))
                 return format;
@@ -638,6 +650,8 @@ namespace ClosedXML.Excel.CalcEngine
 
         private static ScalarValue Upper(CalcContext ctx, string text)
         {
+            // The upper case of the letter i depends on the language, e.g. in Turkish.
+            CalculationRecorder.Current?.LocaleIfLetterI(text);
             return text.ToUpper(ctx.Culture);
         }
 
@@ -784,6 +798,9 @@ namespace ClosedXML.Excel.CalcEngine
             decimals = Math.Truncate(decimals);
             if (decimals > 99)
                 return XLError.IncompatibleValue;
+
+            // The currency symbol and the separators depend on the locale.
+            CalculationRecorder.Current?.Locale();
 
             if (decimals >= 0)
                 return number.ToString("C" + decimals, ctx.Culture);

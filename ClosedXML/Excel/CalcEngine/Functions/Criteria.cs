@@ -22,6 +22,17 @@ internal class Criteria
         ("<", Comparison.LessThan),
     };
 
+    /// <summary>
+    /// The names of the logical and the error values in English and in German. Excel reads such a criterion as a
+    /// logical or an error value only in the language of the name.
+    /// </summary>
+    private static readonly HashSet<string> LocaleNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "TRUE", "FALSE", "WAHR", "FALSCH",
+        "#NULL!", "#DIV/0!", "#VALUE!", "#REF!", "#NAME?", "#NUM!", "#N/A",
+        "#WERT!", "#BEZUG!", "#ZAHL!", "#NV",
+    };
+
     private readonly Comparison _comparison;
     private readonly ScalarValue _value;
     private readonly CultureInfo _culture;
@@ -66,6 +77,16 @@ internal class Criteria
             var criteriaText = criteria.GetText();
             var (prefix, comparison) = GetComparison(criteriaText);
             var operandText = criteriaText[prefix.Length..];
+            if (CalculationRecorder.Current is { } recorder)
+            {
+                // Excel doesn't accept a criterion longer than 255 characters.
+                if (criteriaText.Length > 255)
+                    recorder.EngineDifference();
+
+                if (LocaleNames.Contains(operandText.Trim()))
+                    recorder.Locale();
+            }
+
             var operand = ScalarValue.Parse(operandText, culture, timeProvider);
             return new Criteria(comparison, operand, culture, timeProvider);
         }
@@ -154,6 +175,12 @@ internal class Criteria
 
     private bool CompareText(ScalarValue value, string actual)
     {
+        // A text criterion can be the name of a logical or an error value in another language. The order of two
+        // texts depends on the language. Wildcard.Matches records the equality of two texts.
+        if (CalculationRecorder.Current is { } recorder &&
+            (value.IsLogical || value.IsError || (value.IsText && _comparison is not (Comparison.Equal or Comparison.None or Comparison.NotEqual))))
+            recorder.Locale();
+
         if (!value.IsText)
             return _comparison == Comparison.NotEqual;
 

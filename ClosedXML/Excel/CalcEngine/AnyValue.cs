@@ -470,7 +470,7 @@ namespace ClosedXML.Excel.CalcEngine
         {
             return BinaryOperation(in left, in right, static (in ScalarValue leftItem, in ScalarValue rightItem, CalcContext ctx) =>
             {
-                return CompareValues(leftItem, rightItem, ctx.Culture).Match<ScalarValue>(
+                return CompareValues(leftItem, rightItem, ctx.Culture, order: false).Match<ScalarValue>(
                     static cmp => cmp == 0,
                     static error => error);
             }, context);
@@ -480,7 +480,7 @@ namespace ClosedXML.Excel.CalcEngine
         {
             return BinaryOperation(in left, in right, static (in ScalarValue leftItem, in ScalarValue rightItem, CalcContext ctx) =>
             {
-                return CompareValues(leftItem, rightItem, ctx.Culture).Match<ScalarValue>(
+                return CompareValues(leftItem, rightItem, ctx.Culture, order: false).Match<ScalarValue>(
                     static cmp => cmp != 0,
                     static error => error);
             }, context);
@@ -490,7 +490,7 @@ namespace ClosedXML.Excel.CalcEngine
         {
             return BinaryOperation(in left, in right, static (in ScalarValue leftItem, in ScalarValue rightItem, CalcContext ctx) =>
             {
-                return CompareValues(leftItem, rightItem, ctx.Culture).Match<ScalarValue>(
+                return CompareValues(leftItem, rightItem, ctx.Culture, order: true).Match<ScalarValue>(
                     static cmp => cmp > 0,
                     static error => error);
             }, context);
@@ -500,7 +500,7 @@ namespace ClosedXML.Excel.CalcEngine
         {
             return BinaryOperation(in left, in right, static (in ScalarValue leftItem, in ScalarValue rightItem, CalcContext ctx) =>
             {
-                return CompareValues(leftItem, rightItem, ctx.Culture).Match<ScalarValue>(
+                return CompareValues(leftItem, rightItem, ctx.Culture, order: true).Match<ScalarValue>(
                     static cmp => cmp >= 0,
                     static error => error);
             }, context);
@@ -510,7 +510,7 @@ namespace ClosedXML.Excel.CalcEngine
         {
             return BinaryOperation(in left, in right, static (in ScalarValue leftItem, in ScalarValue rightItem, CalcContext ctx) =>
             {
-                return CompareValues(leftItem, rightItem, ctx.Culture).Match<ScalarValue>(
+                return CompareValues(leftItem, rightItem, ctx.Culture, order: true).Match<ScalarValue>(
                     static cmp => cmp < 0,
                     static error => error);
             }, context);
@@ -520,7 +520,7 @@ namespace ClosedXML.Excel.CalcEngine
         {
             return BinaryOperation(in left, in right, static (in ScalarValue leftItem, in ScalarValue rightItem, CalcContext ctx) =>
             {
-                return CompareValues(leftItem, rightItem, ctx.Culture).Match<ScalarValue>(
+                return CompareValues(leftItem, rightItem, ctx.Culture, order: true).Match<ScalarValue>(
                     static cmp => cmp <= 0,
                     static error => error);
             }, context);
@@ -617,13 +617,24 @@ namespace ClosedXML.Excel.CalcEngine
         /// <param name="left">Left hand operand of the comparison.</param>
         /// <param name="right">Right hand operand of the comparison.</param>
         /// <param name="culture">Culture to use for comparison.</param>
+        /// <param name="order">Is the comparison an order comparison (e.g. <c>&lt;</c>), not an equality?</param>
         /// <returns>
         ///     Return -1 (negative)  if left less than right
         ///     Return 1 (positive) if left greater than left
         ///     Return 0 if both operands are considered equal.
         /// </returns>
-        private static OneOf<int, XLError> CompareValues(ScalarValue left, ScalarValue right, CultureInfo culture)
+        private static OneOf<int, XLError> CompareValues(ScalarValue left, ScalarValue right, CultureInfo culture, bool order)
         {
+            // The order of two texts depends on the language. The equality of two texts depends on the language
+            // only when both texts have the letter i, e.g. in Turkish.
+            if (left.IsText && right.IsText && CalculationRecorder.Current is { } recorder)
+            {
+                if (order)
+                    recorder.Locale();
+                else
+                    recorder.LocaleIfBothHaveLetterI(left.GetText(), right.GetText());
+            }
+
             return left.Match(culture,
                 _ => right.Match<OneOf<int, XLError>, CultureInfo>(culture,
                         _ => 0,
