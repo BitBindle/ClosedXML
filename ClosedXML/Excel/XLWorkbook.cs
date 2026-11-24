@@ -1337,6 +1337,39 @@ namespace ClosedXML.Excel
             CalcEngine.Recalculate(this, null, failed);
         }
 
+        /// <inheritdoc/>
+        public void RecalculateDirtyFormulas()
+        {
+            ThrowIfDisposed();
+            CalcEngine.Recalculate(this, null);
+        }
+
+        /// <inheritdoc/>
+        public void RecalculateDirtyFormulas(ICollection<IXLCell> failed)
+        {
+            ThrowIfDisposed();
+            if (failed is null)
+                throw new ArgumentNullException(nameof(failed));
+
+            CalcEngine.Recalculate(this, null, failed);
+        }
+
+        /// <inheritdoc/>
+        public void MarkDependentsDirty(IXLRangeBase range)
+        {
+            ThrowIfDisposed();
+            if (range is null)
+                throw new ArgumentNullException(nameof(range));
+
+            // A range of a deleted worksheet keeps its worksheet, so check that the workbook still has it.
+            if (!WorksheetsInternal.TryGetWorksheet(range.Worksheet.Name, out var sheet) ||
+                !ReferenceEquals(sheet, range.Worksheet) ||
+                !range.RangeAddress.IsValid)
+                throw new ArgumentException("The range is not a valid range of a worksheet of the workbook.", nameof(range));
+
+            CalcEngine.MarkDependentsDirty(this, sheet, Area.FromRangeAddress(range.RangeAddress));
+        }
+
         private void MarkAllFormulasDirty()
         {
             foreach (var sheet in WorksheetsInternal)

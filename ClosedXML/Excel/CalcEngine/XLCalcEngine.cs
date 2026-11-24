@@ -1,6 +1,7 @@
 using ClosedXML.Excel.CalcEngine.Functions;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using ClosedXML.Excel.CalcEngine.Exceptions;
@@ -150,6 +151,28 @@ namespace ClosedXML.Excel.CalcEngine
         }
 
         /// <summary>
+        /// Mark the formulas that read the <paramref name="area"/> as dirty. Unlike <see cref="MarkDirty(XLWorksheet, Area)"/>,
+        /// build the dependency tree first if it doesn't exist.
+        /// </summary>
+        internal void MarkDependentsDirty(XLWorkbook wb, XLWorksheet sheet, Area area)
+        {
+            // An unparsable formula fails or throws when it is calculated, so the tree can skip it.
+            EnsureChainAndTree(wb, skipUnparsable: true);
+            MarkDirty(sheet, area);
+        }
+
+        [MemberNotNull(nameof(_chain), nameof(_dependencyTree))]
+        private void EnsureChainAndTree(XLWorkbook wb, bool skipUnparsable)
+        {
+            // Lazy, so initialize chain from wb, if it is empty
+            if (_chain is null || _dependencyTree is null)
+            {
+                _chain = XLCalculationChain.CreateFrom(wb);
+                _dependencyTree = DependencyTree.CreateFrom(wb, skipUnparsable);
+            }
+        }
+
+        /// <summary>
         /// Recalculate a workbook or a sheet.
         /// </summary>
         /// <param name="wb">The workbook.</param>
@@ -161,12 +184,7 @@ namespace ClosedXML.Excel.CalcEngine
         /// </param>
         internal void Recalculate(XLWorkbook wb, string? recalculateSheetName, ICollection<IXLCell>? failed = null)
         {
-            // Lazy, so initialize chain from wb, if it is empty
-            if (_chain is null || _dependencyTree is null)
-            {
-                _chain = XLCalculationChain.CreateFrom(wb);
-                _dependencyTree = DependencyTree.CreateFrom(wb, skipUnparsable: failed is not null);
-            }
+            EnsureChainAndTree(wb, skipUnparsable: failed is not null);
 
             var sheetMap = wb.WorksheetsInternal
                 .ToDictionary<XLWorksheet, string, (XLWorksheet Sheet, ValueSlice ValueSlice, FormulaSlice FormulaSlice)>(
