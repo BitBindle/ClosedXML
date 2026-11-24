@@ -11,7 +11,7 @@ Add the package with the .NET CLI.
 
 .. code-block:: batch
 
-   C:\source> dotnet add package BitBindle.ClosedXML --prerelease
+   C:\source> dotnet add package BitBindle.ClosedXML
 
 ==========================
 Compatible implementations

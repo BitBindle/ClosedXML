@@ -8,7 +8,7 @@ The ``BitBindle.ClosedXML`` package is on nuget.org. Install the library through
 
 .. code-block:: batch
 
-   C:\source> dotnet add package BitBindle.ClosedXML --prerelease
+   C:\source> dotnet add package BitBindle.ClosedXML
 
 ClosedXML allows you to create Excel files without the Excel application. The typical example is creating Excel reports on a web server.
 

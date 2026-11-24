@@ -21,7 +21,7 @@ If you answered `No`, please test with [the latest release](https://github.com/B
 
 **Version of ClosedXML**
 
-e.g. 0.107.0-preview
+e.g. 0.107.3
 
 **What is the current behavior?**
 

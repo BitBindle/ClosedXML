@@ -22,10 +22,10 @@ The `BitBindle.ClosedXML` and `BitBindle.ClosedXML.IO` packages are on nuget.org
 
 The package IDs differ from the IDs of the original project (`ClosedXML`, `ClosedXML.IO` and `ClosedXML.Parser`). The assembly names and the namespaces stay the same. A project cannot reference both the original packages and these packages, because they contain the same assembly names. Other packages that depend on the original `ClosedXML` package bring the original assemblies. The fork does not support this case.
 
-Add the package to your project. The current versions are previews, so use the `--prerelease` option:
+Add the package to your project:
 
 ```
-dotnet add package BitBindle.ClosedXML --prerelease
+dotnet add package BitBindle.ClosedXML
 ```
 
 ## Documentation
