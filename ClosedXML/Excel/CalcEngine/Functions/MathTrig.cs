@@ -109,9 +109,9 @@ namespace ClosedXML.Excel.CalcEngine
             ce.RegisterFunction("SUMIFS", 3, 255, AdaptIfs(SumIfs), FunctionFlags.Range, AllowRange.Only, new[] { 0 }.Concat(Enumerable.Range(0, 128).Select(x => x * 2 + 1)).ToArray());
             ce.RegisterFunction("SUMPRODUCT", 1, 255, Adapt(SumProduct), FunctionFlags.Range | FunctionFlags.ArrayParameters, AllowRange.All);
             ce.RegisterFunction("SUMSQ", 1, 255, SumSq, FunctionFlags.Range, AllowRange.All);
-            ce.RegisterFunction("SUMX2MY2", 2, 2, Adapt(SumX2MY2), FunctionFlags.Range, AllowRange.All);
-            ce.RegisterFunction("SUMX2PY2", 2, 2, Adapt(SumX2PY2), FunctionFlags.Range, AllowRange.All);
-            ce.RegisterFunction("SUMXMY2", 2, 2, Adapt(SumXMY2), FunctionFlags.Range, AllowRange.All);
+            ce.RegisterFunction("SUMX2MY2", 2, 2, Adapt(SumX2MY2), FunctionFlags.Range | FunctionFlags.ArrayParameters, AllowRange.All);
+            ce.RegisterFunction("SUMX2PY2", 2, 2, Adapt(SumX2PY2), FunctionFlags.Range | FunctionFlags.ArrayParameters, AllowRange.All);
+            ce.RegisterFunction("SUMXMY2", 2, 2, Adapt(SumXMY2), FunctionFlags.Range | FunctionFlags.ArrayParameters, AllowRange.All);
             ce.RegisterFunction("TAN", 1, 1, Adapt(Tan), FunctionFlags.Scalar);
             ce.RegisterFunction("TANH", 1, 1, Adapt(Tanh), FunctionFlags.Scalar);
             ce.RegisterFunction("TRUNC", 1, 2, AdaptLastOptional(Trunc, 0), FunctionFlags.Scalar);

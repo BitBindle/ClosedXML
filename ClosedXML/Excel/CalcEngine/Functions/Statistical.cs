@@ -58,7 +58,7 @@ namespace ClosedXML.Excel.CalcEngine
             ce.RegisterFunction("MEDIAN", 1, 255, Median, FunctionFlags.Range, AllowRange.All);
             ce.RegisterFunction("MIN", 1, 255, Min, FunctionFlags.Range, AllowRange.All);
             ce.RegisterFunction("MINA", 1, 255, MinA, FunctionFlags.Range, AllowRange.All);
-            ce.RegisterFunction("MODE", 1, 255, Mode, FunctionFlags.Range, AllowRange.All); // Returns the most common value in a data set
+            ce.RegisterFunction("MODE", 1, 255, Mode, FunctionFlags.Range | FunctionFlags.ArrayParameters, AllowRange.All); // Returns the most common value in a data set
             //NEGBINOMDIST	Returns the negative binomial distribution
             //NORMDIST	Returns the normal cumulative distribution
             //NORMINV	Returns the inverse of the normal cumulative distribution
