@@ -155,6 +155,13 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExprCurrent($"DATEVALUE({arg})"));
         }
 
+        [TestCase("\"\"")]
+        [TestCase("\" \"")]
+        public void DateValue_returns_error_for_empty_text(string arg)
+        {
+            Assert.AreEqual(XLError.IncompatibleValue, XLWorkbook.EvaluateExprCurrent($"DATEVALUE({arg})"));
+        }
+
         [TestCase("TRUE")]
         [TestCase("FALSE")]
         [TestCase("1000")]
