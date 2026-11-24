@@ -714,6 +714,40 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(XLError.CellReference, sheet.Evaluate($"INDIRECT(\"S!{name254}\")"));
         }
 
+        [TestCase(64, 5)]
+        [TestCase(65, XLError.CellReference)]
+        public void Indirect_refuses_text_with_more_than_64_levels(int levels, object expected)
+        {
+            // Excel allows 64 nested levels in a formula. The parse of the text runs in the stack of
+            // the formula, and each level uses more stack.
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet();
+            sheet.Cell("A1").Value = 5;
+            sheet.Cell("B1").Value = new string('(', levels) + "A1" + new string(')', levels);
+
+            Assert.AreEqual(expected, sheet.Evaluate("INDIRECT(B1)"));
+        }
+
+        [TestCase("-")]
+        [TestCase("+")]
+        [TestCase("@")]
+        [TestCase("{")]
+        [TestCase("(")]
+        public void Indirect_counts_each_character_that_can_start_a_level(string character)
+        {
+            using var wb = new XLWorkbook();
+            var sheet = wb.AddWorksheet("S" + character);
+            sheet.Cell("A1").Value = 5;
+            var reference = $"'S{character}'!A1";
+
+            // The character in the sheet name is the 64th or the 65th character that can start a level.
+            sheet.Cell("B1").Value = new string('(', 63) + reference + new string(')', 63);
+            sheet.Cell("B2").Value = new string('(', 64) + reference + new string(')', 64);
+
+            Assert.AreEqual(5, sheet.Evaluate("INDIRECT(B1)"));
+            Assert.AreEqual(XLError.CellReference, sheet.Evaluate("INDIRECT(B2)"));
+        }
+
         [Test]
         public void Indirect_in_name_formula_with_r1c1_text()
         {

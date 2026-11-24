@@ -11,6 +11,12 @@ namespace ClosedXML.Excel.CalcEngine.Functions
 {
     internal static class Lookup
     {
+        /// <summary>The longest text of INDIRECT.</summary>
+        private const int MaxReferenceTextLength = 255;
+
+        /// <summary>The largest count of the characters <c>( { + - @</c> in a text of INDIRECT.</summary>
+        private const int MaxReferenceTextLevels = 64;
+
         public static void Register(FunctionRegistry ce)
         {
             ce.RegisterFunction("ADDRESS", 2, 5, AdaptAddress(Address), FunctionFlags.Scalar); // Returns a reference as text to a single cell in a worksheet
@@ -257,8 +263,17 @@ namespace ClosedXML.Excel.CalcEngine.Functions
         {
             // Excel refuses a text longer than 255 characters. The limit also keeps
             // the parsing, which runs in the stack of the formula, small.
-            if (refText.Length > 255)
+            if (refText.Length > MaxReferenceTextLength)
                 return XLError.CellReference;
+
+            // Each of the characters ( { + - @ can start a nested level of the parser, and each level
+            // uses more stack of the formula. Excel allows 64 nested levels in a formula.
+            var levels = 0;
+            foreach (var c in refText)
+            {
+                if (c is '(' or '{' or '+' or '-' or '@' && ++levels > MaxReferenceTextLevels)
+                    return XLError.CellReference;
+            }
 
             return ctx.CalcEngine.EvaluateReferenceText(refText, a1, ctx);
         }
