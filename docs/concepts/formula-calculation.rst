@@ -140,16 +140,16 @@ name. It returns ``false`` to block the name:
 
 .. code-block:: csharp
 
-   var trusted = new HashSet<(string?, string)>(comparer) { (null, "Rate") };
+   var trusted = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Rate" };
    var options = new LoadOptions
    {
-       CalculationNameFilter = (sheetName, name) => trusted.Contains((sheetName, name))
+       CalculationNameFilter = (sheetName, name) => sheetName is null && trusted.Contains(name)
    };
    using var wb = new XLWorkbook(stream, options);
 
 The function gets the stored name of a defined name or a table. For a name that
 the workbook doesn't have, it gets the text of the formula, so compare names
-without case (``comparer`` above).
+without case (``StringComparer.OrdinalIgnoreCase`` above).
 
 A formula that uses a blocked name throws an ``InvalidOperationException``,
 also through ``INDIRECT`` or a structured reference.
