@@ -329,8 +329,13 @@ namespace ClosedXML.Excel.CalcEngine
 
             // First, try to interpret name as a sheet scoped name.
             sheetName = node.Prefix?.Sheet ?? context.FormulaArea.Name;
-            if (context.Workbook.TryGetWorksheet(sheetName, out XLWorksheet? sheet) &&
-                sheet.DefinedNames.TryGetScopedValue(node.Name, out var sheetDefinedName))
+            context.Workbook.TryGetWorksheet(sheetName, out XLWorksheet? sheet);
+
+            // The evaluation of a blocked name throws. Don't read its formula, it can be malformed or a cycle.
+            if (context.Workbook.IsBlockedName(sheet, node.Name))
+                return null;
+
+            if (sheet is not null && sheet.DefinedNames.TryGetScopedValue(node.Name, out var sheetDefinedName))
             {
                 return VisitName(sheetDefinedName);
             }

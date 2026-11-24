@@ -70,6 +70,32 @@ namespace ClosedXML.Excel
         public bool StrictAttributeParsing { get; set; } = true;
 
         /// <summary>
+        /// <para>
+        /// A function that tells if formulas can use a name. The arguments are the sheet name of
+        /// a sheet-scoped name and the name. The sheet name is <c>null</c> for a workbook-scoped
+        /// name and for a table, because a table name is a workbook name. The function returns
+        /// <c>false</c> to block the name. The default is <c>null</c>: formulas can use each name.
+        /// </para>
+        /// <para>
+        /// The evaluation of a blocked defined name or a blocked table throws an
+        /// <see cref="InvalidOperationException"/>, also through <c>INDIRECT</c> and in a
+        /// structured reference. <see cref="IXLWorkbook.RecalculateAllFormulas(System.Collections.Generic.ICollection{IXLCell})"/>
+        /// adds the cell to the failed cells. The calculation doesn't read the formula of a
+        /// blocked defined name.
+        /// </para>
+        /// <para>
+        /// The calculation asks for a sheet-scoped name first, also when the sheet doesn't have
+        /// the name. A blocked sheet-scoped name hides the workbook-scoped name with the same
+        /// name on that sheet. The function can block a name that the workbook doesn't have.
+        /// </para>
+        /// </summary>
+        /// <remarks>
+        /// The dependency tree of the workbook keeps the result for a defined name. The function
+        /// must give the same result for the same arguments each time.
+        /// </remarks>
+        public Func<string?, string, bool>? CalculationNameFilter { get; set; }
+
+        /// <summary>
         /// A cancellation token to cancel recalculation. Recalculation may be triggered during
         /// various calls, e.g. <c>IXLCell.Value</c> can start recalculation of a workbook, but
         /// doesn't have a way to pass token.

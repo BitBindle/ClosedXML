@@ -114,6 +114,9 @@ namespace ClosedXML.Excel
         /// <inheritdoc cref="LoadOptions.StrictAttributeParsing"/>
         internal bool StrictAttributeParsing { get; }
 
+        /// <inheritdoc cref="LoadOptions.CalculationNameFilter"/>
+        internal Func<string?, string, bool>? CalculationNameFilter { get; }
+
         internal CancellationToken CancellationToken { get; }
 
         internal long MaxCalculationMemoryBytes { get; }
@@ -863,6 +866,41 @@ namespace ClosedXML.Excel
         }
 
         /// <summary>
+        /// Is the <paramref name="name"/> blocked by the <see cref="CalculationNameFilter"/>? A
+        /// sheet-scoped name hides the workbook-scoped name with the same name, so the method
+        /// asks for the sheet-scoped name first.
+        /// </summary>
+        /// <param name="sheet">The sheet where a formula looks for the name. It is <c>null</c> for a table.</param>
+        /// <param name="name">The name of a defined name or a table.</param>
+        internal bool IsBlockedName(XLWorksheet? sheet, string name)
+        {
+            var filter = CalculationNameFilter;
+            if (filter is null)
+                return false;
+
+            if (sheet is not null)
+            {
+                if (!filter(sheet.Name, name))
+                    return true;
+
+                if (sheet.DefinedNames.TryGetScopedValue(name, out _))
+                    return false;
+            }
+
+            return !filter(null, name);
+        }
+
+        /// <summary>
+        /// Throw when the <see cref="CalculationNameFilter"/> blocks the <paramref name="name"/>.
+        /// </summary>
+        /// <inheritdoc cref="IsBlockedName"/>
+        internal void ThrowIfBlockedName(XLWorksheet? sheet, string name)
+        {
+            if (IsBlockedName(sheet, name))
+                throw new InvalidOperationException($"The calculation name filter blocks the name '{name}'.");
+        }
+
+        /// <summary>
         /// Try to find a table that covers same area as the <paramref name="area"/> in a workbook.
         /// </summary>
         internal bool TryGetTable(SheetArea area, [NotNullWhen(true)] out XLTable? foundTable)
@@ -1108,6 +1146,7 @@ namespace ClosedXML.Excel
             if (loadOptions is null)
                 throw new ArgumentNullException(nameof(loadOptions));
 
+            CalculationNameFilter = loadOptions.CalculationNameFilter;
             DpiX = loadOptions.Dpi.X;
             DpiY = loadOptions.Dpi.Y;
             StrictAttributeParsing = loadOptions.StrictAttributeParsing;

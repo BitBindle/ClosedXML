@@ -364,6 +364,7 @@ namespace ClosedXML.Excel.CalcEngine
                 worksheet = (XLWorksheet)ws!;
             }
 
+            worksheet.Workbook.ThrowIfBlockedName(worksheet, Name);
             if (!TryGetNameRange(worksheet, out var definedName))
                 return XLError.NameNotRecognized;
 

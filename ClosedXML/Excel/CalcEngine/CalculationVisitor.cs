@@ -116,8 +116,15 @@ namespace ClosedXML.Excel.CalcEngine
             if (node.Prefix is not null)
                 return XLError.CellReference;
 
+            // A blocked table fails also when the workbook doesn't have it.
+            if (node.Table is not null)
+                context.Workbook.ThrowIfBlockedName(null, node.Table);
+
             if (!TryGetTable(context, node.Table, out var table))
                 return XLError.CellReference;
+
+            if (node.Table is null)
+                context.Workbook.ThrowIfBlockedName(null, table.Name);
 
             var area = table.Area;
             if (!TryGetColumn(table, node.FirstColumn, area.LeftColumn, out var colStart))
