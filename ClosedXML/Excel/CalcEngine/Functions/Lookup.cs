@@ -326,6 +326,10 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             if (target.TryPickError(out var error))
                 return error;
 
+            // Excel doesn't accept a lookup text longer than 255 characters.
+            if (target.TryPickText(out var targetText, out _) && targetText.Length > 255)
+                CalculationRecorder.Current?.EngineDifference();
+
             if (!lookupArray.TryPickCollectionArray(out var array, ctx))
                 return XLError.NoValueAvailable;
 

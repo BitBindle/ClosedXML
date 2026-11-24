@@ -52,6 +52,9 @@ internal readonly struct Wildcard
     /// <returns>Pattern matches whole input.</returns>
     public bool Matches(ReadOnlySpan<char> input)
     {
+        if (CalculationRecorder.Current is { } recorder)
+            Record(recorder, input);
+
         var pattern = _pattern.AsSpan();
         if (_pattern.Length > 255)
             return false;
@@ -61,6 +64,29 @@ internal readonly struct Wildcard
 
         var (isMatch, inputEndIndex) = MatchFromStart(pattern, input);
         return isMatch && inputEndIndex == input.Length;
+    }
+
+    private void Record(CalculationRecorder recorder, ReadOnlySpan<char> input)
+    {
+        // An equality of two texts that both have the letter i depends on the language, e.g. in Turkish.
+        recorder.LocaleIfBothHaveLetterI(_pattern, input);
+
+        // Excel documents a ~ only before *, ? or ~. For another ~, the result can differ from Excel.
+        var pattern = _pattern.AsSpan();
+        for (var i = 0; i < pattern.Length; i++)
+        {
+            if (pattern[i] != '~')
+                continue;
+
+            if (i + 1 < pattern.Length && pattern[i + 1] is '*' or '?' or '~')
+            {
+                i++;
+                continue;
+            }
+
+            recorder.EngineDifference();
+            return;
+        }
     }
 
     /// <summary>

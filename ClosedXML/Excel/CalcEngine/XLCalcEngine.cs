@@ -182,7 +182,11 @@ namespace ClosedXML.Excel.CalcEngine
         /// part of a cycle or whose formula throws keeps its value and is added to this collection. A cancellation
         /// still stops the recalculation.
         /// </param>
-        internal void Recalculate(XLWorkbook wb, string? recalculateSheetName, ICollection<IXLCell>? failed = null)
+        /// <param name="records">
+        /// If not <c>null</c>, each formula cell that uses an operation of a <see cref="XLCalculationRecordKind"/>
+        /// is added to this collection, one time for each kind.
+        /// </param>
+        internal void Recalculate(XLWorkbook wb, string? recalculateSheetName, ICollection<IXLCell>? failed = null, ICollection<XLCalculationRecord>? records = null)
         {
             EnsureChainAndTree(wb, skipUnparsable: failed is not null);
 
@@ -192,6 +196,11 @@ namespace ClosedXML.Excel.CalcEngine
                     sheet => (sheet, sheet.Internals.CellsCollection.ValueSlice, sheet.Internals.CellsCollection.FormulaSlice),
                     XLHelper.SheetComparer);
 
+            // A recalculation without records also replaces the recorder of the thread. Else a recalculation that
+            // runs during another one (e.g. from code in the collection of records) reports into its current cell.
+            var outerRecorder = CalculationRecorder.Current;
+            var recorder = records is null ? null : new CalculationRecorder(records);
+            CalculationRecorder.Current = recorder;
             try
             {
                 // Each outer loop moves chain one cell ahead.
@@ -237,28 +246,43 @@ namespace ClosedXML.Excel.CalcEngine
 
                         try
                         {
+                            // The records of an array formula go to its first cell, the cell with the formula.
+                            recorder?.BeginCell(sheetInfo.Sheet, cellFormula.Type == FormulaType.Array ? cellFormula.Range.FirstPoint : current.Point);
                             ApplyFormula(cellFormula, current.Point, sheetInfo.Sheet, sheetInfo.ValueSlice,
                                 recalculateSheetName);
                             cellFormula.IsDirty = false;
-
-                            // Break out of the inner loop, a dirty cell has been
-                            // calculated and thus chain can move ahead.
-                            break;
                         }
                         catch (GettingDataException ex)
                         {
+                            // The engine evaluates the cell again after the dirty cell.
+                            recorder?.DiscardCell();
                             _chain.MoveToCurrent(ex.Point);
+                            continue;
                         }
                         catch (Exception ex) when (failed is not null && ex is not (OperationCanceledException or OutOfMemoryException))
                         {
+                            // The records go to the collection after the cell is no longer dirty. An exception
+                            // of a collection is not a failure of the formula, so it stops the recalculation.
+                            var failedKinds = recorder?.TakeCell() ?? default;
                             AddFailedCell(failed, cellFormula, sheetInfo.Sheet, current.Point);
+                            recorder?.Write(failedKinds);
+
                             break;
                         }
+
+                        if (recorder is not null)
+                            recorder.Write(recorder.TakeCell());
+
+                        // Break out of the inner loop, a dirty cell has been
+                        // calculated and thus chain can move ahead.
+                        break;
                     }
                 }
             }
             finally
             {
+                CalculationRecorder.Current = outerRecorder;
+
                 // Super important to clean up the chain for next recalculation.
                 // Chain contains shared data and not cleaning it would cause hard
                 // to diagnose issues.

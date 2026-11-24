@@ -44,7 +44,11 @@ namespace ClosedXML.Excel.CalcEngine
             if (x.IsNumber)
                 return x.GetNumber().CompareTo(y.GetNumber());
             if (x.IsText)
+            {
+                // The lookups use the order of the texts. The order of two texts in Excel depends on the language.
+                CalculationRecorder.Current?.Locale();
                 return _stringComparer.Compare(x.GetText(), y.GetText());
+            }
 
             // Blank and errors are always treated as equal
             return 0;
