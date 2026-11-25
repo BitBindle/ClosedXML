@@ -103,6 +103,36 @@ namespace ClosedXML.Excel
         public Func<string?, string, bool>? CalculationNameFilter { get; set; }
 
         /// <summary>
+        /// <para>
+        /// The option determines what the calculation does with a formula that calls a known
+        /// function with too few or too many arguments, e.g. <c>YEAR()</c> or <c>NOW(1)</c>.
+        /// Excel doesn't accept such a formula from a user, but a file from another application
+        /// can contain one.
+        /// </para>
+        /// <para>
+        /// <list type="bullet">
+        ///   <item>
+        ///     <c>false</c> (default) - the parse of the formula throws an
+        ///     <see cref="ClosedXML.Excel.CalcEngine.ExpressionParseException"/>, so the cell isn't
+        ///     calculated. A read of a formula value that starts a recalculation throws too.
+        ///   </item>
+        ///   <item>
+        ///     <c>true</c> - the value of the whole formula is <c>#VALUE!</c>. LibreOffice writes
+        ///     <c>#VALUE!</c> to an xlsx file for a formula that it refuses for this reason.
+        ///     A function in the formula, e.g. <c>IFERROR</c>, doesn't change the result.
+        ///   </item>
+        /// </list>
+        /// </para>
+        /// </summary>
+        /// <remarks>
+        /// The numbers of arguments are the numbers of Excel. LibreOffice accepts some calls that Excel
+        /// refuses, e.g. <c>ROUND(1)</c>. A syntax error is a parse error with each option value. A call
+        /// of a function that ClosedXML doesn't know is <c>#NAME?</c> with each option value, if the
+        /// formula has no wrong number of arguments.
+        /// </remarks>
+        public bool WrongArgumentCountAsErrorValue { get; set; }
+
+        /// <summary>
         /// A cancellation token to cancel recalculation. Recalculation may be triggered during
         /// various calls, e.g. <c>IXLCell.Value</c> can start recalculation of a workbook, but
         /// doesn't have a way to pass token.

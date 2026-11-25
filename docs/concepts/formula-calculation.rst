@@ -233,3 +233,31 @@ is not followed by ``*``, ``?`` or ``~``.
 A cell gets at most one record of each kind. The records don't change the
 values. ``RecalculateDirtyFormulas(failed, records)`` gives the records of the
 dirty formulas that it calculates. The other overloads don't collect records.
+
+Wrong number of arguments
+=========================
+
+Excel doesn't accept a formula that calls a function with too few or too many
+arguments, e.g. ``=YEAR()`` or ``=NOW(1)``. A file from another application can
+still contain such a formula. By default, the parse of the formula throws an
+``ExpressionParseException``, so the cell isn't calculated. A read of a formula
+value that starts a recalculation throws too.
+``RecalculateAllFormulas(failed)`` adds the cell to the failed cells.
+
+Set ``LoadOptions.WrongArgumentCountAsErrorValue`` to ``true`` to calculate
+such a formula as ``#VALUE!``. LibreOffice writes ``#VALUE!`` to an xlsx file
+for a formula that it refuses for this reason:
+
+.. code-block:: csharp
+
+   using var wb = new XLWorkbook(stream, new LoadOptions { WrongArgumentCountAsErrorValue = true });
+   wb.Evaluate("YEAR()");            // #VALUE!
+   wb.Evaluate("IFERROR(NOW(1),0)"); // #VALUE!
+
+The whole formula is ``#VALUE!``, so a function in the formula, e.g.
+``IFERROR``, doesn't change the result. A formula in another cell that reads
+the cell gets ``#VALUE!``. The numbers of arguments are the numbers of Excel.
+LibreOffice accepts some calls that Excel refuses, e.g. ``ROUND(1)``. A syntax
+error is a parse error with each option value. A call of a function that
+ClosedXML doesn't know is ``#NAME?`` with each option value, if the formula has
+no wrong number of arguments.

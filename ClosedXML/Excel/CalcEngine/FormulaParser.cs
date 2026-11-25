@@ -9,11 +9,24 @@ namespace ClosedXML.Excel.CalcEngine
     {
         private readonly AstFactory _nodeFactoryA1;
         private readonly AstFactory _nodeFactoryR1C1;
+        private readonly AstFactory? _uncheckedFactoryA1;
+        private readonly AstFactory? _uncheckedFactoryR1C1;
 
-        public FormulaParser(FunctionRegistry functionRegistry)
+        /// <param name="functionRegistry">The functions that formulas can call.</param>
+        /// <param name="wrongArgumentCountAsErrorValue">
+        /// <c>true</c> - a formula with a wrong number of arguments for a function is <c>#VALUE!</c>.
+        /// <c>false</c> - the parse of such a formula throws an <see cref="ExpressionParseException"/>.
+        /// </param>
+        public FormulaParser(FunctionRegistry functionRegistry, bool wrongArgumentCountAsErrorValue = false)
         {
-            _nodeFactoryA1 = new AstFactory(functionRegistry, true);
-            _nodeFactoryR1C1 = new AstFactory(functionRegistry, false);
+            var argumentCount = wrongArgumentCountAsErrorValue ? ArgumentCount.Signal : ArgumentCount.Throw;
+            _nodeFactoryA1 = new AstFactory(functionRegistry, true, argumentCount);
+            _nodeFactoryR1C1 = new AstFactory(functionRegistry, false, argumentCount);
+            if (wrongArgumentCountAsErrorValue)
+            {
+                _uncheckedFactoryA1 = new AstFactory(functionRegistry, true, ArgumentCount.Ignore);
+                _uncheckedFactoryR1C1 = new AstFactory(functionRegistry, false, ArgumentCount.Ignore);
+            }
         }
 
         /// <summary>
@@ -27,15 +40,58 @@ namespace ClosedXML.Excel.CalcEngine
 
             try
             {
-                var root = isA1
-                    ? FormulaParser<ScalarValue, ValueNode, string>.CellFormulaA1(formula, formula, _nodeFactoryA1)
-                    : FormulaParser<ScalarValue, ValueNode, string>.CellFormulaR1C1(formula, formula, _nodeFactoryR1C1);
-                return new Formula(formula, root);
+                return new Formula(formula, Parse(formula, isA1, isA1 ? _nodeFactoryA1 : _nodeFactoryR1C1));
             }
             catch (ParsingException ex)
             {
                 throw new ExpressionParseException(ex.Message);
             }
+            catch (WrongArgumentCountException)
+            {
+                // The factory stops at the first wrong call. Parse the rest of the formula too, so that
+                // a syntax error after the call is still a parse error.
+                try
+                {
+                    Parse(formula, isA1, isA1 ? _uncheckedFactoryA1! : _uncheckedFactoryR1C1!);
+                }
+                catch (ParsingException ex)
+                {
+                    throw new ExpressionParseException(ex.Message);
+                }
+
+                // The whole formula is the error, so IFERROR in the formula doesn't hide it.
+                return new Formula(formula, new ScalarNode(XLError.IncompatibleValue));
+            }
+        }
+
+        private static ValueNode Parse(string formula, bool isA1, AstFactory factory)
+        {
+            return isA1
+                ? FormulaParser<ScalarValue, ValueNode, string>.CellFormulaA1(formula, formula, factory)
+                : FormulaParser<ScalarValue, ValueNode, string>.CellFormulaR1C1(formula, formula, factory);
+        }
+
+        /// <summary>
+        /// What the factory does with a call of a known function with a wrong number of arguments.
+        /// </summary>
+        private enum ArgumentCount
+        {
+            /// <summary>Throw an <see cref="ExpressionParseException"/>.</summary>
+            Throw,
+
+            /// <summary>Throw a <see cref="WrongArgumentCountException"/>.</summary>
+            Signal,
+
+            /// <summary>Create the function node.</summary>
+            Ignore,
+        }
+
+        /// <summary>
+        /// The factory throws this exception for a wrong number of arguments, when the formula is
+        /// <c>#VALUE!</c> instead of a parse error.
+        /// </summary>
+        private sealed class WrongArgumentCountException : Exception
+        {
         }
 
         /// <summary>
@@ -56,11 +112,13 @@ namespace ClosedXML.Excel.CalcEngine
 
             private readonly FunctionRegistry _functionRegistry;
             private readonly bool _isA1;
+            private readonly ArgumentCount _argumentCount;
 
-            internal AstFactory(FunctionRegistry functionRegistry, bool isA1)
+            internal AstFactory(FunctionRegistry functionRegistry, bool isA1, ArgumentCount argumentCount)
             {
                 _functionRegistry = functionRegistry;
                 _isA1 = isA1;
+                _argumentCount = argumentCount;
             }
 
             public ScalarValue LogicalValue(string context, SymbolRange range, bool logical) => logical;
@@ -297,6 +355,14 @@ namespace ClosedXML.Excel.CalcEngine
                 // Even if we haven't found anything, don't crash. Missing function will be evaluated to `#NAME?`
                 if (!foundFunction)
                     return new FunctionNode(functionName, argumentNodes);
+
+                var isWrongCount = (minParams != -1 && argumentNodes.Count < minParams) ||
+                                   (maxParams != -1 && argumentNodes.Count > maxParams);
+                if (isWrongCount && _argumentCount == ArgumentCount.Signal)
+                    throw new WrongArgumentCountException();
+
+                if (isWrongCount && _argumentCount == ArgumentCount.Ignore)
+                    return new FunctionNode(prefixNode, functionName, argumentNodes);
 
                 if (minParams != -1 && argumentNodes.Count < minParams)
                     throw new ExpressionParseException(

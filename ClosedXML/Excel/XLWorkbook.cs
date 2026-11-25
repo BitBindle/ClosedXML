@@ -124,6 +124,9 @@ namespace ClosedXML.Excel
         /// <inheritdoc cref="LoadOptions.CalculationNameFilter"/>
         internal Func<string?, string, bool>? CalculationNameFilter { get; }
 
+        /// <inheritdoc cref="LoadOptions.WrongArgumentCountAsErrorValue"/>
+        internal bool WrongArgumentCountAsErrorValue { get; }
+
         internal CancellationToken CancellationToken { get; }
 
         internal long MaxCalculationMemoryBytes { get; }
@@ -1149,6 +1152,7 @@ namespace ClosedXML.Excel
             DpiX = loadOptions.Dpi.X;
             DpiY = loadOptions.Dpi.Y;
             StrictAttributeParsing = loadOptions.StrictAttributeParsing;
+            WrongArgumentCountAsErrorValue = loadOptions.WrongArgumentCountAsErrorValue;
             _graphicEngine = loadOptions.GraphicEngine ?? LoadOptions.DefaultGraphicEngine ??
                              (DefaultGraphicEngine.IsSupported ? DefaultGraphicEngine.Instance.Value : null);
             CancellationToken = loadOptions.CancellationToken;
@@ -1333,7 +1337,7 @@ namespace ClosedXML.Excel
 
         internal XLCalcEngine CalcEngine
         {
-            get { return _calcEngine ??= new XLCalcEngine(CultureInfo.CurrentCulture); }
+            get { return _calcEngine ??= new XLCalcEngine(CultureInfo.CurrentCulture, WrongArgumentCountAsErrorValue); }
         }
 
         public XLCellValue Evaluate(String expression)

@@ -26,11 +26,13 @@ namespace ClosedXML.Excel.CalcEngine
         private XLCalculationChain? _chain;
         private readonly HashSet<string> _evaluatedNames = new();
 
-        public XLCalcEngine(CultureInfo culture)
+        /// <param name="culture">The culture of the conversions in formulas.</param>
+        /// <param name="wrongArgumentCountAsErrorValue">See <see cref="LoadOptions.WrongArgumentCountAsErrorValue"/>.</param>
+        public XLCalcEngine(CultureInfo culture, bool wrongArgumentCountAsErrorValue = false)
         {
             _culture = culture;
             var funcRegistry = GetFunctionTable();
-            _parser = new FormulaParser(funcRegistry);
+            _parser = new FormulaParser(funcRegistry, wrongArgumentCountAsErrorValue);
             _visitor = new CalculationVisitor(funcRegistry);
             _dependencyTree = null;
             _chain = null;
