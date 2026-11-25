@@ -4,6 +4,8 @@ using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
+using System.Threading;
 
 namespace ClosedXML.Tests.Excel.CalcEngine
 {
@@ -572,6 +574,79 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             var calcEngine = new XLCalcEngine(CultureInfo.InvariantCulture);
             _ = calcEngine.Parse(formula);
             Assert.Throws(Is.TypeOf<NotImplementedException>().With.Message.EqualTo(notSupportedMessage), () => ws.Evaluate(formula, "A1"));
+        }
+
+        [TestCase('(')]
+        [TestCase('-')]
+        [TestCase('+')]
+        [TestCase('%')]
+        [TestCase('A')]
+        public void Formula_with_deep_nesting_is_parse_error_on_small_stack(char nesting)
+        {
+            // A formula from a file can have 8,192 characters. The parser and the evaluation use
+            // the stack for each nested level, and a stack overflow stops the process.
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").FormulaA1 = DeepFormula(nesting);
+
+            var exception = RunOnThread(() => _ = ws.Cell("A1").Value, 256 * 1024);
+
+            Assert.That(exception, Is.TypeOf<ExpressionParseException>());
+        }
+
+        [TestCase('-')]
+        [TestCase('+')]
+        [TestCase('A')]
+        public void Evaluation_of_deep_formula_is_parse_error_on_small_stack(char nesting)
+        {
+            // The visitors use more stack for each level than the parser. The parser can accept
+            // a formula that is too deep for the visitors.
+            using var wb = new XLWorkbook();
+            var ws = (XLWorksheet)wb.AddWorksheet();
+            Formula formula = null;
+            var parseException = RunOnThread(() => formula = wb.CalcEngine.Parse(DeepFormula(nesting)), 64 * 1024 * 1024);
+            Assert.That(parseException, Is.Null);
+
+            var dependencies = RunOnThread(
+                () => formula.AstRoot.Accept(new DependenciesContext(new SheetArea(ws.Name, Area.Parse("A1")), wb), new DependenciesVisitor()),
+                256 * 1024);
+            var functions = new FunctionRegistry();
+            MathTrig.Register(functions);
+            var calculation = RunOnThread(
+                () => formula.AstRoot.Accept(new CalcContext(wb.CalcEngine, CultureInfo.InvariantCulture, wb, ws, null), new CalculationVisitor(functions)),
+                256 * 1024);
+
+            Assert.That(dependencies, Is.TypeOf<ExpressionParseException>());
+            Assert.That(calculation, Is.TypeOf<ExpressionParseException>());
+        }
+
+        private static string DeepFormula(char nesting) => nesting switch
+        {
+            '(' => new string('(', 4000) + "1" + new string(')', 4000),
+            '-' => new string('-', 8000) + "1",
+            '+' => "1" + string.Concat(Enumerable.Repeat("+1", 4000)),
+            '%' => "1" + new string('%', 8000),
+            'A' => string.Concat(Enumerable.Repeat("ABS(", 1600)) + "1" + new string(')', 1600),
+            _ => throw new ArgumentOutOfRangeException(nameof(nesting))
+        };
+
+        private static Exception RunOnThread(Action action, int maxStackSize)
+        {
+            Exception exception = null;
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    action();
+                }
+                catch (Exception e)
+                {
+                    exception = e;
+                }
+            }, maxStackSize);
+            thread.Start();
+            thread.Join();
+            return exception;
         }
     }
 }
