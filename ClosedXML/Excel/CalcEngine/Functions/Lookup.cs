@@ -11,6 +11,12 @@ namespace ClosedXML.Excel.CalcEngine.Functions
 {
     internal static class Lookup
     {
+        /// <summary>The longest text of INDIRECT.</summary>
+        private const int MaxReferenceTextLength = 255;
+
+        /// <summary>The largest count of the characters <c>( { + - @</c> outside quotes in a text of INDIRECT.</summary>
+        private const int MaxReferenceTextLevels = 64;
+
         public static void Register(FunctionRegistry ce)
         {
             ce.RegisterFunction("ADDRESS", 2, 5, AdaptAddress(Address), FunctionFlags.Scalar); // Returns a reference as text to a single cell in a worksheet
@@ -257,8 +263,34 @@ namespace ClosedXML.Excel.CalcEngine.Functions
         {
             // Excel refuses a text longer than 255 characters. The limit also keeps
             // the parsing, which runs in the stack of the formula, small.
-            if (refText.Length > 255)
+            if (refText.Length > MaxReferenceTextLength)
                 return XLError.CellReference;
+
+            // Excel allows 64 nested levels of functions. Each of the characters ( + - @ outside
+            // quotes can start a nested level of the parser. The count is a simple estimate of the
+            // depth: it also counts { and characters in brackets, for example in R[-1]C or
+            // Table1[@Col], which do not start a level.
+            // Without the limit, the parser stops with an error for a deep text on a small stack, and the
+            // same text gives a value on a large stack.
+            var levels = 0;
+            char? quote = null;
+            foreach (var c in refText)
+            {
+                if (quote is not null)
+                {
+                    // A doubled quote inside a quoted part closes and opens it again.
+                    if (c == quote)
+                        quote = null;
+                }
+                else if (c is '\'' or '"')
+                {
+                    quote = c;
+                }
+                else if (c is '(' or '{' or '+' or '-' or '@' && ++levels > MaxReferenceTextLevels)
+                {
+                    return XLError.CellReference;
+                }
+            }
 
             return ctx.CalcEngine.EvaluateReferenceText(refText, a1, ctx);
         }
