@@ -640,7 +640,7 @@ namespace ClosedXML.Tests.Excel.CalcEngine
         [TestCase("MATCH(C1,{3,2,1},-1)", 3)]
         public void Match_reads_blank_lookup_value_as_zero(string formula, int expected)
         {
-            // Excel reads a blank lookup value as 0, as VLOOKUP does, so each match type searches for 0.
+            // Excel reads a blank lookup value as 0, as VLOOKUP does. Excel was checked only for match type 0.
             using var wb = new XLWorkbook();
             var ws = wb.AddWorksheet();
             ws.Cell("A1").InsertData(new object[] { 1, 0, 3 });
