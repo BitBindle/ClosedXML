@@ -127,16 +127,22 @@ namespace ClosedXML.Excel.CalcEngine.Functions
             return double.Parse(value.ToString("G15", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
         }
 
+        private static decimal ToDecimalAt15Digits(double value)
+        {
+            return decimal.Parse(value.ToString("G15", CultureInfo.InvariantCulture), NumberStyles.Float, CultureInfo.InvariantCulture);
+        }
+
         public static double Round(double value, double digits)
         {
             digits = Math.Truncate(digits);
 
             // Excel rounds the number with 15 significant digits, so ROUND(1.005,2) is 1.01, although
-            // the double is 1.00499999999999989. A cast to decimal keeps 15 significant digits,
-            // so larger values use the double path to keep their integer digits.
+            // the double is 1.00499999999999989. The decimal gets the 15 significant digits from text,
+            // because a cast from double is exact since .NET 11. Larger values use the double path to
+            // keep their integer digits.
             if (Math.Abs(value) < 1e15 && digits >= -27 && digits <= 27)
             {
-                var number = (decimal)value;
+                var number = ToDecimalAt15Digits(value);
                 decimal rounded;
                 if (digits >= 0)
                 {
@@ -144,7 +150,7 @@ namespace ClosedXML.Excel.CalcEngine.Functions
                 }
                 else
                 {
-                    var coef = (decimal)Math.Pow(10, -digits);
+                    var coef = ToDecimalAt15Digits(Math.Pow(10, -digits));
                     rounded = Math.Round(number / coef, MidpointRounding.AwayFromZero) * coef;
                 }
 
