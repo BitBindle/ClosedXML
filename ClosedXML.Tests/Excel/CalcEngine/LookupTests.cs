@@ -634,8 +634,22 @@ namespace ClosedXML.Tests.Excel.CalcEngine
             Assert.AreEqual(result, actual);
         }
 
+        [TestCase("MATCH(,A1:A3,0)", 2)]
+        [TestCase("MATCH(C1,A1:A3,0)", 2)]
+        [TestCase("MATCH(C1,{-1,2,3},1)", 1)]
+        [TestCase("MATCH(C1,{3,2,1},-1)", 3)]
+        public void Match_reads_blank_lookup_value_as_zero(string formula, int expected)
+        {
+            // Excel reads a blank lookup value as 0, as VLOOKUP does. Excel was checked only for match type 0.
+            using var wb = new XLWorkbook();
+            var ws = wb.AddWorksheet();
+            ws.Cell("A1").InsertData(new object[] { 1, 0, 3 });
+
+            Assert.AreEqual(expected, ws.Evaluate(formula));
+        }
+
         [TestCase("MATCH(#DIV/0!,{1,2,3},1)", XLError.DivisionByZero)] // Scalar argument is error -> propagate
-        [TestCase("MATCH(IF(TRUE,),{1,2,3},1)", XLError.NoValueAvailable)] // Return not found for blank value
+        [TestCase("MATCH(IF(TRUE,),{1,2,3},1)", XLError.NoValueAvailable)] // Blank value is 0, which is less than each value
         [TestCase("MATCH(1,{1,2;3,4},1)", XLError.NoValueAvailable)] // Must be either row or column, the array is 2x2
         [TestCase("MATCH(1,{3,2,1},-2)", 3)] // Match type can be negative for match type -1
         [TestCase("MATCH(1,{1,2,3}, 2)", 1)] // Match type can be positive for match type 1

@@ -320,8 +320,9 @@ namespace ClosedXML.Excel.CalcEngine.Functions
 
         private static ScalarValue Match(CalcContext ctx, ScalarValue target, AnyValue lookupArray, int matchType)
         {
+            // Only the lookup value is converted to 0, not values in the array
             if (target.IsBlank)
-                return XLError.NoValueAvailable;
+                target = 0;
 
             if (target.TryPickError(out var error))
                 return error;
