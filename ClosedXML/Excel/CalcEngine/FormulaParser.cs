@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using ClosedXML.Extensions;
 using ClosedXML.Parser;
 
@@ -62,6 +63,17 @@ namespace ClosedXML.Excel.CalcEngine
                 // The whole formula is the error, so IFERROR in the formula doesn't hide it.
                 return new Formula(formula, new ScalarNode(XLError.IncompatibleValue));
             }
+        }
+
+        /// <summary>
+        /// Throw a parse error if the stack of the thread has no space for one more level of the formula.
+        /// The visitors of the AST recurse for each nested node. The parser can accept a formula that
+        /// is still too deep for them, and a stack overflow stops the process.
+        /// </summary>
+        internal static void EnsureSufficientStack()
+        {
+            if (!RuntimeHelpers.TryEnsureSufficientExecutionStack())
+                throw new ExpressionParseException("The formula has too many nesting levels.");
         }
 
         private static ValueNode Parse(string formula, bool isA1, AstFactory factory)

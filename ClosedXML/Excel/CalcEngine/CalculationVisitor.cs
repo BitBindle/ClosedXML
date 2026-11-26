@@ -28,6 +28,7 @@ namespace ClosedXML.Excel.CalcEngine
 
         public AnyValue Visit(CalcContext context, UnaryNode node)
         {
+            FormulaParser.EnsureSufficientStack();
             var arg = node.Expression.Accept(context, this);
 
             return node.Operation switch
@@ -43,6 +44,7 @@ namespace ClosedXML.Excel.CalcEngine
 
         public AnyValue Visit(CalcContext context, BinaryNode node)
         {
+            FormulaParser.EnsureSufficientStack();
             var leftArg = node.LeftExpression.Accept(context, this);
             var rightArg = node.RightExpression.Accept(context, this);
 
@@ -69,6 +71,7 @@ namespace ClosedXML.Excel.CalcEngine
 
         public AnyValue Visit(CalcContext context, FunctionNode functionNode)
         {
+            FormulaParser.EnsureSufficientStack();
             if (!_functions.TryGetFunc(functionNode.Name, out var fn))
                 return XLError.NameNotRecognized;
 

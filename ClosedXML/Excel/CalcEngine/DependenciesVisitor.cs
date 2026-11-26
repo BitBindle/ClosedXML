@@ -43,6 +43,7 @@ namespace ClosedXML.Excel.CalcEngine
 
         public List<SheetArea>? Visit(DependenciesContext context, UnaryNode node)
         {
+            FormulaParser.EnsureSufficientStack();
             var sheetAreas = node.Expression.Accept(context, this);
 
             // If the operand of unary node is not a reference -> end immediately,
@@ -71,6 +72,7 @@ namespace ClosedXML.Excel.CalcEngine
 
         public List<SheetArea>? Visit(DependenciesContext context, BinaryNode node)
         {
+            FormulaParser.EnsureSufficientStack();
             // Only range operations transform ranges
             var leftAreas = node.LeftExpression.Accept(context, this);
             var rightAreas = node.RightExpression.Accept(context, this);
@@ -162,6 +164,7 @@ namespace ClosedXML.Excel.CalcEngine
 
         public List<SheetArea>? Visit(DependenciesContext context, FunctionNode node)
         {
+            FormulaParser.EnsureSufficientStack();
             // According to grammar, ref functions are: CHOOSE, IF, INDEX, INDIRECT, OFFSET
             // Only these functions are allowed to return references, per grammar.
             // However, OFFSET and INDIRECT are volatile function that always have to be
