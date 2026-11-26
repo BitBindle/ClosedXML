@@ -15,7 +15,52 @@ namespace ClosedXML.Tests.Graphics
         {
             var textFont = new DummyFont("Calibri", 20);
             var textWidthPt = _engine.GetTextWidth("Lorem ipsum dolor sit amet", textFont, 96);
-            Assert.That(textWidthPt, Is.EqualTo(300));
+
+            // The advances of the embedded font have a sum of 22920 font units. The font has 2048 units per em.
+            Assert.That(textWidthPt, Is.EqualTo(22920d / 2048 * 20 / 72 * 96));
+        }
+
+        [Test]
+        public void TextWidthIsSumOfCodePointWidths()
+        {
+            // The width has no rounding. Thus the sum of the widths of the code points is the width of the text.
+            var textFont = new DummyFont("Calibri", 11);
+            const string text = "Lorem ipsum, dolor (sit) amet 12.5 éß ΩЖ 日本";
+
+            var textWidth = _engine.GetTextWidth(text, textFont, 96);
+            var sumOfWidths = 0d;
+            foreach (var codePoint in text.EnumerateRunes())
+                sumOfWidths += _engine.GetTextWidth(codePoint.ToString(), textFont, 96);
+
+            Assert.That(textWidth, Is.EqualTo(sumOfWidths).Within(1e-9));
+        }
+
+        [Test]
+        public void TextWithLineBreakHasWidthOfLongestLine()
+        {
+            // A line break needs the text layout. The layout measures each line.
+            var textFont = new DummyFont("Calibri", 11);
+
+            var longLineFirst = _engine.GetTextWidth("Lorem ipsum dolor\nA", textFont, 96);
+            var longLineLast = _engine.GetTextWidth("AB\nLorem ipsum dolor", textFont, 96);
+            var longLine = _engine.GetTextWidth("Lorem ipsum dolor", textFont, 96);
+
+            Assert.That(longLineFirst, Is.EqualTo(longLine).Within(1e-9));
+            Assert.That(longLineLast, Is.EqualTo(longLine).Within(1e-9));
+        }
+
+        [Test]
+        public void TextLayoutWidthHasNoRounding()
+        {
+            // A combining mark needs the text layout. The embedded font has no glyph positioning, so the width is the
+            // sum of the advances: 13352 font units. The font has 2048 units per em.
+            // An installed Calibri can position the mark, so the test uses only the embedded font.
+            var engine = new DefaultGraphicEngine("NonExistentFallbackFont");
+            var textFont = new DummyFont("SomeNonExistentFont", 12);
+
+            var width = engine.GetTextWidth("Lorem ipsum e\u0301", textFont, 96);
+
+            Assert.That(width, Is.EqualTo(13352d / 2048 * 12 / 72 * 96).Within(1e-9));
         }
 
         [TestCase]
@@ -146,7 +191,8 @@ namespace ClosedXML.Tests.Graphics
             var nonExistentFont = new DummyFont("Nonexistent Font", 20);
             var widthOfLetterA = engine.GetTextWidth("A", nonExistentFont, 120);
 
-            const double expectedWidthOfLetterA = 31.25d;
+            // The advance of the letter A in TestFontA is 1886 font units. The font has 2048 units per em.
+            const double expectedWidthOfLetterA = 1886d / 2048 * 20 / 72 * 120;
             Assert.AreEqual(expectedWidthOfLetterA, widthOfLetterA, 0.0001);
         }
 
@@ -159,7 +205,8 @@ namespace ClosedXML.Tests.Graphics
 
             var widthOfLetterB = engine.GetTextWidth("B", new DummyFont("TestFontB", 30), 96);
 
-            const double expectedWidthOfLetterB = 25d;
+            // The advance of the letter B in TestFontB is 602 font units. The font has 1000 units per em.
+            const double expectedWidthOfLetterB = 602d / 1000 * 30 / 72 * 96;
             Assert.AreEqual(expectedWidthOfLetterB, widthOfLetterB, 0.0001);
         }
 

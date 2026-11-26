@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using ClosedXML.Excel;
 using ClosedXML.Excel.Drawings;
 using SixLabors.Fonts;
@@ -208,12 +210,74 @@ namespace ClosedXML.Graphics
         public double GetTextWidth(string text, IXLFontBase fontBase, double dpiX)
         {
             var font = GetFont(fontBase);
-            var dimensionsPx = TextMeasurer.MeasureAdvance(text, new TextOptions(font)
+            var metrics = font.FontMetrics;
+            if (!TryGetAdvanceSum(text, metrics, out var advanceFu))
+                return GetLayoutTextWidth(text, font, fontBase, dpiX);
+
+            return PointsToPixels(advanceFu * fontBase.FontSize / metrics.UnitsPerEm, dpiX);
+        }
+
+        /// <summary>
+        /// Get the width of a text from a full text layout. The text layout is slow. It uses the substitutions of the
+        /// font, for example the joined forms of Arabic letters. It measures each line of a text that has line breaks.
+        /// </summary>
+        private static double GetLayoutTextWidth(string text, Font font, IXLFontBase fontBase, double dpiX)
+        {
+            // The layout gives a width in whole pixels. At one pixel for each font unit, the layout does not round.
+            var unitsPerEm = font.FontMetrics.UnitsPerEm;
+            var dimensionsPx = TextMeasurer.MeasureAdvance(text, new TextOptions(new Font(font, unitsPerEm))
             {
                 Dpi = 72, // Normalize DPI, so 1px is 1pt
                 KerningMode = KerningMode.None
             });
-            return PointsToPixels(dimensionsPx.Width / FontMetricSize * fontBase.FontSize, dpiX);
+            return PointsToPixels(dimensionsPx.Width / unitsPerEm * fontBase.FontSize, dpiX);
+        }
+
+        /// <summary>
+        /// Add the advances of the code points of <paramref name="text"/>.
+        /// </summary>
+        /// <param name="text">The text to measure.</param>
+        /// <param name="metrics">The metrics of the font.</param>
+        /// <param name="advanceFu">The sum of the advances in font units.</param>
+        /// <returns><c>false</c>, if the text has a code point that needs the text layout.</returns>
+        private static bool TryGetAdvanceSum(string text, FontMetrics metrics, out long advanceFu)
+        {
+            advanceFu = 0;
+            foreach (var rune in text.EnumerateRunes())
+            {
+                if (!HasContextFreeAdvance(rune))
+                    return false;
+
+                advanceFu += GetAdvance(metrics, rune.Value);
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Is the advance of the code point independent of the code points around it? The ranges contain scripts that do
+        /// not join or reorder letters. Other scripts, marks, control and format characters need the text layout.
+        /// </summary>
+        private static bool HasContextFreeAdvance(Rune rune)
+        {
+            var category = Rune.GetUnicodeCategory(rune);
+            if (category is UnicodeCategory.Control
+                or UnicodeCategory.Format
+                or UnicodeCategory.NonSpacingMark
+                or UnicodeCategory.SpacingCombiningMark
+                or UnicodeCategory.EnclosingMark
+                or UnicodeCategory.LineSeparator
+                or UnicodeCategory.ParagraphSeparator)
+                return false;
+
+            return rune.Value is
+                (>= 0x0020 and <= 0x02FF) or // Basic Latin to Spacing Modifier Letters
+                (>= 0x0370 and <= 0x052F) or // Greek and Coptic, Cyrillic, Cyrillic Supplement
+                (>= 0x1E00 and <= 0x1FFF) or // Latin Extended Additional, Greek Extended
+                (>= 0x2000 and <= 0x2BFF) or // Punctuation, symbols, arrows, mathematical operators, box drawing
+                (>= 0x3000 and <= 0x30FF) or // CJK Symbols and Punctuation, Hiragana, Katakana
+                (>= 0x4E00 and <= 0x9FFF) or // CJK Unified Ideographs
+                (>= 0xFF00 and <= 0xFFEF); // Halfwidth and Fullwidth Forms
         }
 
         /// <inheritdoc />
@@ -224,23 +288,7 @@ namespace ClosedXML.Graphics
             var metric = GetMetrics(font);
             var advanceFu = 0;
             for (var i = 0; i < graphemeCluster.Length; ++i)
-            {
-                var containsMetrics = metric.TryGetGlyphMetrics(
-                    new CodePoint(graphemeCluster[i]),
-                    TextAttributes.None,
-                    TextDecorations.None,
-                    LayoutMode.HorizontalTopBottom,
-                    ColorFontSupport.None,
-                    out var glyphs);
-
-                // As of SixLabors.Fonts 1.0.0, the TryGetGlyphMetrics method never fails. It returns .notdef glyph 0
-                // as a fallback glyph, but it might change in the future.
-                if (!containsMetrics || glyphs is null)
-                    continue;
-
-                foreach (var glyph in glyphs)
-                    advanceFu += glyph.AdvanceWidth;
-            }
+                advanceFu += GetAdvance(metric, graphemeCluster[i]);
 
             var emInPx = font.FontSize / 72d * dpi.X;
             var advancePx = PointsToPixels(advanceFu * font.FontSize / metric.UnitsPerEm, dpi.X);
@@ -328,26 +376,37 @@ namespace ClosedXML.Graphics
         {
             var font = GetFont(metricId);
             var metrics = font.FontMetrics;
-            var maxWidth = int.MinValue;
+            var maxWidth = 0;
             for (var c = '0'; c <= '9'; ++c)
-            {
-                var containsMetrics = metrics.TryGetGlyphMetrics(
-                    new CodePoint(c),
-                    TextAttributes.None,
-                    TextDecorations.None,
-                    LayoutMode.HorizontalTopBottom,
-                    ColorFontSupport.None,
-                    out var glyphMetrics);
-                if (!containsMetrics || glyphMetrics is null)
-                    continue;
+                maxWidth = Math.Max(maxWidth, GetAdvance(metrics, c));
 
-                var glyphAdvance = 0;
-                foreach (var glyphMetric in glyphMetrics)
-                    glyphAdvance += glyphMetric.AdvanceWidth;
-
-                maxWidth = Math.Max(maxWidth, glyphAdvance);
-            }
             return maxWidth / (double)metrics.UnitsPerEm;
+        }
+
+        /// <summary>
+        /// Get the advance of a code point in font units, without the substitutions of the font.
+        /// </summary>
+        private static int GetAdvance(FontMetrics metrics, int codePoint)
+        {
+            var containsMetrics = metrics.TryGetGlyphMetrics(
+                new CodePoint(codePoint),
+                TextAttributes.None,
+                TextDecorations.None,
+                LayoutMode.HorizontalTopBottom,
+                ColorFontSupport.None,
+                out var glyphs);
+
+            // In SixLabors.Fonts 1.0.1, TryGetGlyphMetrics does not fail. For a missing glyph, it returns the .notdef
+            // glyph 0. A later version can fail, so the code does a check of the result.
+            if (!containsMetrics || glyphs is null)
+                return 0;
+
+            // An indexed loop does not allocate an enumerator for the interface.
+            var advance = 0;
+            for (var i = 0; i < glyphs.Count; ++i)
+                advance += glyphs[i].AdvanceWidth;
+
+            return advance;
         }
 
         private static double PointsToPixels(double points, double dpi) => points / 72d * dpi;
